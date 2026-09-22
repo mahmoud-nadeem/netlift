@@ -1,0 +1,173 @@
+# NetLift — KPI Definitions
+# Source: NetLift Project Specification, Section 46 ("Key Performance Indicators")
+# Task: T7 (Issue #2) — Owner: Ali, Partner/reviewer: Mohammed
+#
+# Two kinds of KPI, and they are kept distinct on purpose:
+#   pass_fail          - a condition that is either met or not, no judgement involved.
+#   measured_no_target - reported with a confidence interval; no numeric target is set
+#                         in advance, because there is no prior result on this data to
+#                         set one from. Where a success condition exists it is structural
+#                         (e.g. "interval excludes zero"), never an invented number.
+#
+# Do not add numeric thresholds under any measured_no_target KPI. If a target is
+# ever set for one of these, it must come from an instructor/team decision recorded
+# in #decisions, not from this file.
+
+kpis:
+
+  - id: K1
+    name: Incremental conversions vs. response model
+    primary_kpi: true
+    measures: >
+      Whether the uplift-targeting policy delivers more incremental conversions
+      than the response-model baseline, at the same budget.
+    computed_by: >
+      Simulated campaign replay (Spec Section 14) on the locked test split: both
+      policies select the same number of customers under the same budget;
+      incremental conversions are measured against the withheld slice.
+    gate_type: measured_no_target
+    success_condition: >
+      The 95% bootstrap interval of the difference (uplift policy minus response
+      model) excludes zero in favour of the uplift policy. An interval containing
+      zero is a reportable finding, not a failed project.
+    first_reported: M4 (Week 12-13)
+    owner: Ali
+
+  - id: K2
+    name: Qini coefficient and AUUC
+    measures: >
+      Whether the uplift model ranks customers by treatment effect better than
+      random targeting.
+    computed_by: >
+      Evaluation harness, on the locked test split, with 1000+ bootstrap
+      resamples within treatment arms. Library and settings must be named in
+      the report (Qini/AUUC normalisation differs across libraries).
+    gate_type: measured_no_target
+    success_condition: >
+      Interval excludes zero, i.e. demonstrably better than random targeting.
+    first_reported: M4 (Week 12-13)
+    owner: Ali
+
+  - id: K3
+    name: Incremental profit per unit of spend
+    measures: >
+      The business-facing translation of the model's ranking into currency.
+    computed_by: >
+      Replay output (K1) converted using the stated per-contact cost and margin
+      (Spec Section 13).
+    gate_type: measured_no_target
+    success_condition: >
+      Reported with a confidence interval, and with the cost and margin
+      assumptions stated on the same line as the figure.
+    first_reported: M4 (Week 12-13)
+    owner: Ali
+
+  - id: K4
+    name: Negative control
+    measures: >
+      Whether the pipeline detects an effect where none exists — the primary
+      check against leakage or a bug producing a false signal.
+    computed_by: >
+      Full pipeline re-run on a randomly permuted treatment indicator.
+    gate_type: pass_fail
+    success_condition: >
+      The 95% interval of the measured uplift contains zero.
+    first_reported: M4, re-run at M6
+    owner: Ali
+
+  - id: K5
+    name: Calibration
+    measures: >
+      Whether the model's predicted magnitudes, not just its ordering, hold up
+      against what the replay actually measures.
+    computed_by: >
+      Predicted vs. measured incremental conversions per decile, in the replay.
+    gate_type: measured_no_target
+    success_condition: >
+      Differences straddle zero across deciles rather than showing a systematic
+      direction (over- or under-prediction).
+    first_reported: M5
+    owner: Ali
+
+  - id: K6
+    name: Randomization integrity
+    measures: >
+      Whether the experimental data actually behaves like a randomized
+      experiment — the assumption the entire causal method rests on.
+    computed_by: >
+      Standardized mean difference (SMD) per covariate, plus the ROC-AUC of a
+      classifier trying to predict the treatment flag from the covariates alone.
+    gate_type: pass_fail
+    success_condition: >
+      Every |SMD| < 0.1 (the conventional threshold, fixed in config before the
+      test is run) and treatment-predictability AUC near 0.5. Any breach is
+      documented rather than smoothed over.
+    first_reported: M3 (Week 9-10)
+    owner: Aliaa
+
+  - id: K7
+    name: Leakage control
+    measures: >
+      Whether any post-treatment or forbidden feature reaches the model matrix.
+    computed_by: >
+      Automated forbidden-column check in CI, plus the K4 negative control as a
+      second, independent check.
+    gate_type: pass_fail
+    success_condition: >
+      The check fails the build when a post-treatment column reaches the model
+      matrix, and a unit test asserts that it does.
+    first_reported: M4
+    owner: Aliaa
+
+  - id: K8
+    name: Reproducibility
+    measures: >
+      Whether a reported result can be regenerated from a clean environment.
+    computed_by: >
+      Clean checkout, one documented command, output compared against the
+      recorded headline number.
+    gate_type: pass_fail
+    success_condition: >
+      Reproduces exactly, from config plus the git commit hash.
+    first_reported: M5
+    owner: Mahmoud
+
+  - id: K9
+    name: Serving performance
+    measures: >
+      Whether the deployed scoring service meets latency and throughput needs.
+    computed_by: >
+      Load test against the deployed endpoint.
+    gate_type: pass_fail
+    success_condition: >
+      Team-set target, to be revised once first measured: p95 under 300 ms for
+      a single score; a one-million-row batch inside ten minutes on the
+      project's own hardware. (Target as stated in Spec Section 46 — not
+      invented here.)
+    first_reported: M5
+    owner: Mazen
+
+  - id: K10
+    name: Engineering quality
+    measures: >
+      Whether every change is verified before it merges.
+    computed_by: >
+      CI on every pull request: lint, type check, unit, data, model-behaviour,
+      integration and API tests.
+    gate_type: pass_fail
+    success_condition: >
+      Green on the merge commit of every pull request.
+    first_reported: M5-M6
+    owner: Mazen
+
+  - id: K11
+    name: Documentation completeness
+    measures: >
+      Whether the DEPI-required documentation set exists and is current.
+    computed_by: >
+      Checklist of the DEPI-required artefacts (Spec Section 45).
+    gate_type: pass_fail
+    success_condition: >
+      Every required artefact exists and is current.
+    first_reported: M7
+    owner: Team leader
