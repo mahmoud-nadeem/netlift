@@ -1,0 +1,50 @@
+# NetLift — runtime dependencies
+#
+# Python 3.12 is required. See docs/environment.md for why.
+# Versions are pinned exactly. Do not relax a pin without opening a PR
+# that explains what broke and records the new resolved set.
+#
+# Resolved and verified together on Python 3.12, 20 September 2026.
+# Every package below publishes a prebuilt Windows wheel for cp312,
+# so no C++ compiler is needed on any team machine.
+
+# --- Core numerical stack ---
+numpy==2.4.6
+pandas==3.0.6
+scipy==1.17.1
+scikit-learn==1.9.1
+
+# --- Uplift modelling and causal inference ---
+scikit-uplift==0.5.1
+causalml==0.17.0
+statsmodels==0.15.0
+
+# --- Gradient boosting ---
+lightgbm==4.7.0
+xgboost==3.2.0
+
+# --- Explainability ---
+shap==0.51.0
+
+# --- Experiment tracking and hyperparameter search ---
+mlflow==3.16.1
+optuna==5.0.0
+
+# --- Visualisation ---
+matplotlib==3.11.2
+seaborn==0.13.2
+
+# --- Configuration ---
+PyYAML==6.0.3
+python-dotenv==1.2.3
+
+# --- Notebook kernel ---
+ipykernel==7.3.0
+
+# --- Added later, not now ---
+# Deep learning (TARNet / Dragonnet)   -> milestone 5
+# fastapi, uvicorn, pydantic-settings  -> milestone 5
+# streamlit                            -> milestone 5
+# azure-ai-ml                          -> milestone 6
+# Torch alone is over 2 GB. It is deliberately not installed until the
+# milestone that needs it.
