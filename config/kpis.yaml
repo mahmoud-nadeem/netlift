@@ -44,7 +44,10 @@ kpis:
       the report (Qini/AUUC normalisation differs across libraries).
     gate_type: measured_no_target
     success_condition: >
-      Interval excludes zero, i.e. demonstrably better than random targeting.
+        The 95% bootstrap confidence interval is entirely above zero,
+        indicating performance demonstrably better than random targeting.
+        (An interval entirely below zero would indicate worse-than-random
+        targeting, not success — "excludes zero" alone is not sufficient.)
     first_reported: M4 (Week 12-13)
     owner: Ali
 
