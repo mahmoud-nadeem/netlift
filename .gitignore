@@ -216,3 +216,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- NetLift project rules ---
+
+# Datasets are never committed. The download script and the
+# documented checksums are what make them reproducible.
+data/raw/*
+data/interim/*
+data/processed/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# MLflow local tracking store and artifacts
+mlruns/
+mlartifacts/
+mlflow.db
+mlflow.db-journal
