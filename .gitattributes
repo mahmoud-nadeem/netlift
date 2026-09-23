@@ -1,0 +1,42 @@
+# Line endings are decided here, not by each member's git configuration.
+#
+# Without this file, whether a file is stored with LF or CRLF depends on
+# core.autocrlf on whichever machine happened to commit it. That produces
+# pull requests where every line of a file shows as changed, and it breaks
+# shell scripts on the Linux CI runner with an error that does not mention
+# line endings at all.
+
+# Normalise everything text-like to LF inside the repository.
+* text=auto eol=lf
+
+# Explicit, so there is nothing to guess.
+*.py      text eol=lf
+*.md      text eol=lf
+*.txt     text eol=lf
+*.toml    text eol=lf
+*.cfg     text eol=lf
+*.ini     text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.sh      text eol=lf
+
+# Windows-only files keep CRLF or they will not run.
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+*.ps1     text eol=crlf
+
+# Never converted, never diffed as text.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.pdf     binary
+*.docx    binary
+*.xlsx    binary
+*.pptx    binary
+*.parquet binary
+*.db      binary
+*.pkl     binary
+*.joblib  binary
+*.onnx    binary
