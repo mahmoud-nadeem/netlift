@@ -122,11 +122,20 @@ python scripts/verify_environment.py
 ```
 
 This checks the Python version, that you are inside a virtual environment, that
-every pinned package is installed at exactly the pinned version, that MLflow can
-write to its tracking store, and that a two-model uplift estimator actually fits
-and scores on synthetic data.
+every package pinned in `requirements.txt` is installed at exactly that version,
+that the script itself covers every pin, that MLflow can write to its tracking
+store, and that a two-model uplift estimator actually fits and scores on
+synthetic data.
 
-Twenty checks. All twenty must pass.
+All checks must pass. The script prints the count itself. If that number ever
+changes it is because a dependency was added or removed, not because something
+is wrong.
+
+The `pin coverage` check exists so that adding a package to `requirements.txt`
+and forgetting to add it to the script fails the run, instead of leaving it
+silently unverified. `requirements-dev.txt` is deliberately not checked here:
+those tools are verified by being used, since CI runs `ruff`, `mypy` and
+`pytest` on every pull request.
 
 Paste the full output into the environment task on GitHub. That output is the
 evidence that your machine matches everyone else's.

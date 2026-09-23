@@ -41,7 +41,15 @@ PACKAGES: dict[str, str] = {
     "seaborn": "seaborn",
     "PyYAML": "yaml",
     "python-dotenv": "dotenv",
+    "ipykernel": "ipykernel",
 }
+
+# PACKAGES must mirror requirements.txt exactly. check_pin_coverage below
+# enforces that, so a package added to the pins but forgotten here fails the
+# run instead of going quietly unchecked.
+#
+# requirements-dev.txt is deliberately not verified here. Those tools are
+# verified by being used: CI runs ruff, mypy and pytest on every pull request.
 
 # No ANSI colour codes anywhere in this file on purpose. The output of this
 # script is pasted into GitHub and Discord, and escape sequences paste as
@@ -107,6 +115,26 @@ def check_package(pypi_name: str, module_name: str, pins: dict[str, str]) -> Che
     if installed != expected:
         return Check(pypi_name, False, f"{installed}, expected {expected}")
     return Check(pypi_name, True, installed)
+
+
+def check_pin_coverage(pins: dict[str, str]) -> Check:
+    """Every package pinned in requirements.txt must be checked by this script.
+
+    Without this, adding a dependency to the pins and forgetting to add it to
+    PACKAGES leaves it silently unverified, and the report claims a coverage it
+    does not have.
+    """
+    checked = {name.lower() for name in PACKAGES}
+    missing = sorted(name for name in pins if name not in checked)
+    if not pins:
+        return Check("pin coverage", False, "requirements.txt not found or has no pins")
+    if missing:
+        return Check(
+            "pin coverage",
+            False,
+            f"pinned but not checked: {', '.join(missing)}",
+        )
+    return Check("pin coverage", True, f"all {len(pins)} pinned packages are checked")
 
 
 def check_mlflow_backend() -> Check:
@@ -197,7 +225,7 @@ def main() -> int:
 
     checks: list[Check] = [check_python(), check_virtualenv()]
     checks += [check_package(p, m, pins) for p, m in PACKAGES.items()]
-    checks += [check_mlflow_backend(), check_uplift_runtime()]
+    checks += [check_pin_coverage(pins), check_mlflow_backend(), check_uplift_runtime()]
 
     width = max(len(c.name) for c in checks)
     for check in checks:
