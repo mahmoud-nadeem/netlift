@@ -22,7 +22,7 @@ Treatment is the group that receives the intervention (for example, being sent a
 
 ## Persuadables, Sure Things, Lost Causes, Sleeping Dogs
 
-These four segments describe, conceptually, how treatment changes a customer's likelihood of the outcome: Persuadables are meaningfully more likely to convert because they were treated, Sure Things are inclined to convert whether or not they are treated so the treatment adds comparatively little, Lost Causes are unlikely to convert regardless of treatment so it again adds comparatively little, and Sleeping Dogs become less likely to convert because they were treated. This matters because NetLift's targeting policy exists specifically to find Persuadables, avoid spending budget where it changes little, and suppress contact with Sleeping Dogs.
+These four segments describe, conceptually, how treatment changes a customer's likelihood of the outcome: Persuadables are meaningfully more likely to convert because they were treated, Sure Things convert whether or not they are treated so the treatment adds no incremental value, Lost Causes do not convert regardless of treatment so it again adds no incremental value, and Sleeping Dogs become less likely to convert because they were treated. This matters because NetLift's targeting policy exists specifically to find Persuadables, avoid spending budget on Sure Things and Lost Causes where it adds nothing, and suppress contact with Sleeping Dogs.
 
 ## Unconfoundedness, Positivity and Overlap, SUTVA
 
@@ -42,7 +42,7 @@ A response model predicts the probability that a customer converts if contacted 
 
 ## Meta-Learners: S, T, X, R, DR
 
-Meta-learners are general strategies for estimating CATE by combining standard supervised models: the S-learner trains one model with treatment as an input feature, the T-learner trains two separate models (one per arm), the X-learner imputes each arm's missing counterfactual to better exploit imbalanced treatment/control sizes, and the R- and DR-learners use more advanced orthogonalized or doubly-robust estimation. This matters because NetLift's uplift estimators are built from this family, with the X-learner favored specifically because the treatment group is much larger than the control group in the primary dataset.
+Meta-learners are general strategies for estimating CATE by combining standard supervised models: the S-learner trains one model with treatment as an input feature, the T-learner trains two separate models (one per arm), the X-learner imputes each arm's missing counterfactual, fits effect models on those imputed values, and combines the two resulting estimates weighted by the propensity score — designed specifically to exploit imbalanced treatment/control sizes — and the R- and DR-learners use more advanced orthogonalized or doubly-robust estimation. This matters because NetLift's uplift estimators are built from this family, with the X-learner favored specifically because the treatment group is much larger than the control group in the primary dataset.
 
 ## Class Transformation
 
@@ -58,4 +58,4 @@ A randomized controlled trial (RCT) is an experiment in which each subject is as
 
 ## Why Accuracy, F1 and ROC-AUC Are Invalid for This Problem
 
-Accuracy, F1 and ROC-AUC can be computed against an observed outcome, but they are not valid primary metrics for evaluating uplift predictions, because the quantity NetLift actually predicts — each customer's individual treatment effect — is never observed, even though the outcome itself was recorded. This matters because a NetLift model could score well on these metrics while still recommending a targeting policy that loses money, which is why the project relies on uplift-specific metrics like the Qini coefficient instead.
+Accuracy, F1 and ROC-AUC can be computed against an observed outcome, but they are not valid primary metrics for evaluating uplift predictions, because the quantity NetLift actually predicts — each customer's individual treatment effect — is never observed, even though the outcome itself was recorded. These metrics remain valid for the response-model baseline, since that model predicts an observed outcome rather than a counterfactual, and reporting them there alongside their absence for the uplift models sharpens exactly why the two targets are different. This matters because a NetLift model could score well on these metrics while still recommending a targeting policy that loses money, which is why the project relies on uplift-specific metrics like the Qini coefficient instead.
