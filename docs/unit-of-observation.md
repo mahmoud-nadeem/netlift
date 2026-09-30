@@ -50,7 +50,7 @@ No grouping required.
 ## Criteo
 
 ### Answer
-One row = one impression (ad view).
+One row = one user, per the dataset documentation. This cannot be verified from the data because there is no ID column.
 
 ### Evidence
 
@@ -67,7 +67,7 @@ One row = one impression (ad view).
     - exposure=0: 13,551,380 rows
     - exposure=1: 428,212 rows
     - All control rows have exposure=0
-    - 3.06% of treatment rows have exposure=1
+    - about 3.6% of treatment rows have exposure=1 (428,212 of 11,882,653)
 
 ### Interpretation
 
@@ -83,10 +83,11 @@ This must be escalated for methodological review before any
 ITT vs ToT decision is finalized.
 
 ### Can the same unit appear under both treatment and control?
-Unknown. No ID to track. The published design says randomization
-is at the impression level, so in principle each impression is
-independent. But if the true unit is a user (who could see
-multiple impressions), the same user could appear in both arms.
+Cannot be verified directly: there is no ID column. The 
+interpretation that the 380 profiles appearing across multiple 
+arms represent different customers follows from the published 
+row count (64,000 rows = 64,000 customers), not from an 
+identifier-based check.
 
 ### Consequence
 - Random stratified split on (treatment x outcome) is acceptable
@@ -102,7 +103,7 @@ multiple impressions), the same user could appear in both arms.
 | Dataset | Unit | Split Strategy | Group Split Needed? |
 |---|---|---|---|
 | Hillstrom | Customer | Random stratified (treatment x outcome) | No |
-| Criteo | Impression | Random stratified (treatment x outcome) | No (documented as assumption) |
+| Criteo | User (per documentation) | Random stratified (treatment x outcome) | No (documented as assumption) |
 
 ## Open Issue: Criteo exposure column
 
