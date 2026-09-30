@@ -44,8 +44,10 @@ appearing in multiple arms are different customers, not the
 same customer.
 
 ### Consequence
-Random stratified split on (treatment x outcome) is SAFE.
-No grouping required.
+Random stratified split on (treatment x outcome) is taken under 
+the assumption that one row = one customer (as documented). 
+No grouping required. If that assumption is later falsified, 
+this decision must be revisited.
 
 ## Criteo
 
@@ -101,7 +103,9 @@ identifier-based check.
 ## Final Decision
 
 | Dataset | Unit | Split Strategy | Group Split Needed? |
-|---|---|---|---|
+|---|---|---|---|cd ~/Documents/netlift
+open -e docs/unit-of-observation.md
+
 | Hillstrom | Customer | Random stratified (treatment x outcome) | No |
 | Criteo | User (per documentation) | Random stratified (treatment x outcome) | No (documented as assumption) |
 
@@ -168,8 +172,13 @@ If the Criteo assumption is wrong — that is, if the same user appears in multi
 1. The assumption is documented here and will be repeated in the final report.
 2. A grouped split is not possible without an ID column.
 3. If an ID-bearing version of Criteo becomes available, the split must be redone with grouping on that ID.
-4. All reported metrics carry bootstrap confidence intervals (Specification Section 28), so any inflation caused by this assumption is at least partially visible in the interval width.
-
+4. All reported metrics carry bootstrap confidence intervals 
+   (Specification Section 28). These intervals quantify sampling 
+   uncertainty in the estimate. They do NOT detect or correct 
+   the leakage risk described above, which is structural: if the 
+   same unit appears on both sides of the split, every resample 
+   inherits the same inflation, and the intervals remain too 
+   narrow.
 ---
 
 ## Downstream consequence
