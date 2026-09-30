@@ -39,11 +39,10 @@ for all rows, confirming that low-history (new) customers
 dominate the repeated profiles.
 
 ### Can the same unit appear under both treatment and control?
-Cannot be verified directly: there is no ID column. The
-interpretation that the 380 profiles appearing across multiple
-arms represent different customers follows from the published
-row count (64,000 rows = 64,000 customers), not from an
-identifier-based check.
+Cannot be verified: there is no ID column. If one row is one user, as documented,
+each user is in one arm. 356,008 feature profiles appear under both arms, and 20.11%
+of rows sit inside repeated profiles. This is consistent with different users sharing
+low-cardinality features, but it does not rule out repeated units.
 
 ### Consequence
 Random stratified split on (treatment x outcome) is taken under 
@@ -104,23 +103,24 @@ identifier-based check.
 
 ## Final Decision
 
-| Dataset | Unit | Split Strategy | Group Split Needed? |
-|---|---|---|---|cd ~/Documents/netlift
-open -e docs/unit-of-observation.md
-
-| Hillstrom | Customer | Random stratified (treatment x outcome) | No |
-| Criteo | User (per documentation) | Random stratified (treatment x outcome) | No (documented as assumption) |
-
+|| Dataset | Unit | Split Strategy | Group Split Needed? |
+|---|---|---|---|
+| Hillstrom | Customer (per published count) | Random stratified (treatment x outcome) | No (assumption) |
+| Criteo | User (per documentation) | Random stratified (treatment x outcome) | No (assumption, stress test planned: see Sensitivity check) |
 ## Open Issue: Criteo exposure column
 
-The presence of exposure in Criteo contradicts Specification
-Section 6. Two possible resolutions:
+`exposure` exists in Criteo (428,212 of 11,882,653 treated rows, about 3.6%) and is 0
+for every control row. This contradicts Specification Section 6.
 
-1. Ignore exposure and estimate ITT only (as originally planned)
-2. Use exposure to estimate ToT (treatment-on-the-treated)
-   for Criteo only
+- `exposure` is post-treatment: it MUST be on the forbidden-column list and never
+  enter the feature matrix (Sections 18 and 23).
+- Comparing exposed vs control directly is confounded, because exposure is not random.
+  A valid ToT estimate is the Wald/IV ratio ITT / P(exposure=1 | treated), which is
+  justified by one-sided non-compliance (no control row is exposed).
+- Compliance is about 3.6%, so the ITT effect is heavily diluted relative to ToT.
 
-This requires a team decision. Flagged for Week 7 instructor review.
+Recommendation: MVP stays ITT. ToT via the Wald ratio is an Advanced-tier item.
+Requires team decision; Specification Section 6 needs correcting for Criteo.
 
 ## Verification Commands
 
@@ -167,7 +167,20 @@ This is a limitation of the available data. It is recorded here as an explicit a
 
 ## Risk and mitigation
 
-If the Criteo assumption is wrong — that is, if the same user appears in multiple rows — then a random row-wise split places that user on both sides of the split, and the measured uplift is inflated in a way that is invisible to every metric we compute. The leak is in the split, not in the features.
+If the same Criteo user appears in several rows, a random row-wise split puts that user
+on both sides, and the measured uplift is inflated in a way no metric reveals.
+Bootstrap intervals quantify sampling uncertainty only. They do NOT detect this leak.
+
+**Sensitivity check (follow-up task, owner to be assigned):**
+A true grouped split is impossible without an ID, but a conservative proxy exists:
+group rows by the hash of the full feature vector and split with GroupKFold, so that
+identical profiles never straddle the boundary. Train the same model twice (random split
+vs profile-grouped split) and compare Qini with bootstrap CIs. If they are close, repeated
+profiles are not driving the result. If the grouped Qini is clearly lower, this decision
+must be revisited. The proxy over-groups (different users with identical features are
+kept together), so it is a stress test, not the final split.
+
+If an ID-bearing version of Criteo becomes available, redo the split grouped on that ID.
 
 **Mitigation:**
 
@@ -181,6 +194,16 @@ If the Criteo assumption is wrong — that is, if the same user appears in multi
    same unit appears on both sides of the split, every resample 
    inherits the same inflation, and the intervals remain too 
    narrow.
+---
+## Duplicate handling policy (input to T18)
+
+Exact duplicate rows (Hillstrom: 6,562; Criteo: 1,259,545) are documented, not
+auto-removed. Without an ID they are more likely different units with identical
+covariates than repeated units, and dropping them would discard real observations
+and could shift the treatment/control ratio. Specification Section 23 lists
+"duplicate detection and removal"; this document recommends changing that step to
+"detect, document, decide". The removal decision belongs to the team.
+
 ---
 
 ## Downstream consequence
