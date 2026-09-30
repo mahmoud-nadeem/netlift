@@ -27,27 +27,32 @@ One row = one customer.
 6. Feature space is small: recency has 12 unique values,
    history_segment has 7, mens/womens/newbie have 2 each
 
+**Not yet checked:** whether rows within a repeated feature profile share identical
+outcomes. Planned as part of the sensitivity check.
+
 ### Interpretation
 
-The 12.83% of rows sharing a feature profile are DIFFERENT
-customers who happen to have identical covariates. This is
-expected given the low-cardinality feature space. It is NOT
-evidence of the same customer appearing multiple times.
+The 12.83% of rows sharing a feature profile are most plausibly different
+customers with identical covariates, given the low-cardinality feature space.
+Without an ID this cannot be confirmed; it is consistent with, but does not
+prove, independence. Repeated profiles alone are not evidence of the same
+customer appearing multiple times.
 
 Repeated-profile rows have median history = 29.99 vs 158.11
 for all rows, confirming that low-history (new) customers
 dominate the repeated profiles.
 
 ### Can the same unit appear under both treatment and control?
-Cannot be verified: there is no ID column. If one row is one user, as documented,
-each user is in one arm. 356,008 feature profiles appear under both arms, and 20.11%
-of rows sit inside repeated profiles. This is consistent with different users sharing
-low-cardinality features, but it does not rule out repeated units.
+Cannot be verified directly: there is no ID column. The
+interpretation that the 380 profiles appearing across multiple
+arms represent different customers follows from the published
+row count (64,000 rows = 64,000 customers), not from an
+identifier-based check.
 
 ### Consequence
-Random stratified split on (treatment x outcome) is taken under 
-the assumption that one row = one customer (as documented). 
-No grouping required. If that assumption is later falsified, 
+Random stratified split on (treatment x outcome) is taken under
+the assumption that one row = one customer (as documented).
+No grouping required. If that assumption is later falsified,
 this decision must be revisited.
 
 ## Criteo
@@ -86,15 +91,15 @@ This must be escalated for methodological review before any
 ITT vs ToT decision is finalized.
 
 ### Can the same unit appear under both treatment and control?
-Cannot be verified directly: there is no ID column. The 
-interpretation that the 380 profiles appearing across multiple 
-arms represent different customers follows from the published 
-row count (64,000 rows = 64,000 customers), not from an 
+Cannot be verified directly: there is no ID column. The
+interpretation that the 380 profiles appearing across multiple
+arms represent different customers follows from the published
+row count (64,000 rows = 64,000 customers), not from an
 identifier-based check.
 
 ### Consequence
 - Random stratified split on (treatment x outcome) is acceptable
-  under the published design, but must be documented as an
+  if one row is one user (as documented), but must be documented as an
   assumption.
 - The exposure column discovery requires a separate methodological
   decision about ITT vs ToT estimation.
@@ -103,10 +108,14 @@ identifier-based check.
 
 ## Final Decision
 
-|| Dataset | Unit | Split Strategy | Group Split Needed? |
+| Dataset | Unit | Split Strategy | Group Split Needed? |
 |---|---|---|---|
 | Hillstrom | Customer (per published count) | Random stratified (treatment x outcome) | No (assumption) |
-| Criteo | User (per documentation) | Random stratified (treatment x outcome) | No (assumption, stress test planned: see Sensitivity check) |
+| Criteo | User (per documentation) | Random stratified (treatment x outcome) | No (assumption, stress-tested: see Sensitivity check) |
+
+**Decision:** random stratified split on (treatment x outcome) for both datasets,
+taken under the assumption that one row = one independent unit.
+
 ## Open Issue: Criteo exposure column
 
 `exposure` exists in Criteo (428,212 of 11,882,653 treated rows, about 3.6%) and is 0
@@ -130,7 +139,7 @@ See scripts/t17_unit_check.py and scripts/t17_dup_diagnostics.py.
 - Specification Section 2.2 (fundamental problem)
 - Specification Section 6 (treatment compliance)
 - Specification Section 19 (splitting strategy)
-- Criteo dataset documentation (Diemer et al., 2018)
+- Criteo dataset documentation (Diemert et al., 2018)
 - Hillstrom dataset documentation (Hillstrom, 2008)
 
 ## Terminology
@@ -187,14 +196,16 @@ If an ID-bearing version of Criteo becomes available, redo the split grouped on 
 1. The assumption is documented here and will be repeated in the final report.
 2. A grouped split is not possible without an ID column.
 3. If an ID-bearing version of Criteo becomes available, the split must be redone with grouping on that ID.
-4. All reported metrics carry bootstrap confidence intervals 
-   (Specification Section 28). These intervals quantify sampling 
-   uncertainty in the estimate. They do NOT detect or correct 
-   the leakage risk described above, which is structural: if the 
-   same unit appears on both sides of the split, every resample 
-   inherits the same inflation, and the intervals remain too 
+4. All reported metrics carry bootstrap confidence intervals
+   (Specification Section 28). These intervals quantify sampling
+   uncertainty in the estimate. They do NOT detect or correct
+   the leakage risk described above, which is structural: if the
+   same unit appears on both sides of the split, every resample
+   inherits the same inflation, and the intervals remain too
    narrow.
+
 ---
+
 ## Duplicate handling policy (input to T18)
 
 Exact duplicate rows (Hillstrom: 6,562; Criteo: 1,259,545) are documented, not
