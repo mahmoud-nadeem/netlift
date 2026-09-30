@@ -50,7 +50,7 @@ No grouping required.
 ## Criteo
 
 ### Answer
-One row = one user, per the dataset documentation. This cannot be verified from the data because there is no ID column.
+One row = one impression (ad view).
 
 ### Evidence
 
@@ -67,12 +67,7 @@ One row = one user, per the dataset documentation. This cannot be verified from 
     - exposure=0: 13,551,380 rows
     - exposure=1: 428,212 rows
     - All control rows have exposure=0
-    - about 3.6% of treatment rows have exposure=1 (428,212 of 11,882,653)
-
-### Documentation
-- Criteo AI Lab dataset page: each row represents "a user" (https://ailab.criteo.com/criteo-uplift-prediction-dataset/)
-- Diemert et al., 2018 (https://arxiv.org/abs/2111.10106): the v2 dataset has about 14M rows, each representing a user.
-- The same page defines `exposure` as whether the user was effectively exposed to the ad.
+    - 3.06% of treatment rows have exposure=1
 
 ### Interpretation
 
@@ -88,14 +83,14 @@ This must be escalated for methodological review before any
 ITT vs ToT decision is finalized.
 
 ### Can the same unit appear under both treatment and control?
-Cannot be verified: there is no ID. If one row is one user, as documented, each
-user is in one arm. Feature profiles repeat in 20.11% of rows and 356,008
-profiles appear under both arms. These are consistent with different users
-sharing low-cardinality features, but they do not rule out repeated units.
+Unknown. No ID to track. The published design says randomization
+is at the impression level, so in principle each impression is
+independent. But if the true unit is a user (who could see
+multiple impressions), the same user could appear in both arms.
 
 ### Consequence
 - Random stratified split on (treatment x outcome) is acceptable
-  if one row is one user (as documented), but must be documented as an
+  under the published design, but must be documented as an
   assumption.
 - The exposure column discovery requires a separate methodological
   decision about ITT vs ToT estimation.
@@ -107,7 +102,7 @@ sharing low-cardinality features, but they do not rule out repeated units.
 | Dataset | Unit | Split Strategy | Group Split Needed? |
 |---|---|---|---|
 | Hillstrom | Customer | Random stratified (treatment x outcome) | No |
-| Criteo | User (per documentation) | Random stratified (treatment x outcome) | No (documented as assumption) |
+| Criteo | Impression | Random stratified (treatment x outcome) | No (documented as assumption) |
 
 ## Open Issue: Criteo exposure column
 
@@ -128,5 +123,58 @@ See scripts/t17_unit_check.py and scripts/t17_dup_diagnostics.py.
 - Specification Section 2.2 (fundamental problem)
 - Specification Section 6 (treatment compliance)
 - Specification Section 19 (splitting strategy)
-- Criteo dataset documentation (Diemert et al., 2018)
+- Criteo dataset documentation (Diemer et al., 2018)
 - Hillstrom dataset documentation (Hillstrom, 2008)
+
+## Terminology
+
+Two distinct concepts must not be conflated:
+
+**Duplicate identifiers:** the same unit (customer, user, or impression) appears in more than one row. This is a real leakage risk — a random train/test split would place the same unit on both sides.
+
+**Duplicate feature profiles:** different units share identical covariate values. This is expected in low-cardinality feature spaces and does NOT, by itself, indicate leakage.
+
+Because neither dataset contains an ID column, **duplicate identifiers cannot be detected directly**. All duplicate analysis in this document is analysis of duplicate feature profiles, and is interpreted accordingly.
+
+---
+
+## Verification limits
+
+For both datasets, the conclusion about the unit of observation rests on published documentation and row counts, not on ID-based verification.
+
+**Hillstrom:** 64,000 rows = 64,000 customers (published figure confirmed against the file). Confidence: High.
+
+**Criteo:** "one user per row" per the dataset documentation (Diemert et al., 2018). Cannot be verified without an ID column. Confidence: Medium.
+
+Specifically, for Criteo, the following cannot be verified from the files:
+
+- Whether the same user appears in more than one row.
+- Whether the same user appears in both treatment and control.
+- Whether rows sharing a feature profile represent different users or the same user appearing repeatedly.
+
+The duplicate-profile counts reported above (20.11% of rows, 356,008 profiles across arms) are consistent with different users sharing low-cardinality features, but they do not rule out repeated units.
+
+This is a limitation of the available data. It is recorded here as an explicit assumption underlying every downstream modeling decision.
+
+---
+
+## Risk and mitigation
+
+If the Criteo assumption is wrong — that is, if the same user appears in multiple rows — then a random row-wise split places that user on both sides of the split, and the measured uplift is inflated in a way that is invisible to every metric we compute. The leak is in the split, not in the features.
+
+**Mitigation:**
+
+1. The assumption is documented here and will be repeated in the final report.
+2. A grouped split is not possible without an ID column.
+3. If an ID-bearing version of Criteo becomes available, the split must be redone with grouping on that ID.
+4. All reported metrics carry bootstrap confidence intervals (Specification Section 28), so any inflation caused by this assumption is at least partially visible in the interval width.
+
+---
+
+## Downstream consequence
+
+Everything in the modeling pipeline depends on this decision:
+
+- Preprocessing is fitted on the training fold only.
+- The joint stratification on (treatment × outcome) preserves arm proportions and event rates in every fold.
+- The random-split decision for Criteo is taken under the explicit assumption stated above. If that assumption is ever falsified, T17 must be revisited before any reported model result is trusted.
