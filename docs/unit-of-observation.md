@@ -50,7 +50,7 @@ No grouping required.
 ## Criteo
 
 ### Answer
-One row = one impression (ad view).
+One row = one user, per the dataset documentation. This cannot be verified from the data because there is no ID column.
 
 ### Evidence
 
@@ -67,7 +67,12 @@ One row = one impression (ad view).
     - exposure=0: 13,551,380 rows
     - exposure=1: 428,212 rows
     - All control rows have exposure=0
-    - 3.06% of treatment rows have exposure=1
+    - about 3.6% of treatment rows have exposure=1 (428,212 of 11,882,653)
+
+### Documentation
+- Criteo AI Lab dataset page: each row represents "a user" (https://ailab.criteo.com/criteo-uplift-prediction-dataset/)
+- Diemert et al., 2018 (https://arxiv.org/abs/2111.10106): the v2 dataset has about 14M rows, each representing a user.
+- The same page defines `exposure` as whether the user was effectively exposed to the ad.
 
 ### Interpretation
 
@@ -83,14 +88,14 @@ This must be escalated for methodological review before any
 ITT vs ToT decision is finalized.
 
 ### Can the same unit appear under both treatment and control?
-Unknown. No ID to track. The published design says randomization
-is at the impression level, so in principle each impression is
-independent. But if the true unit is a user (who could see
-multiple impressions), the same user could appear in both arms.
+Cannot be verified: there is no ID. If one row is one user, as documented, each
+user is in one arm. Feature profiles repeat in 20.11% of rows and 356,008
+profiles appear under both arms. These are consistent with different users
+sharing low-cardinality features, but they do not rule out repeated units.
 
 ### Consequence
 - Random stratified split on (treatment x outcome) is acceptable
-  under the published design, but must be documented as an
+  if one row is one user (as documented), but must be documented as an
   assumption.
 - The exposure column discovery requires a separate methodological
   decision about ITT vs ToT estimation.
@@ -102,7 +107,7 @@ multiple impressions), the same user could appear in both arms.
 | Dataset | Unit | Split Strategy | Group Split Needed? |
 |---|---|---|---|
 | Hillstrom | Customer | Random stratified (treatment x outcome) | No |
-| Criteo | Impression | Random stratified (treatment x outcome) | No (documented as assumption) |
+| Criteo | User (per documentation) | Random stratified (treatment x outcome) | No (documented as assumption) |
 
 ## Open Issue: Criteo exposure column
 
@@ -123,5 +128,5 @@ See scripts/t17_unit_check.py and scripts/t17_dup_diagnostics.py.
 - Specification Section 2.2 (fundamental problem)
 - Specification Section 6 (treatment compliance)
 - Specification Section 19 (splitting strategy)
-- Criteo dataset documentation (Diemer et al., 2018)
+- Criteo dataset documentation (Diemert et al., 2018)
 - Hillstrom dataset documentation (Hillstrom, 2008)
