@@ -39,9 +39,11 @@ for all rows, confirming that low-history (new) customers
 dominate the repeated profiles.
 
 ### Can the same unit appear under both treatment and control?
-No. Each customer appears in exactly one arm. The 380 profiles
-appearing in multiple arms are different customers, not the
-same customer.
+Cannot be verified directly: there is no ID column. The
+interpretation that the 380 profiles appearing across multiple
+arms represent different customers follows from the published
+row count (64,000 rows = 64,000 customers), not from an
+identifier-based check.
 
 ### Consequence
 Random stratified split on (treatment x outcome) is taken under 
