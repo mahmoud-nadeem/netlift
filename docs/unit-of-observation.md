@@ -81,12 +81,10 @@ The 20.11% of rows sharing a feature profile cannot be linked
 to the same user without an ID. Given the anonymized float
 features, duplicates are expected.
 
-The exposure column is a MAJOR DISCREPANCY with Specification
-Section 6, which states:
-  "neither dataset provides an exposure indicator"
-
-This must be escalated for methodological review before any
-ITT vs ToT decision is finalized.
+The exposure column is a discrepancy with Specification Section 6,
+which states "neither dataset provides an exposure indicator." See the
+Criteo exposure column section below for the decision (MVP estimates
+ITT only; ToT is an optional Advanced-tier extension).
 
 ### Can the same unit appear under both treatment and control?
 Cannot be verified directly: there is no ID column. The dataset 
@@ -101,8 +99,8 @@ they do not rule out repeated units.
 - Random stratified split on (treatment x outcome) is acceptable
   under the published design, but must be documented as an
   assumption.
-- The exposure column discovery requires a separate methodological
-  decision about ITT vs ToT estimation.
+- The exposure column discovery is addressed in the Criteo exposure
+  column section below: the MVP estimates ITT only.
 - Risk: if users appear multiple times, random split leaks user
   identity across train/test.
 
@@ -112,7 +110,11 @@ they do not rule out repeated units.
 |---|---|---|---|
 | Hillstrom | Customer (per published count) | Random stratified (treatment x outcome) | No (assumption) |
 | Criteo | User (per documentation) | Random stratified (treatment x outcome) | No (assumption, stress-tested: see Sensitivity check) |
-## Open Issue: Criteo exposure column
+
+**Decision:** random stratified split on (treatment × outcome) for both datasets,
+taken under the assumption that one row = one independent unit.
+
+## Criteo exposure column
 
 `exposure` exists in Criteo (428,212 of 11,882,653 treated rows, about 3.6%) and is 0
 for every control row. This contradicts Specification Section 6.
@@ -124,8 +126,8 @@ for every control row. This contradicts Specification Section 6.
   justified by one-sided non-compliance (no control row is exposed).
 - Compliance is about 3.6%, so the ITT effect is heavily diluted relative to ToT.
 
-Recommendation: MVP stays ITT. ToT via the Wald ratio is an Advanced-tier item.
-Requires team decision; Specification Section 6 needs correcting for Criteo.
+Decision: the MVP estimates ITT only. ToT via the Wald ratio is an optional
+Advanced-tier extension, not required for the MVP.
 
 ## Verification Commands
 
@@ -135,7 +137,7 @@ See scripts/t17_unit_check.py and scripts/t17_dup_diagnostics.py.
 - Specification Section 2.2 (fundamental problem)
 - Specification Section 6 (treatment compliance)
 - Specification Section 19 (splitting strategy)
-- Criteo dataset documentation (Diemer et al., 2018)
+- Criteo dataset documentation (Diemert et al., 2018)
 - Hillstrom dataset documentation (Hillstrom, 2008)
 
 ## Terminology
@@ -178,7 +180,9 @@ Bootstrap intervals quantify sampling uncertainty only. They do NOT detect this 
 
 **Sensitivity check (follow-up task, owner: Aliaa, due: before T18 starts):**
 A true grouped split is impossible without an ID, but a conservative proxy exists:
-group rows by the hash of the full feature vector and split with GroupKFold, so that
+group rows by the hash of the full feature vector and split with
+StratifiedGroupKFold (not plain GroupKFold), so that the (treatment x outcome)
+stratification from Specification Section 19 is preserved per fold, while
 identical profiles never straddle the boundary. Train the same model twice (random split
 vs profile-grouped split) and compare Qini with bootstrap CIs. If they are close, repeated
 profiles are not driving the result. If the grouped Qini is clearly lower, this decision
