@@ -215,24 +215,27 @@ and could shift the treatment/control ratio. Specification Section 23 lists
 
 ---
 
-## Specification errors found during T17
+## Specification errors found during T17 (corrected)
 
 Two claims in `NetLift_Project_Specification.pdf` were found to
-contradict the data and should be corrected:
+contradict the data:
 
-1. **Section 6** states "neither dataset provides an exposure
+1. **Section 6** stated "neither dataset provides an exposure
    indicator." Criteo does contain one (428,212 of 11,882,653 treated
    rows, about 3.6%, all control rows = 0), which enables ToT
    estimation via the Wald/IV ratio -- contrary to the Spec's
    assumption. See the Criteo exposure column section above.
-2. **Section 27** states bootstrap confidence intervals make leakage
-   "at least partially visible in the interval width." This is
+2. **Section 27** stated bootstrap confidence intervals make leakage
+   "at least partially visible in the interval width." This was
    incorrect: bootstrap CIs quantify sampling uncertainty only and do
    not detect split-level leakage (see Risk and mitigation above).
 
-Both claims are load-bearing in the Spec's reasoning (Section 6
-justifies ITT-only estimation; Section 27 is cited as leakage
-mitigation). Flagged for team review; does not block this document.
+Section 6 was corrected in the project specification after this
+finding. The current specification now documents the Criteo exposure
+column and the ITT MVP / optional ToT decision. Section 27's bootstrap
+claim is addressed by the Risk and mitigation section above, which
+states explicitly that bootstrap CIs do not detect split-level
+leakage.
 
 ---
 
