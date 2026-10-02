@@ -129,7 +129,11 @@ The presence of this column should be reviewed against Specification Section 6, 
 
 The column's name and values alone do not establish its precise methodological meaning. Its definition should be verified against the dataset documentation and project specification before deciding whether it represents the exposure indicator described in Section 6.
 
-This potential discrepancy is flagged for the team to review in the project decisions.
+This is a confirmed discrepancy with Specification Section 6: per Criteo AI Lab's
+own dataset documentation, the `exposure` column is officially defined as
+"treatment effect, whether the user has been effectively exposed" — a genuine
+exposure indicator, contradicting Section 6's claim that neither dataset provides
+one. Flagged in #decisions for the team.
 
 ---
 
@@ -153,4 +157,7 @@ The observed row counts, column counts, missing-value counts, treatment shares, 
 
 Both dataset checksums are recorded above and are computed by the committed verification script.
 
-The Criteo `exposure` column is a potential discrepancy with Specification Section 6 and requires a separate methodological review before drawing conclusions about its implications for ITT versus ToT estimation.
+The Criteo `exposure` column is a confirmed discrepancy with Specification Section 6
+(not a potential one — see the exposure investigation above for the source). Its
+implications for ITT versus ToT estimation require a separate methodological review,
+tracked in #decisions.
