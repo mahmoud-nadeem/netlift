@@ -71,5 +71,7 @@ if "exposure" in criteo.columns:
     print("Exposure dtype:", criteo["exposure"].dtype)
     print("Exposure values:")
     print(criteo["exposure"].value_counts(dropna=False))
+    print("\nExposure by treatment group (crosstab):")
+    print(pd.crosstab(criteo["treatment"], criteo["exposure"]))
 else:
     print("Exposure column NOT FOUND")
