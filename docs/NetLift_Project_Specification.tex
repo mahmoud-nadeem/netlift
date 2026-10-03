@@ -1,0 +1,3049 @@
+\documentclass[11pt,a4paper]{article}
+
+% ============================================================
+%  NetLift - Project Specification
+%  DEPI Capstone - AI & Data Science / Microsoft ML Engineer Track
+% ============================================================
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+% (default Computer Modern; lmodern not installed)
+\usepackage[margin=2.5cm,top=2.6cm,bottom=2.6cm]{geometry}
+\usepackage[stretch=10,shrink=10,protrusion=true,expansion=false]{microtype}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tcolorbox}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{needspace}
+\usepackage[hidelinks]{hyperref}
+
+\tcbuselibrary{breakable,skins}
+
+% ---------- colours ----------
+\definecolor{navy}{HTML}{1F3864}
+\definecolor{teal}{HTML}{1B6B6B}
+\definecolor{alertred}{HTML}{9B1C1C}
+\definecolor{boxgrey}{HTML}{F5F5F5}
+\definecolor{rulegrey}{HTML}{9AA0A6}
+\definecolor{goodgreen}{HTML}{1E6B3A}
+
+% ---------- headings ----------
+\titleformat{\part}[display]{\Huge\bfseries\color{navy}}{\partname~\thepart}{0.4em}{}
+\titleformat{\section}{\Large\bfseries\color{navy}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{teal}}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\itshape\color{teal}}{\thesubsubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.6\baselineskip}{0.6\baselineskip}
+\titlespacing*{\subsection}{0pt}{1.1\baselineskip}{0.4\baselineskip}
+
+% ---------- header / footer ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{navy}NetLift --- Project Specification}
+\fancyhead[R]{\small\color{navy}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{rulegrey}\leaders\hrule height \headrulewidth\hfill}}
+
+% ---------- boxes ----------
+\newtcolorbox{alertbox}[1][]{
+  breakable, enhanced, colback=white, colframe=alertred,
+  boxrule=0.9pt, arc=1.5pt, left=6pt, right=6pt, top=5pt, bottom=5pt,
+  fonttitle=\bfseries, #1}
+
+\newtcolorbox{keybox}[1][]{
+  breakable, enhanced, colback=boxgrey, colframe=navy,
+  boxrule=0.7pt, arc=1.5pt, left=6pt, right=6pt, top=5pt, bottom=5pt, #1}
+
+\newtcolorbox{goodbox}[1][]{
+  breakable, enhanced, colback=white, colframe=goodgreen,
+  boxrule=0.7pt, arc=1.5pt, left=6pt, right=6pt, top=5pt, bottom=5pt, #1}
+
+\newcommand{\srcnote}[1]{{\footnotesize\itshape\color{teal}Source: #1}}
+\newcommand{\derived}[1]{{\footnotesize\itshape\color{teal}Derived arithmetic from published figures: #1}}
+
+\setlist[itemize]{leftmargin=1.3em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.5em,itemsep=2pt,topsep=3pt}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\hypersetup{
+  pdftitle={NetLift - Project Specification},
+  pdfsubject={Uplift Modeling for Incremental-Impact Targeting},
+  pdfcreator={LaTeX}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.45\baselineskip}
+
+\begin{document}
+% ============================ TITLE PAGE ============================
+\thispagestyle{empty}
+\begin{center}
+\vspace*{0.2cm}
+{\Huge\bfseries\color{navy} NetLift\par}
+\vspace{0.35cm}
+{\LARGE A Causal Decision System for Incremental Profit Optimization\par}
+\vspace{0.9cm}
+{\Large\bfseries Complete Project Specification\par}
+\vspace{0.55cm}
+{\large AI \& Data Science --- Microsoft Machine Learning Engineer Track\par}
+{\large Digital Egypt Pioneers Initiative (DEPI) --- Graduation Project\par}
+\end{center}
+
+\vspace{0.6cm}
+
+\begin{keybox}
+\textbf{What this document is.} An implementation-ready specification for an uplift
+modeling system: a system that predicts \emph{who changes behaviour because of an
+intervention}, not who is likely to convert. It is written to survive a hostile technical
+question, not to sound impressive. Every dataset statistic in Part~III is taken from the
+dataset's own published documentation and is cited at the point of use. Numbers that are
+arithmetic consequences of those figures are labelled as derived, not as sourced facts.
+\end{keybox}
+
+\begin{alertbox}
+\textbf{The single most important thing in this document.} Accuracy, F1 and ROC--AUC are
+\emph{not valid} evaluation metrics for this project, and a model that scores well on them
+can be worth less than random targeting. The reason is structural: the quantity this project
+predicts is never observed for any individual customer, so there is no per-row label to be
+accurate against. Section~\ref{sec:metrics} explains what replaces them and
+Section~\ref{sec:significance} explains why the replacement metrics need confidence intervals
+before any result is reported. Read both before writing any training code.
+\end{alertbox}
+
+\begin{keybox}
+\textbf{Scope note.} This specification is deliberately written as a \emph{standalone}
+machine-learning system for a team of five. A separate frontend/backend team was considered
+as a combined ``mega project'' and that option was declined. The architecture in
+Part~IV is nonetheless API-first (Section~\ref{sec:deployment}): the model is exposed as an
+independent service behind a documented contract, so that a web application built by anyone
+else could sit on top of it later without any change to the ML side. That costs the team
+nothing now and keeps a door open.
+\end{keybox}
+
+\begin{keybox}
+\textbf{On curriculum coverage --- read this before the proposal is submitted.} This project
+uses no computer vision and no NLP, and Section~\ref{sec:curriculum} says so plainly instead of
+inventing a use for them. Everything else in the track is used because the problem requires it.
+Raise this with the instructor at the Week~7 review.
+\end{keybox}
+
+\vfill
+\begin{center}
+{\small September 2026 \\[2pt] Prepared as a technical architecture review}
+\end{center}
+
+\newpage
+\thispagestyle{empty}
+{\color{navy}\hrule height 1pt}
+\vspace{0.3cm}
+{\large\bfseries\color{navy} Contents}
+\vspace{-0.2cm}
+\renewcommand{\contentsname}{}
+\tableofcontents
+\newpage
+\setcounter{page}{1}
+% ============================ PART I ============================
+\part{Product Definition}
+
+\section{Project Overview}
+
+\subsection{Identity}
+
+\begin{tabularx}{\textwidth}{@{}L{3.4cm}X@{}}
+\toprule
+\textbf{Name} & NetLift \\
+\textbf{One line} & A targeting engine that ranks customers by the \emph{incremental} effect
+an offer will have on them, and refuses to spend budget on customers who would have converted
+anyway --- or who react badly to being contacted. \\
+\textbf{Positioning} & \emph{A decision system for incremental profit optimization built on causal
+machine learning} --- not ``an uplift model''. The distinction is not marketing. A model produces a
+score; this system closes a loop: it scores, allocates a budget, assigns treatment while holding
+back a control group, and then measures what that decision actually produced --- replayed over a
+held-out slice of historical experimental data, because that is what the available datasets allow
+(Section~\ref{sec:lifecycle}). Describe it this way in the report, in the presentation and on a CV. \\
+\textbf{Domain} & Business analytics / marketing science, directly transferable to banking,
+telecom, e-commerce and FinTech retention teams. \\
+\textbf{Core ML problem} & Estimation of the Conditional Average Treatment Effect (CATE) from
+randomized-experiment data; a causal-inference problem, not a classification problem. \\
+\textbf{Primary data} & Criteo-UPLIFT (large-scale randomized advertising experiment) and
+Hillstrom MineThatData (small, clean, three-arm email experiment). \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Executive summary}
+
+Every company with a retention or promotion budget faces the same question and almost all of
+them answer it wrongly. They build a model that predicts \emph{who will churn} or \emph{who will
+buy}, sort customers by that score, and send the offer to the top of the list. The model is
+often accurate. The campaign still loses money.
+
+It loses money because the score being optimised is the wrong quantity. A customer at the top of
+a ``likely to buy'' list may be a customer who was going to buy regardless --- the discount is
+pure margin given away. A customer at the top of a ``likely to churn'' list may be someone whose
+decision to leave is already final --- the retention call is wasted. And a specific, well-documented
+minority of customers respond to being contacted by leaving: a dormant subscriber reminded that
+they are still paying for something they forgot about.
+
+Uplift modeling asks the question the business actually needs answered: \emph{for this customer,
+how much does the outcome change because we intervened?} Formally, it estimates
+\[
+\tau(x) \;=\; \mathbb{E}\!\left[Y(1)\mid X = x\right] \;-\; \mathbb{E}\!\left[Y(0)\mid X = x\right],
+\]
+the difference between what happens if the customer is treated and what happens if they are not.
+
+NetLift is a complete system built around that estimate: a validated data pipeline over
+randomized-experiment data, a set of uplift models benchmarked against the response model a
+business would otherwise use, an evaluation harness built on Qini and AUUC rather than accuracy,
+a decision layer that converts uplift scores into a budget-constrained targeting policy with an
+explicit abstention path, and a deployed service and dashboard that report the outcome in the
+only unit that matters to the customer of this system: incremental conversions and incremental
+profit per unit of campaign spend.
+
+\subsection{The problem being solved}
+
+A retention or acquisition campaign has a fixed budget. Contacting a customer has a cost:
+a discount that reduces margin, an SMS or call-centre minute, or the finite attention of a
+customer who can be contacted only so often before they disengage. The business must choose
+a subset of customers to contact.
+
+The industry-standard method for making that choice is a \emph{response model} or a \emph{churn
+model}. Both are classifiers, both are trained on outcomes among contacted customers, and both
+rank by predicted outcome probability. Neither of them contains any information about whether
+the contact caused the outcome. They are answering ``who is likely to convert?'' when the
+business needs ``whose conversion depends on us?''
+
+\subsection{Why this problem is commercially serious}
+
+The gap between the two questions is not academic. A campaign targeted by response model can
+show a strong measured conversion rate among the contacted group and still produce close to zero
+incremental revenue, because the contacted group was selected precisely for containing the
+customers most likely to convert unprompted. The company sees a good-looking campaign report and
+a flat revenue line, and cannot explain the contradiction --- because the report never measured
+the counterfactual.
+
+An uplift-targeted campaign is measured differently and can be defended differently. The claim it
+makes is of the form: \emph{at the same budget, this policy produced $N$ more conversions than
+targeting the same number of customers at random, and $M$ more than targeting by response score}.
+That is a statement a finance function can audit.
+
+\subsection{Target users}
+
+\begin{tabularx}{\textwidth}{@{}L{4.2cm}X@{}}
+\toprule
+\textbf{User} & \textbf{What they do with it} \\
+\midrule
+Retention / CRM analyst & Uploads or selects a customer base, sets a budget and a per-contact
+cost, receives a ranked target list and an expected incremental-conversion figure with an
+uncertainty range. \\
+Marketing manager & Compares candidate policies (uplift vs.\ response model vs.\ random vs.\
+blanket contact) on one screen before committing spend. \\
+Data science team & Consumes the scoring API directly, inspects the Qini curves and drift
+monitors, retrains on a schedule. \\
+Finance / campaign audit & Reads the incremental-profit report and the size of the randomized
+holdout that produced it. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Business value}
+
+\begin{itemize}
+\item \textbf{Budget reduction at constant outcome.} If the persuadable population is a minority
+of the base --- which is the normal case --- most of the contact budget is currently spent on
+customers whose behaviour does not change. Removing them reduces cost without reducing
+incremental conversions.
+\item \textbf{Avoided negative effects.} Suppressing customers with negative estimated uplift
+protects revenue that a conventional campaign actively destroys.
+\item \textbf{Auditable causal claims.} The system's headline number is produced against a
+randomized control group, which means it is a measurement, not a projection.
+\item \textbf{Reusability.} The same machinery applies to retention offers, cross-sell, credit-limit
+increases, collections contact strategy and fee waivers. It is a capability, not a campaign.
+\end{itemize}
+
+\subsection{Why this is stronger than a churn-classification project}
+
+\begin{tabularx}{\textwidth}{@{}L{4.4cm}XX@{}}
+\toprule
+& \textbf{Standard churn project} & \textbf{NetLift} \\
+\midrule
+Question answered & Who is likely to leave? & Whose decision changes if we act? \\
+Label & Observed for every row & \emph{Never} observed for any row (Section~\ref{sec:fundamental}) \\
+Data requirement & Any historical data & Randomized experiment, or explicit and defended
+assumptions in its absence \\
+Evaluation & Accuracy, F1, ROC--AUC & Qini coefficient, AUUC, uplift@$k$, all with confidence
+intervals \\
+Failure mode & Model is inaccurate & Model is accurate \emph{and} the campaign still loses money \\
+What the defence panel can ask & ``What was your F1?'' & ``How do you know the effect you measured
+is not noise?'' --- a question with a real answer here \\
+\bottomrule
+\end{tabularx}
+
+The practical consequence: a churn classifier is a well-understood exercise that hundreds of
+graduation projects complete every year. The moment the target becomes a treatment effect, four
+things change at once --- the label becomes unobservable, the metric set changes, the data
+requirement becomes an experiment, and the decision layer acquires a cost structure. Those four
+changes are the substance of this project.
+
+\subsection{Why this is stronger than a plain A/B test analysis}
+
+An A/B test answers ``did the offer work \emph{on average}?''. That is a single number for the
+whole population and it is frequently near zero even when the offer works very well on a subgroup
+and backfires on another. Uplift modeling is the conditional version of the same question, and the
+conditional version is the one that can be acted on: it produces a \emph{policy}, not a verdict.
+
+\section{Problem Statement}
+
+\subsection{Formal statement}
+
+For each customer $i$ with covariates $X_i$, let $T_i \in \{0,1\}$ denote treatment (contacted or
+not) and let $Y_i(1)$ and $Y_i(0)$ be the potential outcomes under treatment and under control.
+The individual treatment effect is $\tau_i = Y_i(1) - Y_i(0)$. The estimand is the conditional
+average treatment effect
+\[
+\tau(x) = \mathbb{E}\!\left[Y(1) - Y(0) \mid X = x\right].
+\]
+The observed outcome is $Y_i = T_i\,Y_i(1) + (1 - T_i)\,Y_i(0)$.
+
+\subsection{The fundamental problem, stated plainly}
+\label{sec:fundamental}
+
+\begin{alertbox}
+For any given customer, exactly one of $Y_i(1)$ and $Y_i(0)$ is ever observed. The quantity the
+model is asked to predict, $\tau_i$, is therefore \textbf{never available as a training label for
+any single row in any dataset that has ever existed}. This is not a data-collection shortcoming
+that a better dataset would fix; it is the structure of the problem. Every consequence in this
+document --- the choice of estimators, the metric set, the need for confidence intervals, the
+holdout a deployment would need --- follows from this one sentence.
+\end{alertbox}
+
+What \emph{is} recoverable is the effect for a \emph{group}. If treatment was assigned at random,
+then within any group defined by pre-treatment covariates, the treated and untreated members are
+exchangeable, and the difference in their average outcomes is an unbiased estimate of the group's
+average treatment effect. Uplift modeling is the discipline of forming those groups well.
+
+\subsection{The four customer segments}
+
+The population partitions conceptually into four types, and two of them cost money when targeted.
+The names below are the standard ones in the causal-targeting literature.
+
+\begin{tabularx}{\textwidth}{@{}L{3.0cm}L{2.6cm}L{2.6cm}X@{}}
+\toprule
+\textbf{Segment} & \textbf{If treated} & \textbf{If not treated} & \textbf{Targeting implication} \\
+\midrule
+Persuadables & Converts & Does not convert & \textbf{The only group worth spending on.} Positive uplift. \\
+Sure Things & Converts & Converts & Zero uplift. Every unit of budget here is a discount given
+to someone who needed no discount. \\
+Lost Causes & Does not convert & Does not convert & Zero uplift. Wasted contact. \\
+Sleeping Dogs & Does not convert & Converts & \textbf{Negative uplift.} Contacting them destroys
+value that would otherwise have existed. \\
+\bottomrule
+\end{tabularx}
+
+\srcnote{the four-segment framing (persuadables, sure things, lost causes, sleeping dogs) is the
+standard formulation used in the unit-selection literature; see Li \& Pearl, \emph{Unit Selection
+Based on Counterfactual Logic}, IJCAI-19, as referenced in the CausalML documentation.}
+
+A response model cannot distinguish Persuadables from Sure Things, because both convert when
+treated and the response model only ever sees treated conversions. This single confusion is the
+reason response-model-driven campaigns overspend, and it is the clearest one-sentence justification
+for the project.
+
+\subsection{Why this is harder than it sounds}
+
+\begin{enumerate}
+\item \textbf{The signal is small relative to the outcome.} Conversion probability might be
+driven by strong, obvious features. The \emph{change} in conversion probability caused by an email
+is typically a fraction of a percentage point. Any method that estimates uplift by subtracting two
+separately-fitted outcome models is subtracting two large, noisy numbers to recover a small one.
+\item \textbf{There is no per-row validation.} A model cannot be checked one customer at a time.
+Validation is necessarily population-level and therefore statistical, which is why
+Section~\ref{sec:significance} exists.
+\item \textbf{Treatment groups are usually unbalanced.} In the primary dataset of this project the
+treated share is 85\%, leaving a comparatively thin control group that carries the entire
+counterfactual estimate.
+\item \textbf{The metric can be overfitted.} Selecting hyperparameters by maximising a Qini score
+on the same data used to report it produces exactly the kind of inflated result this project exists
+to argue against.
+\end{enumerate}
+
+\section{Final Recommended Product}
+
+\subsection{The scope decision, stated directly}
+
+\begin{keybox}
+NetLift's MVP is \textbf{single-treatment, binary-outcome uplift modeling on randomized
+experimental data, with a budget-constrained decision layer and a deployed scoring service}.
+Multi-treatment optimisation, revenue (continuous-outcome) uplift, and deep causal architectures
+are Advanced tier. Observational (non-randomized) causal inference is explicitly out of scope for
+the semester, for the reason given in Section~\ref{sec:assumptions}.
+\end{keybox}
+
+\subsection{MVP --- must be complete and evaluated before anything else starts}
+
+\begin{itemize}
+\item Validated ingestion of Criteo-UPLIFT and Hillstrom, including a randomization-integrity
+check (Section~\ref{sec:balance}).
+\item Three mandatory baselines: random targeting, blanket targeting, and a response model.
+\item T-learner and X-learner uplift estimators over gradient-boosted trees.
+\item Evaluation harness: Qini curve, Qini coefficient, AUUC, uplift@$k$, cumulative-gain curves,
+each with bootstrap confidence intervals.
+\item Decision layer: budget-constrained top-$k$ targeting with negative-uplift suppression and an
+explicit ``insufficient evidence'' outcome.
+\item MLflow experiment tracking; reproducible runs from a config file.
+\item FastAPI scoring service, Dockerised; Streamlit dashboard; test suite.
+\end{itemize}
+
+\subsection{Advanced --- only after the MVP is complete and evaluated}
+
+\begin{itemize}
+\item Uplift Random Forest with KL / Euclidean / $\chi^2$ split criteria as a model-class challenger.
+\item A shared-representation neural estimator (TARNet / Dragonnet family) as the deep-learning
+component (Section~\ref{sec:deep}).
+\item Multi-treatment uplift on Hillstrom's two email arms.
+\item Revenue uplift on Hillstrom's continuous \texttt{spend} outcome.
+\item Azure ML managed endpoint deployment and drift monitoring.
+\end{itemize}
+
+\subsection{Future product --- roadmap, not this semester}
+
+\begin{itemize}
+\item Observational uplift with propensity modelling and sensitivity analysis for unmeasured
+confounding.
+\item Continuous / dose-response treatment (how large a discount, not whether to discount).
+\item Online policy learning with a permanently maintained randomized holdout.
+\item Budget allocation across multiple simultaneous campaigns.
+\end{itemize}
+% ============================ PART II ============================
+\part{System Design}
+
+\section{Complete System Workflow}
+
+{\footnotesize
+\begin{verbatim}
+   RANDOMIZED EXPERIMENT DATA  (features X, treatment T, outcome Y)
+              |
+              v
+   [1] INGESTION + SCHEMA CONTRACT
+              |
+              v
+   [2] RANDOMIZATION INTEGRITY CHECK      -- fails? stop. do not model. (S 16)
+       standardized mean differences, treated vs control, per covariate
+              |
+              v
+   [3] LEAKAGE AUDIT                      -- post-treatment features removed (S 15)
+              |
+              v
+   [4] STRATIFIED SPLIT on (treatment x outcome) jointly     (S 14)
+       train / validation / LOCKED test
+              |
+              v
+   [5] BASELINES FIRST                    -- random, blanket, response model (S 8)
+              |
+              v
+   [6] UPLIFT ESTIMATORS                  -- T-learner, X-learner, uplift forest (S 7)
+              |
+              v
+   [7] EVALUATION HARNESS                 -- Qini / AUUC / uplift@k + bootstrap CI
+              |                              (S 20, S 21)
+              v
+   [8] DECISION LAYER                     -- budget, cost, margin -> policy   (S 10)
+       negative-uplift suppression | abstention when CI straddles zero
+              |
+              v
+   [9] SERVING                            -- FastAPI: batch scoring + single scoring
+              |                              MLflow registry, Docker, Azure
+              v
+  [10] DASHBOARD                          -- Qini curves, segment profile, ROI simulator
+              |
+              v
+  [11] SIMULATED CAMPAIGN REPLAY          -- decide on a held-out slice without
+       over the held-out test split           reading outcomes, then reveal and
+                                              measure what the decision produced (S 14)
+\end{verbatim}}
+
+The order of blocks 2--5 is not stylistic. Each is a gate: a failure at block~2 invalidates
+everything downstream, and a model trained before block~5 exists has nothing to be compared
+against and therefore no defensible claim attached to it.
+
+\section{Causal Framing and Assumptions}
+\label{sec:assumptions}
+
+Uplift estimates are only meaningful under stated assumptions. Naming them is not academic
+decoration --- it is the difference between a project that can defend its numbers and one that
+cannot.
+
+\begin{tabularx}{\textwidth}{@{}L{4.0cm}X@{}}
+\toprule
+\textbf{Assumption} & \textbf{Status in this project} \\
+\midrule
+\textbf{Unconfoundedness} \newline $\{Y(1),Y(0)\} \perp T \mid X$ &
+\textbf{Holds by construction.} Both datasets come from randomized experiments, so treatment
+assignment is independent of potential outcomes by design. This is the entire reason for choosing
+experimental rather than observational data, and it is what makes the semester feasible. \\
+\textbf{Overlap / positivity} \newline $0 < P(T{=}1\mid X) < 1$ &
+Holds under randomization, but must still be \emph{verified empirically} in the primary dataset,
+because a treated share of 85\% means some covariate regions may contain very few control rows. \\
+\textbf{SUTVA} (no interference; one version of treatment) &
+Assumed. Worth stating aloud that in a real deployment it can fail --- a customer who receives an
+offer may tell a friend who did not. Not testable here; declared as a limitation. \\
+\textbf{No post-treatment features} &
+Enforced by the audit in Section~\ref{sec:leakage}. This is the assumption most likely to be
+violated by accident. \\
+\bottomrule
+\end{tabularx}
+
+\begin{alertbox}
+\textbf{Why observational uplift is out of scope.} Dropping the randomization assumption means
+the team must additionally estimate propensity scores, defend the absence of unmeasured
+confounders, and run sensitivity analyses --- and, critically, must do all of that with no way of
+checking whether it worked, because there is no ground-truth effect to compare against. That is a
+research programme, not a semester deliverable. Choosing randomized data is not the easy option
+being taken to avoid difficulty; it is the option that makes the results \emph{verifiable}. Say it
+in exactly those terms in the defence.
+\end{alertbox}
+
+\section{Treatment Compliance: What Is Actually Being Estimated}
+\label{sec:itt}
+
+\begin{alertbox}
+\textbf{Correction, 1 October 2026.} An earlier version of this section stated that neither dataset
+provides an exposure indicator, and built the case for intention-to-treat estimation on that claim.
+\textbf{The claim was false.} Criteo-UPLIFT carries an \texttt{exposure} column. It was found
+independently in two tasks during dataset verification, and confirmed against the file header. The
+section below is rewritten around what the data actually contains. The conclusion --- that the MVP
+reports ITT --- survives, but it now rests on a reason that is true.
+\end{alertbox}
+
+\begin{alertbox}
+\textbf{Assigned treatment and received treatment are not the same thing.} An email is sent; it
+lands in a spam folder, or is never opened. An advertisement is served; the user never looks at it.
+A customer assigned to control encounters the same offer through another channel. In every one of
+these cases the customer is recorded as treated while receiving nothing, or as control while
+effectively being treated.
+\end{alertbox}
+
+\subsection{What each dataset actually supports}
+
+\begin{tabularx}{\textwidth}{@{}L{4.6cm}X@{}}
+\toprule
+\textbf{Estimand} & \textbf{What it means here} \\
+\midrule
+\textbf{Intention-to-Treat (ITT)} & The effect of \emph{being assigned} to the campaign. Both
+datasets support it, and it is the quantity a marketing team actually controls --- they decide who
+to send to, not who opens. This is what the MVP reports. \\
+Treatment-on-the-Treated & The effect on those who genuinely received the intervention. Larger than
+ITT whenever compliance is imperfect. \textbf{Not identifiable in Hillstrom}, which carries no
+exposure indicator. \textbf{Identifiable in Criteo} under the assumptions set out below, because
+Criteo carries an \texttt{exposure} column. \\
+Contamination & Control-group members reached through another channel. Biases the estimate
+\emph{downwards}, making the intervention look weaker than it is. Not detectable in either dataset. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{The Criteo exposure column}
+
+Measured from the file during dataset verification:
+
+\begin{tabularx}{\textwidth}{@{}L{7.2cm}X@{}}
+\toprule
+\textbf{Quantity} & \textbf{Value} \\
+\midrule
+Rows with \texttt{exposure}~$=1$ & 428{,}212 \\
+Rows with \texttt{exposure}~$=0$ & 13{,}551{,}380 \\
+Control rows with \texttt{exposure}~$=1$ & none \\
+Treated rows & 11{,}882{,}653 \\
+Compliance, $P(\text{exposed} \mid \text{treated})$ & $\approx 3.60\%$ \emph{(derived)} \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+Two properties follow, and both matter.
+
+\textbf{\texttt{exposure} is post-treatment.} It is a consequence of assignment, not a
+characteristic of the customer. It belongs on the forbidden-column list and must never enter the
+feature matrix (Section~\ref{sec:leakage}). A model given this column would
+learn that exposed users convert more often, which is an association produced by the treatment
+itself, not a basis for deciding whom to target.
+
+\textbf{Non-compliance is one-sided.} No control row is exposed, so $P(\text{exposed} \mid
+\text{control}) = 0$. In instrumental-variable terms there are no defiers and the monotonicity
+condition holds \emph{by construction} --- normally the hardest condition to defend, here free.
+
+This matters for knowing which assumption to argue about. Monotonicity is not the load-bearing one.
+The exclusion restriction is, and it is stated and examined below.
+
+\subsection{What that makes estimable, and at what price}
+
+With assignment as the instrument and exposure as the treatment actually received, the
+treatment-on-the-treated effect among compliers is the Wald ratio:
+
+\[
+\widehat{\text{ToT}} \;=\; \frac{\widehat{\text{ITT}}}{P(\text{exposed} \mid \text{treated})}
+\;\approx\; \frac{\widehat{\text{ITT}}}{0.036} \;\approx\; 28 \times \widehat{\text{ITT}}
+\]
+
+This identifies the effect on compliers only --- users who were exposed because they were assigned
+--- and it requires the \textbf{exclusion restriction}: that assignment affects conversion
+\emph{only} through exposure. Being eligible for targeting but never shown the advertisement must
+have no effect of its own.
+
+\begin{alertbox}
+\textbf{Expect this estimate to come out implausibly large, and treat that as the result.} Using the
+measured ITT on conversion --- $0.3089\%$ treated against $0.1938\%$ control, a difference of
+$0.1151$ percentage points --- the Wald ratio gives roughly $3.2$ percentage points among compliers,
+against a control base rate of $0.1938\%$. That is a relative lift of about sixteen-fold
+\emph{(derived, not measured)}.
+
+No display-advertising campaign moves conversion by that much. A number that size is not a finding
+about advertising; it is evidence that an assumption is carrying weight it cannot bear --- most
+likely the exclusion restriction, since a user eligible for this campaign is plausibly reached by
+other advertising in the same ecosystem.
+
+Reporting the ratio, observing that it is not credible, and naming the assumption it breaks is worth
+considerably more in the defence than reporting ITT alone. It demonstrates that the team can read
+its own estimator rather than only run it.
+\end{alertbox}
+
+\subsection{Decision}
+
+\begin{tabularx}{\textwidth}{@{}L{3.2cm}X@{}}
+\toprule
+\textbf{Tier} & \textbf{What is done} \\
+\midrule
+MVP & ITT only, on both datasets. The targeting decision is an assignment decision, so ITT is the
+quantity the product actually optimises. \\
+Advanced & The Wald estimate on Criteo, reported beside ITT, with the compliance rate, the exclusion
+restriction stated explicitly, and the implausibility of the result discussed rather than hidden. \\
+Never & Three things, and the second is the one a team actually does by accident.
+\textbf{(a)} \texttt{exposure} as a model feature.
+\textbf{(b)} \texttt{exposure} substituted for \texttt{treatment} as the treatment variable in an
+uplift model --- this looks like an obvious upgrade and is the single worst move available, because
+exposure among the treated is self-selected, so it throws away the randomization the whole project
+rests on.
+\textbf{(c)} A direct comparison of exposed users against control, which is confounded by exactly
+the selection the experiment was designed to remove. \\
+\bottomrule
+\end{tabularx}
+
+\begin{keybox}
+\textbf{The sentence to use:} ``We report the intention-to-treat effect --- the effect of being
+selected for the campaign --- because that is the decision the product actually makes. Criteo also
+carries an exposure indicator, and compliance is about 3.6\%, so we additionally report the
+treatment-on-the-treated effect as a Wald ratio. It comes out implausibly large, which tells us the
+exclusion restriction does not hold here, and we report that rather than the number.'' Saying this
+before being asked is worth more than any modelling choice in the document, because it demonstrates
+that the team knows what its own numbers mean.
+\end{keybox}
+
+\section{Modeling Approaches}
+\label{sec:models}
+
+\subsection{The candidate families}
+
+\begin{longtable}{@{}L{2.7cm}L{4.5cm}L{4.3cm}L{2.9cm}@{}}
+\toprule
+\textbf{Approach} & \textbf{How it works} & \textbf{Principal weakness} & \textbf{Verdict here} \\
+\midrule
+\endhead
+S-learner \newline (single model) &
+One model $\mu(x,t)$ trained on all data with treatment as an input feature; uplift is
+$\mu(x,1)-\mu(x,0)$. &
+When the treatment effect is small, regularisation can shrink the treatment feature's influence
+toward zero and the model predicts near-constant uplift. With a 0.29\% conversion rate this is a
+realistic failure, not a theoretical one. &
+Include as a \emph{diagnostic} baseline; expect it to underperform and report why. \\
+\addlinespace
+T-learner \newline (two models) &
+Separate models $\mu_1(x)$ on treated and $\mu_0(x)$ on control; uplift is $\mu_1(x)-\mu_0(x)$. &
+Subtracts two independently-fitted, individually-noisy estimates; the variance of the difference
+can exceed the effect being estimated. The control model is fitted on the smaller group and is
+therefore the weaker of the two. &
+\textbf{Primary MVP baseline.} Simple, transparent, and the honest thing to beat. \\
+\addlinespace
+X-learner &
+Uses each group's model to impute the missing counterfactual for the other group, fits effect
+models on the imputed effects, and combines them weighted by the propensity score. &
+More moving parts; more places to leak if cross-fitting is implemented carelessly. &
+\textbf{Primary candidate.} Specifically designed for the unbalanced-group case, which is exactly
+this dataset (Section~\ref{sec:whyx}). \\
+\addlinespace
+R-learner &
+Orthogonalises outcome and treatment against $X$ and minimises the R-loss. &
+Requires good nuisance estimates and careful cross-fitting; more sensitive to implementation
+error. &
+Advanced tier, if time allows. \\
+\addlinespace
+DR-learner &
+Cross-fits a doubly-robust score across data partitions, so the estimate stays consistent if
+\emph{either} the outcome model or the propensity model is correct. &
+Three-way cross-fitting costs sample efficiency and is easy to implement wrongly. &
+Advanced tier, alongside the R-learner. \\
+\addlinespace
+Class transformation &
+Relabels the target so that a standard classifier's output maps onto uplift. &
+The simple form is only valid when treatment and control are balanced; the naive version applied
+to an 85/15 split is \textbf{wrong} (Section~\ref{sec:ct-trap}). &
+Only in its propensity-weighted form, and only with the trap documented. \\
+\addlinespace
+Uplift trees / \newline Uplift Random Forest &
+Trees split directly on a divergence between treated and control outcome distributions (KL,
+Euclidean, $\chi^2$) rather than on outcome purity. &
+Fewer well-tuned implementations; can be slow at 14M rows and may need subsampling. &
+\textbf{Advanced-tier challenger.} A genuinely different model class, not a re-tuned version of
+the same one. \\
+\addlinespace
+Causal forest &
+Recursive partitioning with honest estimation, producing valid confidence intervals for the effect. &
+Heavier; the honest-splitting sample cost bites on smaller data. &
+Advanced tier; valuable precisely because of the interval estimates. \\
+\bottomrule
+\end{longtable}
+
+\srcnote{the meta-learner family (S/T/X) follows K\"unzel, Sekhon, Bickel \& Yu, \emph{Metalearners
+for estimating heterogeneous treatment effects using machine learning}, PNAS 116(10), 2019; the
+R-learner follows Nie \& Wager, \emph{Quasi-oracle estimation of heterogeneous treatment effects};
+uplift trees with KL / Euclidean / $\chi^2$ split criteria and causal trees/forests (Athey \&
+Imbens, PNAS 113(27), 2016) are as documented in the CausalML methodology reference.}
+
+\subsection{Why the X-learner is the primary candidate here}
+\label{sec:whyx}
+
+\begin{keybox}
+The published treatment ratio of Criteo-UPLIFT is \textbf{0.85}. The control group is therefore
+roughly one-sixth the size of the treated group, and it is the control group that carries the
+entire counterfactual. A T-learner fits its control model on that thin slice and then subtracts it
+from a much better-estimated treated model --- so the noise in the smaller model dominates the
+difference. The X-learner was constructed for precisely this asymmetry: it borrows strength from
+the larger group when imputing effects for the smaller one, and weights the two resulting effect
+models by the propensity score. That is a problem-driven model choice, which is the kind of
+justification a defence panel is actually looking for.
+\end{keybox}
+
+\subsection{The class-transformation trap}
+\label{sec:ct-trap}
+
+\begin{alertbox}
+The class-transformation method defines a transformed target $Z = 1$ when a customer is
+(treated \emph{and} converted) or (control \emph{and} did not convert), and $Z = 0$ otherwise.
+A standard classifier trained on $Z$ then yields uplift as $2\,P(Z{=}1\mid X) - 1$. That identity
+holds \textbf{only when treatment is assigned with probability $1/2$}. Applying it directly to a
+dataset with a treated share of 0.85 produces a systematically distorted uplift score that will
+still yield a plausible-looking Qini curve --- which is what makes the error dangerous rather than
+obvious. If the method is used at all, it must be the propensity-weighted variant. Documenting this
+trap, and showing the biased-versus-corrected curves side by side, is a stronger result than
+quietly using the correct version.
+\end{alertbox}
+
+\subsection{Final recommendation}
+
+\begin{enumerate}
+\item \textbf{Baselines (mandatory, first):} random targeting; blanket targeting; response model.
+\item \textbf{MVP estimators:} T-learner and X-learner, both over LightGBM or XGBoost base learners.
+\item \textbf{Advanced challengers:} Uplift Random Forest; a shared-representation neural model;
+optionally causal forest for interval estimates.
+\item \textbf{Champion selection:} by Qini coefficient on the \emph{validation} split with bootstrap
+intervals, confirmed once on the locked test split, and reported with the interval, never as a bare
+point estimate.
+\end{enumerate}
+
+\section{The Deep Learning Component}
+\label{sec:deep}
+
+The track requires deep learning. Bolting an arbitrary neural network onto a tabular problem to
+satisfy that requirement is exactly the kind of decision this document is written to prevent. There
+is, however, a neural architecture family that exists \emph{because of} this problem and is
+therefore a legitimate fit.
+
+A shared-representation network learns a common encoding $\Phi(x)$ of the covariates and then
+branches into two outcome heads, one for the treated response and one for the control response, so
+that both heads share statistical strength in the encoder while remaining separate where they must
+be. The Dragonnet variant adds a third head that predicts the propensity score, on the argument
+that a representation sufficient for the propensity score is sufficient for the treatment-effect
+estimate.
+
+\srcnote{Shi, Blei \& Veitch, \emph{Adapting Neural Networks for the Estimation of Treatment
+Effects}, NeurIPS 32, 2019 --- the Dragonnet architecture and targeted regularisation.}
+
+\begin{keybox}
+\textbf{The honest framing for the defence.} The neural estimator is included as a \emph{challenger,
+not a favourite}. On tabular data of this kind, gradient-boosted trees are a strong opponent and may
+well win. Reporting that they did --- with the comparison run properly --- is a better outcome than
+a rigged comparison where the neural model wins because the baseline was undertrained. The
+deliverable here is the comparison, not a particular winner.
+\end{keybox}
+
+\section{Baselines That Must Exist Before Any Uplift Model}
+\label{sec:baselines}
+
+\begin{tabularx}{\textwidth}{@{}L{3.4cm}L{4.4cm}X@{}}
+\toprule
+\textbf{Baseline} & \textbf{Definition} & \textbf{Why it is required} \\
+\midrule
+Random targeting & Select $k$ customers uniformly at random. & The zero line of every Qini curve.
+Without it the word ``uplift'' has no referent. \\
+Blanket targeting & Contact everyone. & Represents the do-nothing-clever policy the business may
+currently run; establishes the total available effect and the total cost. \\
+Response model & Classifier for $P(Y{=}1 \mid X, T{=}1)$, ranked descending. & \textbf{The single
+most important comparison in the project.} This is what the company would build instead. If uplift
+targeting cannot beat it on incremental conversions at fixed budget, the project's central claim
+fails --- and reporting that honestly is still a valid, defensible result. \\
+Churn/propensity model & Optional, dataset-dependent. & Included where the outcome is retention
+rather than conversion, for the same reason as the response model. \\
+\bottomrule
+\end{tabularx}
+
+\begin{alertbox}
+\textbf{Run the uplift-versus-response-model comparison by the analysis and design milestone
+(Week~12), not at the end.} It is the experiment that tests the project's core hypothesis. If it
+comes out negative in Week~19 there is no time left to investigate why, and the team is left
+presenting a system whose premise it cannot support. If it comes out negative in Week~12, the
+investigation \emph{becomes} the project's most interesting section.
+\end{alertbox}
+
+\section{Uplift Score to Decision: The Targeting Policy}
+\label{sec:decision}
+
+A ranked score is not a decision. The decision layer converts $\hat\tau(x)$ into an action under a
+cost structure.
+
+\subsection{The economics}
+
+Let $m$ be the margin realised on a conversion and $c$ the cost of contacting one customer. The
+expected incremental profit of contacting a customer with estimated uplift $\hat\tau(x)$ is
+\[
+\pi(x) \;=\; m\,\hat\tau(x) \;-\; c .
+\]
+Contact is worthwhile when $\hat\tau(x) > c/m$. Note what this threshold is not: it is not
+``uplift $> 0$''. A customer with a genuinely positive but tiny uplift is still a loss when the
+contact cost exceeds the expected margin gained. The break-even ratio $c/m$ is a business input to
+the system, not a modelling choice, and the dashboard must expose it as a slider.
+
+\subsection{Policy modes}
+
+\begin{tabularx}{\textwidth}{@{}L{3.6cm}X@{}}
+\toprule
+\textbf{Mode} & \textbf{Rule} \\
+\midrule
+Fixed budget & Contact the top $k$ by $\hat\tau(x)$, where $k$ is set by the budget divided by
+$c$; suppress any selected customer whose $\hat\tau(x) \le 0$ even if it leaves budget unspent. \\
+Profit-maximising & Contact every customer with $\hat\tau(x) > c/m$; budget becomes an output
+rather than an input. \\
+Fixed target & Contact the smallest set expected to deliver $N$ incremental conversions;
+reports the budget required and the uncertainty on it. \\
+Suppression-only & Contact everyone \emph{except} negative-uplift customers. A deliberately
+conservative mode, useful when a business will not accept reducing contact volume but will accept
+protecting revenue. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Negative uplift and the sleeping-dog rule}
+
+\begin{keybox}
+Any customer whose estimated uplift is negative \emph{and} whose confidence interval lies entirely
+below zero is placed on a suppression list and is never contacted by the policy, regardless of
+remaining budget. This rule is not an optimisation. It is the one behaviour of the system that a
+conventional campaign engine cannot express at all, and it is the clearest demonstration in the
+whole project that the model is estimating an effect rather than a probability.
+\end{keybox}
+
+\section{Uncertainty and Abstention}
+\label{sec:abstention}
+
+Every prior specification in this series required an abstention path, and it is more important here
+than in any of them, because the effect being estimated is small enough to be indistinguishable
+from noise in thin segments.
+
+\begin{itemize}
+\item Every reported uplift figure --- for a customer, a decile, or a policy --- carries a bootstrap
+confidence interval computed by resampling within treatment arms.
+\item Where a segment's interval straddles zero, the system returns
+\texttt{verdict = "insufficient\_evidence"} rather than a directional recommendation. It does not
+round the estimate to a decision.
+\item Where a segment contains fewer than a configured minimum number of \emph{control-group
+outcome events}, the system returns \texttt{verdict = "insufficient\_control\_data"}. This threshold
+is a configuration value, defended in the documentation, and logged with every response.
+\item The dashboard renders these two states visually distinct from a positive or negative verdict.
+An empty recommendation must look different from a confident one.
+\end{itemize}
+
+\begin{alertbox}
+The reason this matters more than it looks: the top decile of a 14M-row dataset still contains
+only a few hundred control-group conversions (Section~\ref{sec:thin}). A point estimate computed
+from a few hundred events, reported without an interval, is the most likely single source of a
+false claim in this entire project.
+\end{alertbox}
+
+\section{Model Output Schema}
+\label{sec:schema}
+
+Frozen early, and treated as a contract between the modelling members and the backend member.
+
+{\footnotesize
+\begin{verbatim}
+{
+  "customer_id": "c_00193472",
+  "model_version": "netlift-xlearner-2026.11.03",
+  "uplift_score": 0.0041,
+  "uplift_ci_95": [0.0009, 0.0074],
+  "decile": 1,
+  "segment_label": "persuadable",       // persuadable | sure_thing |
+                                        // lost_cause | sleeping_dog | unknown
+  "expected_incremental_profit": 1.87,  // m * uplift - c, in currency units
+  "recommendation": "contact",          // contact | suppress | no_action
+  "verdict": "confident",               // confident | insufficient_evidence |
+                                        //             insufficient_control_data
+  "top_drivers": [
+      {"feature": "f3",  "contribution":  0.0012},
+      {"feature": "f7",  "contribution": -0.0005}
+  ],
+  "scored_at": "2026-11-03T14:22:10Z"
+}
+\end{verbatim}}
+
+Two design notes. First, \texttt{segment\_label} is a derived, presentational field and must never
+be treated as ground truth --- no dataset labels customers as persuadables, and the label is an
+inference from the estimated effect plus the predicted baseline conversion probability. Second,
+\texttt{recommendation} and \texttt{verdict} are separate fields on purpose: a system that collapses
+``do not contact'' and ``we do not know'' into one value has thrown away the distinction the
+abstention logic exists to preserve.
+
+\section{Campaign Policy Simulator}
+\label{sec:simulator}
+
+The single component that makes this project legible to a non-technical evaluator in ten seconds.
+
+Given a held-out randomized test set, a per-contact cost, a margin, and a budget, the simulator
+replays each candidate policy over the test set and reports, for each: number contacted, total
+cost, incremental conversions with a confidence interval, incremental profit, and the profit
+per unit spent. The output is one table and one chart in which the uplift policy, the response
+model, blanket contact and random contact appear side by side.
+
+\begin{goodbox}
+This is the artefact to open the final presentation with, and the one to put at the top of the
+README. It converts a Qini coefficient --- which means nothing outside the field --- into a
+currency figure with an error bar, which means something to everyone.
+\end{goodbox}
+
+\subsection{How to state the simulator's output without overclaiming}
+\label{sec:honest-claims}
+
+\begin{alertbox}
+The simulator produces an \emph{estimated} incremental profit under \emph{assumed} cost and margin
+inputs, computed over held-out experimental data. It is not realised money. The difference is small
+in wording and large in credibility, and it is the fastest way for an otherwise strong project to
+lose an examiner's trust.
+\end{alertbox}
+
+\begin{tabularx}{\textwidth}{@{}L{7.0cm}L{7.6cm}@{}}
+\toprule
+\textbf{Do not write} & \textbf{Write instead} \\
+\midrule
+``Saved the company \$500{,}000.'' & ``Estimated a \$500{,}000 incremental-profit opportunity at the
+stated contact cost and margin, measured on held-out experimental data.'' \\
+``Improved retention by 12\%.'' & ``Produced 12\% more incremental conversions than the response-model
+baseline at an equal budget (95\% CI: 6\%--18\%).'' \\
+``Our model is 94\% accurate.'' & ``Accuracy is undefined for this target; Qini coefficient 0.31
+(95\% CI: 0.24--0.38) on the locked test split.'' \\
+``Identified the sleeping dogs.'' & ``Estimated a confidently negative treatment effect for this
+subgroup; no dataset labels individuals as such.'' \\
+\bottomrule
+\end{tabularx}
+
+The right-hand column is longer and it is what a senior reviewer reads as competence rather than
+hedging. Apply the same rule in the final report, the presentation, the README and any CV line
+derived from this project.
+% ============================ PART III ============================
+\section{Simulated Campaign Replay}
+\label{sec:lifecycle}
+
+\begin{alertbox}
+\textbf{Read this before the rest of the section, because the honest framing matters more than the
+design.} Criteo-UPLIFT and Hillstrom are \textbf{fixed historical datasets}. There is no live
+audience to score, no target list that will be handed to a campaign system, and no outcome window
+that will close while the team waits. Every outcome in both datasets was recorded years ago and is
+already in the file.
+
+What this project builds is therefore a \textbf{simulated campaign replay}: a slice of the
+held-out test split is treated as ``next month's campaign'', the system makes its decisions on it
+without looking at the outcomes, and the outcomes are then revealed and compared against what was
+predicted. That is a real and measurable exercise --- it is simply not a live campaign, and this
+document does not claim it is. Section~\ref{sec:deployment-gap} states separately what a genuine
+deployment would additionally require.
+\end{alertbox}
+
+\subsection{Why the replay is worth building anyway}
+
+A project that stops at ``here is a Qini curve'' has never tested whether its scores translate into
+a decision that would have paid off. The replay does exactly that, end to end, and it is possible
+precisely \emph{because} the data is historical: the counterfactual outcomes are already recorded,
+so the comparison can be made immediately instead of after a waiting period.
+
+\subsection{The replay loop}
+
+{\footnotesize
+\begin{verbatim}
+  [1] DEFINE THE SCENARIO   offer cost per contact, margin, budget, and the slice of
+            |               the held-out test split that stands in for the audience
+            v
+  [2] SCORE                 champion model scores that slice -> uplift + interval
+            |               (outcomes are NOT read at this stage)
+            v
+  [3] ALLOCATE              decision layer selects targets under the budget;
+            |               suppresses confidently negative uplift; abstains where thin
+            v
+  [4] HOLD OUT              a randomized slice of the SELECTED targets is marked
+            |               as not-contacted -- this is what makes step [6] possible
+            v
+  [5] REVEAL OUTCOMES       the recorded outcomes for that slice are now read
+            |
+            v
+  [6] MEASURE               measured incremental effect = treated rate - holdout rate,
+            |               with a bootstrap confidence interval
+            v
+  [7] COMPARE               predicted incremental conversions vs measured, plus the
+            |               same comparison for the response-model and random policies
+            v
+  [8] RECORD                calibration record; the whole run is logged to MLflow
+\end{verbatim}}
+
+\begin{keybox}
+\textbf{The one discipline that makes the replay honest:} steps [1]--[4] must not touch the outcome
+column. Implement it so that they cannot --- the scoring and allocation functions receive a frame
+without the outcome column at all, and a test asserts that. If the allocation can see the answers,
+the replay proves nothing.
+\end{keybox}
+
+\subsection{What the replay produces}
+
+For each scenario, one table: predicted incremental conversions against measured incremental
+conversions, each with an interval, for the uplift policy, the response-model policy, blanket
+contact and random contact at an identical budget.
+
+\begin{goodbox}
+This is the strongest single artefact the project can put in front of an evaluator, and a Qini
+coefficient alone cannot produce it: it answers ``would this decision have paid off?'' rather than
+``is the ranking good?''. It costs about a day to build on top of the evaluation harness that
+already has to exist.
+\end{goodbox}
+
+\subsection{Where this shows up in the workload}
+
+The replay adds: scenario and assignment records in the database and the ERD; holdout-selection
+logic; the outcome-reveal boundary and the test that enforces it; the measurement job; and the
+scenario state machine (\texttt{defined} $\to$ \texttt{scored} $\to$ \texttt{allocated} $\to$
+\texttt{revealed} $\to$ \texttt{measured}), which is also the state diagram the DEPI documentation
+asks for (Section~\ref{sec:depi-docs}).
+
+\section{What a Real Deployment Would Additionally Require}
+\label{sec:deployment-gap}
+
+\begin{keybox}
+\textbf{Nothing in this section is built or exercised this semester.} It is recorded because the
+difference between the replay above and a live system is a design question the team should be able
+to answer, and because it is the first question a technically strong examiner asks. Presenting it
+as project work would be dishonest; leaving it out would look like the team had not thought about it.
+\end{keybox}
+
+\begin{tabularx}{\textwidth}{@{}L{4.2cm}X@{}}
+\toprule
+\textbf{What changes} & \textbf{Why} \\
+\midrule
+A permanent randomized holdout & In production the counterfactual is not in a file --- it has to be
+manufactured, by permanently withholding contact from a small randomized share of the addressable
+base. Without it, incremental effect stops being measurable the moment the system goes live. \\
+A real outcome window & Conversions arrive days to weeks after the decision, so the true effect
+signal is delayed and only ever available in aggregate. Feature and score drift are immediate;
+effect drift is not. \\
+Treatment assignment as a record & Who was assigned to which arm, written at assignment time, is
+what makes a campaign auditable after the fact. \\
+A retraining rule that is not purely reactive & Because the true signal is slow, retraining combines
+a scheduled cadence with drift triggers rather than waiting for measured decay. \\
+Compliance and contamination handling & Assigned $\neq$ received once a real channel is involved
+(Section~\ref{sec:itt}). \\
+\bottomrule
+\end{tabularx}
+
+\begin{alertbox}
+\textbf{The sentence to use if asked.} ``Our data is historical, so we replay campaigns over a
+held-out split rather than running them. The replay measures the decision, not just the ranking. A
+live deployment would need a permanently maintained randomized holdout to keep that measurement
+possible, and we designed for that --- but we did not exercise it, because the data does not allow
+it.''
+\end{alertbox}
+
+
+\part{Data Strategy}
+
+\section{Dataset Strategy}
+\label{sec:datasets}
+
+\begin{keybox}
+Every figure in this section is taken from the dataset's own published documentation and is cited
+where it appears. Nothing here is recalled from memory. Figures that are arithmetic consequences of
+the published ones are labelled \emph{derived} and should be re-checked by the team against the
+downloaded files in Week~9--10, because a specification is not a substitute for opening the data.
+\end{keybox}
+
+\subsection{Criteo-UPLIFT --- the primary dataset}
+
+\begin{tabularx}{\textwidth}{@{}L{4.4cm}X@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Rows & 13{,}979{,}592 \\
+Features & 12, named \texttt{f0}--\texttt{f11}, all float, anonymised \\
+Treatment ratio & 0.85 \\
+Average visit rate & 0.046992 \\
+Average conversion rate & 0.00292 \\
+Targets available & \texttt{visit} (binary), \texttt{conversion} (binary) \\
+Design & Large-scale randomized advertising experiment \\
+\bottomrule
+\end{tabularx}
+
+\srcnote{dataset description as published in the \texttt{scikit-uplift} documentation for
+\texttt{fetch\_criteo}. The dataset was released with Diemert, Betlei, Renaudin \& Amini,
+\emph{A Large Scale Benchmark for Uplift Modeling}, AdKDD \& TargetAd Workshop, KDD 2018.}
+
+\textbf{What makes it the right primary choice:} it is a genuine randomized experiment at a scale
+where the statistical questions in this project become real rather than illustrative, and it is
+the standard public benchmark in the field, so the team's Qini numbers sit in a context others can
+recognise.
+
+\textbf{What makes it hard, and why that is the point:} the features are anonymised floats. There
+is no domain interpretation to lean on, no feature engineering shortcut, and no way to inspect
+whether a feature is post-treatment except by reasoning about the experiment's design. Everything
+the model achieves has to come from methodology.
+
+\subsection{Hillstrom MineThatData --- the second dataset}
+
+\begin{tabularx}{\textwidth}{@{}L{4.4cm}X@{}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Customers & 64{,}000, each having last purchased within twelve months \\
+Arms & Three, randomly assigned in equal thirds: Mens E-Mail, Womens E-Mail, No E-Mail (control) \\
+Features & \texttt{Recency}, \texttt{History\_Segment}, \texttt{History}, \texttt{Mens},
+\texttt{Womens}, \texttt{Zip\_Code} (Urban/Suburban/Rural), \texttt{Newbie}, \texttt{Channel} \\
+Outcomes (2 weeks after) & \texttt{Visit} (binary), \texttt{Conversion} (binary), \texttt{Spend}
+(continuous currency) \\
+\bottomrule
+\end{tabularx}
+
+\srcnote{variable list and the equal-thirds randomization as published by Kevin Hillstrom in the
+MineThatData E-Mail Analytics and Data Mining Challenge announcement
+(\texttt{blog.minethatdata.com}, March 2008), cross-checked against the \texttt{scikit-uplift}
+\texttt{fetch\_hillstrom} documentation.}
+
+\textbf{Its three distinct jobs in this project:}
+\begin{enumerate}
+\item \textbf{Pipeline sanity check.} It is small and its features are human-readable, so every
+component --- the balance check, the split, the Qini harness, the simulator --- can be developed
+and debugged here in seconds rather than minutes, before being pointed at 14M rows.
+\item \textbf{Multi-treatment.} It has \emph{two} distinct treatments. Pooling them into a single
+``emailed'' group estimates the average effect of two different interventions, which is a real
+methodological error with a clean demonstration (Section~\ref{sec:multiarm}).
+\item \textbf{Revenue uplift.} \texttt{Spend} gives a continuous outcome, so the Advanced tier can
+estimate uplift in currency rather than in probability --- which is what a business ultimately
+wants and what makes the simulator's profit figure directly estimable rather than derived through
+an assumed margin.
+\end{enumerate}
+
+\subsection{Comparison}
+
+\begin{tabularx}{\textwidth}{@{}L{3.4cm}XX@{}}
+\toprule
+& \textbf{Criteo-UPLIFT} & \textbf{Hillstrom} \\
+\midrule
+Scale & 13.98M rows & 64K rows \\
+Arms & 1 treatment, 1 control & 2 treatments, 1 control \\
+Balance & 85\% treated & Equal thirds \\
+Feature meaning & Anonymised & Interpretable \\
+Continuous outcome & No & Yes (\texttt{Spend}) \\
+Role & Primary result & Development, multi-arm, revenue uplift \\
+\bottomrule
+\end{tabularx}
+
+\section{The Central Data Challenge: A Thin Counterfactual}
+\label{sec:thin}
+
+\begin{alertbox}
+This section contains the number the team should keep in front of them for the whole semester.
+\end{alertbox}
+
+From the published figures, the arithmetic runs as follows. A treatment ratio of 0.85 over
+13{,}979{,}592 rows gives roughly \textbf{11.88M treated} and \textbf{2.10M control} rows. An
+average conversion rate of 0.00292 gives roughly \textbf{40{,}800 conversions in total}. If the
+control group converted at that same average rate it would contain about \textbf{6{,}100
+conversions} --- and because a positive treatment effect pulls the average above the control rate,
+the true control figure is somewhat lower still.
+
+\derived{treated $= 13{,}979{,}592 \times 0.85$; control $=$ remainder; conversions $=$ rows
+$\times\ 0.00292$.}
+
+Now divide the scored population into deciles. Each decile holds about 1.40M rows, of which roughly
+210{,}000 are control, containing on the order of \textbf{600 control conversions}.
+
+\begin{keybox}
+Every uplift number this project reports for a decile rests on a few hundred control-group events.
+That is why:
+\begin{itemize}
+\item confidence intervals are mandatory rather than a nice extra (Section~\ref{sec:significance});
+\item the train/validation/test split must be stratified jointly on treatment \emph{and} outcome
+(Section~\ref{sec:splitting}), or a fold can end up with too few control conversions to estimate
+anything;
+\item ``the model found a strong effect in the top decile'' is a claim that requires an interval
+before it is spoken aloud;
+\item \texttt{visit} (rate 0.046992, roughly sixteen times more frequent than conversion) is the
+sensible development target while the pipeline is being built, with \texttt{conversion} as the
+headline business target.
+\end{itemize}
+\end{keybox}
+
+\section{Leakage and Validity Audit}
+\label{sec:leakage}
+
+Data leakage in a causal project has a different shape from leakage in a classification project,
+and a team that only knows the classification version will miss it.
+
+\begin{tabularx}{\textwidth}{@{}L{4.0cm}X@{}}
+\toprule
+\textbf{Leakage type} & \textbf{Rule} \\
+\midrule
+Post-treatment features & Any feature that could have been affected by the treatment must be
+removed. Using a variable measured after the intervention to predict the effect of the intervention
+guarantees an inflated, meaningless result. In Criteo this cannot be checked by inspection because
+the features are anonymised, so the project relies on the dataset's stated design and records that
+reliance as an assumption. \\
+Outcome-as-feature & In Hillstrom, \texttt{Visit}, \texttt{Conversion} and \texttt{Spend} are all
+post-treatment outcomes. Using \texttt{Spend} or \texttt{Visit} as an input when the target is
+\texttt{Conversion} is leakage, not feature engineering --- and it is an easy mistake because they
+sit in the same table as the features. \\
+Treatment-indicator leakage & Outside the S-learner, where it is the design, the treatment flag must
+never enter the feature matrix. \\
+Criteo \texttt{exposure} & \textbf{Forbidden, both as a feature and as a treatment variable.} It is
+post-treatment: it records whether an assigned user was actually shown the advertisement
+(Section~\ref{sec:itt}). As a feature it leaks the treatment's own consequence. More dangerously,
+it must \emph{not} be substituted for \texttt{treatment} as the treatment variable in an uplift
+model: exposure among the treated is self-selected rather than randomized, so modelling uplift on
+it discards the randomization the entire project depends on. \texttt{validate\_features()} rejects
+this column by name. \\
+Preprocessing across the split & Scalers, encoders, imputers and target-encoded categoricals are
+fitted on the training fold only and applied to the others. \\
+Metric overfitting & Hyperparameters are selected on validation, never on the test split. The test
+split is written down as locked and is touched exactly once, at champion confirmation. \\
+Duplicate rows & Checked for and documented. Duplicates that straddle a split boundary inflate every
+metric. \\
+\bottomrule
+\end{tabularx}
+
+\begin{goodbox}
+Implement this as an automated check, not a habit: a \texttt{validate\_features()} function that
+fails the pipeline if a forbidden column reaches the model matrix, and a unit test that asserts it
+fails. A guarantee enforced by a test is worth more in a defence than a guarantee described in a
+document.
+\end{goodbox}
+
+\section{Splitting Strategy}
+\label{sec:splitting}
+
+\begin{keybox}
+\textbf{The rule: stratify jointly on (treatment, outcome).} A plain random split, and even a split
+stratified on the outcome alone, can produce a fold whose control arm contains too few conversions
+to estimate uplift at all. Joint stratification preserves both the treated/control proportion and
+the event rate within each arm in every fold. Verify it after splitting rather than trusting it:
+assert the four cell counts per fold and log them.
+\end{keybox}
+
+\begin{itemize}
+\item \textbf{Split ratio:} 60 / 20 / 20 train / validation / locked test, with a fixed seed
+recorded in configuration and logged to MLflow.
+\item \textbf{Cross-validation:} stratified $K$-fold on the same joint key, used for model selection
+inside the training split.
+\item \textbf{Cross-fitting:} the X- and R-learners require their nuisance models to be fitted
+out-of-fold. Implementing this incorrectly reintroduces exactly the bias the estimator exists to
+remove, and the error is invisible in the metrics. Use the library implementation rather than a
+hand-rolled loop, and write a test that checks fold membership.
+\item \textbf{No entity duplication.} Unlike the earlier projects in this series, neither dataset
+has repeated entities across rows, so group-based splitting is not required --- but this must be
+\emph{verified}, not assumed, by checking for duplicate feature vectors.
+\end{itemize}
+
+\section{Randomization Integrity Check}
+\label{sec:balance}
+
+Before a single model is trained, the project verifies that the experiment it depends on actually
+behaves like a randomized experiment.
+
+\begin{enumerate}
+\item For every covariate, compute the standardized mean difference between treated and control.
+\textbf{Criteo's \texttt{exposure} column is excluded from this check.} It is zero for every control
+row by construction, so its standardized mean difference is enormous by design. Including it would
+report a catastrophic randomization failure that is an artefact of the check, not a finding about
+the data. It is post-treatment and therefore not a covariate at all.
+\item Flag any covariate whose absolute SMD exceeds a pre-registered threshold (0.1 is the
+conventional choice; the threshold is recorded in config, not chosen after seeing the results).
+\item Fit a classifier that tries to predict the treatment flag from the covariates alone. Under
+correct randomization it should be unable to: an ROC--AUC materially above 0.5 indicates that
+treatment is predictable from covariates and the unconfoundedness assumption is in trouble.
+\item Verify overlap: check that control rows exist across the covariate space, not only in
+part of it.
+\item Record all of this as a dated report artefact, not as a notebook cell.
+\end{enumerate}
+
+\begin{goodbox}
+This costs half a day and is the highest-value half-day in the project. It is the step that lets
+the team answer ``how do you know your causal assumption holds?'' with evidence instead of with a
+citation. Almost no student project does it.
+\end{goodbox}
+
+\section{Multi-Treatment Handling}
+\label{sec:multiarm}
+
+\begin{alertbox}
+Hillstrom has two treatment arms, not one. Collapsing \emph{Mens E-Mail} and \emph{Womens E-Mail}
+into a single ``emailed'' group and comparing against control estimates the average effect of two
+different interventions on a mixed population --- a quantity that corresponds to no decision anyone
+can take. The correct options are: (a) analyse one arm at a time against the shared control, which
+is the MVP approach; or (b) model the arms jointly and select, per customer, the arm with the
+highest estimated uplift, which is the Advanced-tier approach and is the more interesting of the two.
+\end{alertbox}
+
+Option (b) is a genuine extension: it turns ``should we contact?'' into ``which offer should this
+customer receive?'', which is the form the question takes in every real marketing system.
+
+\section{Choosing the Outcome Variable}
+\label{sec:outcome}
+
+The outcome is a decision, not a given, and the wrong choice produces a technically correct system
+that optimises the wrong thing.
+
+\begin{tabularx}{\textwidth}{@{}L{3.2cm}X@{}}
+\toprule
+\textbf{Outcome} & \textbf{Trade-off} \\
+\midrule
+\texttt{visit} (Criteo) & Sixteen times more frequent than conversion, so estimates are far more
+stable. Weakly tied to money. \textbf{Use it to develop and debug}, and report it alongside the
+headline. \\
+\texttt{conversion} (both) & The headline business outcome, and the one with the thin-counterfactual
+problem of Section~\ref{sec:thin}. \\
+\texttt{spend} (Hillstrom) & Continuous, and closest to what the business cares about. Uplift in
+currency is directly usable by the decision layer without assuming a margin. Higher variance, and
+sensitive to a handful of large purchases --- so report a trimmed or winsorised variant alongside
+the raw one and say which is which. \\
+\bottomrule
+\end{tabularx}
+
+\begin{alertbox}
+\textbf{A high-uplift customer is not always a high-value customer.} A campaign can raise retention
+by ten percent among customers who each contribute very little, and produce almost no additional
+revenue. This is why the decision layer optimises $m\,\hat\tau(x) - c$ rather than $\hat\tau(x)$
+alone (Section~\ref{sec:decision}), and why revenue uplift on Hillstrom's \texttt{spend} column is
+worth reaching in the Advanced tier: it removes the assumed margin from the calculation and
+estimates the money directly. Ranking by uplift and ranking by incremental profit are different
+orderings, and the second one is the product.
+\end{alertbox}
+
+
+\section{Complete Data Pipeline}
+
+{\footnotesize
+\begin{verbatim}
+  raw download (versioned, checksummed, never edited in place)
+        |
+        v
+  schema validation  -- column names, dtypes, ranges, null policy
+        |
+        v
+  duplicate detection and removal (documented count)
+        |
+        v
+  randomization integrity report  -- SMD table, treatment-predictability AUC
+        |
+        v
+  leakage audit  -- forbidden-column check (automated, test-enforced)
+        |
+        v
+  joint stratified split (treatment x outcome), seed logged
+        |
+        v
+  preprocessing FITTED ON TRAIN ONLY
+  (impute -> encode -> scale; artefacts serialised and versioned)
+        |
+        v
+  feature matrix + treatment vector + outcome vector, per fold
+        |
+        v
+  model training (baselines first)  ->  MLflow run per configuration
+        |
+        v
+  evaluation harness (Qini, AUUC, uplift@k, bootstrap CIs)
+        |
+        v
+  champion selection on validation  ->  confirm ONCE on locked test
+        |
+        v
+  MLflow Model Registry  ->  scoring service
+\end{verbatim}}
+
+\section{Data Quality and Documentation Deliverables}
+
+\begin{itemize}
+\item A dataset card for each source: origin, licence terms as published on the download page,
+size, arms, outcome definitions, and known limitations.
+\item The randomization integrity report (Section~\ref{sec:balance}).
+\item A cleaning log recording every row removed and why, with counts.
+\item A data dictionary for the engineered feature set.
+\item An explicit statement, in the final report, of which figures were verified against the
+downloaded files and which were taken from documentation.
+\end{itemize}
+
+\begin{alertbox}
+\textbf{Verify the unit of observation before quoting the row count.} ``13{,}979{,}592 rows'' is a
+row count, and a row count is not automatically a count of independent customers. Before the number
+appears in a report or on a CV, the team must confirm from the dataset's own documentation and from
+the file itself what one row represents --- one user, one impression, one user--campaign pair --- and
+whether any identifier repeats. This matters for two reasons beyond honesty: repeated units across a
+split boundary are leakage, and standard errors computed as if correlated rows were independent are
+too narrow, which would make every confidence interval in the project optimistic. If the unit turns
+out to be anything other than an independent customer, the split becomes group-based on that unit
+and the report says so. Record the finding either way --- ``we checked, and here is what a row is''
+is a strong answer to a question most teams cannot answer at all.
+\end{alertbox}
+
+\begin{keybox}
+\textbf{Licensing.} Both datasets are public and widely used for research, but the team must read
+the licence text on each download page before redistributing any part of the data in the project
+repository, and must record what it says. Do not commit raw data to the repository; commit a
+loader script, a checksum, and a small sample.
+\end{keybox}
+% ============================ PART IV ============================
+\part{Engineering}
+
+\section{Training Strategy}
+
+\begin{enumerate}
+\item \textbf{Develop on Hillstrom, report on Criteo.} Every component is built and debugged
+against 64K rows before it is pointed at 14M. This is a schedule decision as much as a technical
+one: it removes the long feedback loop from the phase where mistakes are most likely.
+\item \textbf{Develop against \texttt{visit}, report on \texttt{conversion}.} The visit rate is
+roughly sixteen times the conversion rate, so curves are stable enough to debug against. The
+headline result is still reported on \texttt{conversion}, and both are reported in the appendix.
+\item \textbf{Baselines before estimators.} Non-negotiable, per Section~\ref{sec:baselines}.
+\item \textbf{One configuration file per experiment.} No hyperparameter is ever typed into a
+notebook cell. Every run reproducible from \texttt{config/*.yaml} plus a git commit hash.
+\item \textbf{Sampling for iteration, full data for reporting.} A stratified 10\% subsample of
+Criteo for iteration; every reported number computed on the full data.
+\item \textbf{Class imbalance.} With a 0.29\% positive rate, resampling or class weights change the
+base-rate calibration of both arms --- which changes their difference. Any imbalance handling must
+be applied \emph{identically} to the treated and control models and its effect on the uplift
+estimate checked explicitly, not assumed to cancel.
+\end{enumerate}
+
+\section{Hyperparameter Tuning Under an Uplift Objective}
+
+\begin{alertbox}
+Standard tuning tooling optimises a supervised loss on an observed label. There is no observed
+label here. Tuning a T-learner's two base models to maximise their individual ROC--AUC optimises
+each model's ability to predict conversion --- which is not the same as, and can actively conflict
+with, the accuracy of their \emph{difference}. Two well-calibrated but individually mediocre models
+can produce better uplift estimates than two individually excellent ones.
+\end{alertbox}
+
+\textbf{The required approach:} the objective for hyperparameter search is the Qini coefficient
+computed on out-of-fold predictions inside the training split, using stratified $K$-fold on the
+joint (treatment, outcome) key. Search with Optuna or a comparable optimiser; log every trial to
+MLflow; select on validation; confirm once on the locked test split.
+
+\textbf{Report the tuning honestly:} include, in the final report, how many trials were run for each
+model family. A champion selected after 200 trials compared against a baseline given 5 is not a
+comparison, and an evaluator who asks this question and gets a straight answer will trust the rest of
+the report considerably more.
+
+\section{Evaluation Metrics}
+\label{sec:metrics}
+
+\subsection{Why the usual metrics do not apply}
+
+Accuracy, precision, recall, F1 and ROC--AUC all require a per-row ground-truth label. The label
+here, $\tau_i$, does not exist for any row (Section~\ref{sec:fundamental}). These metrics are
+therefore not merely weak in this setting --- they are undefined for the quantity being predicted.
+They remain valid for the \emph{baseline response model}, because that model predicts an observed
+outcome, and reporting them there while explaining why they are absent for the uplift models is a
+useful contrast to include.
+
+\subsection{The metric set}
+
+\begin{tabularx}{\textwidth}{@{}L{3.6cm}X@{}}
+\toprule
+\textbf{Metric} & \textbf{What it is and why it is included} \\
+\midrule
+\textbf{Uplift curve} & Population sorted descending by predicted uplift; the curve plots cumulative
+incremental outcomes against the number of customers targeted. It answers the operational question
+directly: if we contact the top $n$, how many extra conversions do we get? \\
+\textbf{Qini curve and Qini coefficient} & The Qini curve is the uplift curve's classical form; the
+Qini coefficient normalises the area between the model's curve and the random-targeting diagonal
+against the area of the optimum curve, summarising the curve as one number. \\
+\textbf{AUUC} & Area under the uplift curve; reported alongside Qini because the two normalise
+differently and the field is not fully consistent about which is meant by which name. Report both,
+and state the implementation used. \\
+\textbf{uplift@$k$} & Uplift measured on the top $k$ fraction, which is the quantity a fixed budget
+actually buys. Note that the \texttt{overall} and \texttt{by\_group} computation strategies give
+different numbers; state which was used. \\
+\textbf{Cumulative gain} & Companion visualisation for the dashboard. \\
+\textbf{Incremental profit} & The business-facing metric from the simulator
+(Section~\ref{sec:simulator}): $m \times$ incremental conversions $-$ contact cost. \\
+\bottomrule
+\end{tabularx}
+
+\srcnote{the Qini coefficient as the normalised area under the Qini curve, and the two uplift@$k$
+strategies, are as defined in the \texttt{scikit-uplift} metrics documentation, which cites
+Radcliffe, \emph{Using control groups to target on predicted lift: building and assessing uplift
+models}, Direct Marketing Analytics Journal 3:14--21, 2007.}
+
+\begin{keybox}
+\textbf{Report the implementation, not just the number.} Qini and AUUC differ across libraries in
+normalisation and in whether negative effects are included in the optimum curve. A Qini coefficient
+quoted without naming the library and the settings is not reproducible. Name them in the report and
+pin the library version in \texttt{requirements.txt}.
+\end{keybox}
+
+\section{Statistical Significance --- The Section That Protects Every Claim}
+\label{sec:significance}
+
+\begin{alertbox}
+A Qini coefficient is a statistic computed from a finite sample. On a dataset whose deciles contain
+a few hundred control conversions (Section~\ref{sec:thin}), two models can differ in Qini purely by
+chance. Comparing point estimates and declaring a winner is the most likely way this project
+produces a false result, and it is exactly the claim a sharp examiner will probe.
+\end{alertbox}
+
+\textbf{Required protocol:}
+\begin{enumerate}
+\item \textbf{Bootstrap.} Resample the evaluation set with replacement \emph{within each treatment
+arm} (preserving the arm proportions), recompute the metric on each resample, and report the 2.5th
+and 97.5th percentiles as a 95\% interval. Use at least 1{,}000 resamples; state the number.
+\item \textbf{Model comparison.} Compare champion and challenger on the \emph{same} bootstrap
+resamples and report the distribution of the difference. If that distribution straddles zero, the
+correct conclusion is that the models are not distinguishable on this data --- and that is a
+finding, not a failure.
+\item \textbf{Curve bands.} Plot Qini curves with bootstrap confidence bands, not as bare lines.
+A curve with a visible band is self-documenting.
+\item \textbf{A negative control.} Fit the entire pipeline on a randomly permuted treatment
+indicator. The measured uplift must collapse to approximately zero. If it does not, there is a bug
+or a leak, and this test will find it when nothing else does.
+\end{enumerate}
+
+\begin{goodbox}
+The permuted-treatment negative control is the single cheapest, highest-value test in this
+document. It takes an hour to implement, runs automatically, and catches the class of error that
+otherwise surfaces only during the defence.
+\end{goodbox}
+
+\section{Error Analysis and Segment Audit}
+
+\begin{itemize}
+\item \textbf{Decile table.} For each predicted-uplift decile: number treated, number control,
+outcome rate in each arm, observed uplift, predicted uplift, and the interval. The diagonal of
+this table is the model's calibration story.
+\item \textbf{Uplift calibration plot.} Predicted uplift against observed uplift by bin. This is the
+uplift analogue of a reliability diagram and it is more informative than any single coefficient.
+\item \textbf{Negative-uplift segment profile.} Who are the sleeping dogs? Describe them in the
+dataset's own feature terms (feasible on Hillstrom; on Criteo, describable only in terms of
+anonymised features, and the report should say so).
+\item \textbf{Where the model fails.} Segments where the predicted and observed uplift disagree
+most, and a stated hypothesis for each.
+\end{itemize}
+
+\section{Behavioural and Invariance Tests}
+
+Tests that check the model behaves like an effect estimator rather than a relabelled classifier.
+
+\begin{enumerate}
+\item \textbf{Permuted treatment $\Rightarrow$ zero uplift.} As above. The primary invariant.
+\item \textbf{Rank stability under reseeding.} Retrain with a different seed; the top-decile
+membership should overlap substantially. Violent instability means the model is fitting noise.
+\item \textbf{Uplift $\neq$ response ordering.} Correlate the uplift ranking with the response-model
+ranking. If they are nearly identical, the uplift model has learned the conversion probability, not
+the effect --- which is the S-learner failure mode made visible.
+\item \textbf{Monotone budget response.} Incremental conversions must not decrease as the targeted
+fraction increases in the cumulative curve. A violation indicates a bug in the curve computation.
+\item \textbf{Subgroup sanity on Hillstrom.} The Mens-email arm should show its strongest effect
+among customers with a history of mens purchases. If it does not, investigate before proceeding ---
+this is a domain check that Criteo's anonymised features cannot provide, and it is one of the
+reasons Hillstrom is in the project.
+\end{enumerate}
+
+\section{Explainability}
+
+\begin{itemize}
+\item \textbf{SHAP on the uplift estimate}, not merely on the outcome models, so the attribution
+answers ``why is this customer persuadable?'' rather than ``why is this customer likely to buy?''.
+\item \textbf{Segment profiling}: a plain-language description of the top-uplift decile expressed
+in feature terms, which is what a marketing user will actually read.
+\item \textbf{Decile table} (above) as the model-level explanation.
+\item \textbf{Per-customer drivers} surfaced in the API response (Section~\ref{sec:schema}).
+\end{itemize}
+
+\begin{alertbox}
+\textbf{State the limit of the explanation.} SHAP attributes the model's \emph{score} to input
+features. It does not establish that those features cause the effect. The correct sentence in the
+report is ``these features drive the model's uplift prediction'', never ``these features cause
+customers to be persuadable''. Getting this distinction right in a causal project signals more
+maturity than any modelling choice in the document.
+\end{alertbox}
+
+\section{Concept Drift and Monitoring}
+\label{sec:drift}
+
+Uplift models decay faster than outcome models, because they estimate a response to an intervention
+and audiences habituate to interventions. An offer that produced real lift last quarter can produce
+none this quarter with no change in the customer base at all.
+
+\begin{tabularx}{\textwidth}{@{}L{4.0cm}X@{}}
+\toprule
+\textbf{Monitor} & \textbf{Detail} \\
+\midrule
+Feature drift & Population Stability Index or KS statistic per feature, scored batch against
+training reference; alert thresholds set in config. \\
+Score drift & Distribution of predicted uplift over time; a collapsing spread is an early warning. \\
+\textbf{Effect drift} & The one that matters: measured uplift in the production holdout, tracked
+over time with its interval. \\
+Data quality & Null rates, range violations, schema changes, blocking the scoring run on failure. \\
+Retraining trigger & Documented rule combining a drift threshold with a scheduled cadence; every
+retrain logged as a new registered model version with its evaluation attached. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Delayed feedback --- a deployment problem, not one this project faces}
+
+\begin{alertbox}
+\textbf{This subsection describes deployment, not this semester's work.} On the datasets used here
+every outcome is already recorded, so nothing is ever waited for: the replay of
+Section~\ref{sec:lifecycle} measures effect immediately. The paragraph below applies the day the
+system is pointed at a live campaign, and is written so the team can answer the question rather
+than because it is a risk they are carrying.
+\end{alertbox}
+
+In a live system the quantity being monitored is a \emph{difference between two group rates}, and
+it cannot be computed until a campaign's outcome window has closed --- days to weeks after the
+decision, and only in aggregate. There is no per-prediction feedback signal. A model can therefore
+degrade for a full campaign cycle before anything measurable moves. The response is layered:
+
+\begin{tabularx}{\textwidth}{@{}L{3.8cm}L{2.4cm}X@{}}
+\toprule
+\textbf{Signal} & \textbf{Latency in deployment} & \textbf{What it tells you} \\
+\midrule
+Feature drift (PSI/KS) & Immediate & The population has moved. A leading indicator only --- it does
+not prove the effect has changed. \\
+Score distribution drift & Immediate & The model is behaving differently on new data. \\
+Early-proxy outcome & Short & Where a fast, correlated outcome exists (a visit rather than a
+purchase), it gives a directional read long before the real one. Explicitly a proxy; label it as one. \\
+Measured effect in the permanent holdout & \textbf{One outcome window} & The only true signal.
+Nothing else substitutes for it. \\
+Predicted-versus-measured calibration & One outcome window & Whether the model's magnitudes, not
+just its ordering, still hold. \\
+\bottomrule
+\end{tabularx}
+
+\begin{keybox}
+\textbf{What the team actually builds from this:} the two immediate monitors (feature drift and
+score drift), which are computable on historical data by splitting it by time or by simulating a
+shifted population, plus the monitoring tab that displays them. The two delayed signals are
+\emph{designed and documented, not implemented}, and the report says so.
+\end{keybox}
+
+\begin{keybox}
+\textbf{The permanent randomized holdout --- a deployment requirement, not a project deliverable.}
+In production a small randomized control group must be maintained \emph{forever} --- typically a few
+percent of the addressable base, withheld from all campaigns --- because it is the only mechanism by
+which incremental effect can continue to be measured once the system is live. On this project the
+counterfactual comes from the dataset instead, so there is nothing to withhold. The holdout appears
+in the architecture diagram marked as deployment-only, and the team should be able to defend its
+cost: the revenue forgone by not contacting that slice is the price of knowing whether contacting
+anyone works at all.
+\end{keybox}
+
+\section{Experiment Tracking and Reproducibility}
+
+\begin{itemize}
+\item \textbf{MLflow tracking} for every run: parameters, the config file, the git commit, dataset
+version and checksum, the split seed, all metrics with their intervals, and the Qini/uplift curves
+as artefacts.
+\item \textbf{MLflow Model Registry} with explicit stages, so that the model behind the API is
+always identifiable by version.
+\item \textbf{Champion--challenger record}: a maintained table of every model tried, its metrics with
+intervals, and a one-line reason it did or did not become champion. This table is a deliverable, not
+a working note.
+\item \textbf{Determinism}: seeds fixed and logged; environment pinned; one command reproduces any
+reported number from a clean checkout.
+\end{itemize}
+
+\section{Testing}
+
+\begin{tabularx}{\textwidth}{@{}L{3.4cm}X@{}}
+\toprule
+\textbf{Layer} & \textbf{Coverage} \\
+\midrule
+Unit & Metric implementations verified against hand-computed values on a tiny fixture; split
+function; decision-threshold logic; schema validation. \\
+Data & Forbidden-column check; joint-stratification assertion; duplicate check; null and range
+policy. Failures block the pipeline. \\
+Model & The behavioural and invariance tests above, run as automated tests rather than as
+one-off notebook checks. \\
+Integration & End-to-end run on the Hillstrom fixture from raw file to scored output. \\
+API & Contract tests on every endpoint, including the two abstention verdicts and malformed input. \\
+CI & GitHub Actions running lint, type check, unit, data and integration tests on every pull
+request. \\
+\bottomrule
+\end{tabularx}
+
+\begin{goodbox}
+Writing the Qini implementation test against a hand-computed fixture is worth doing even though a
+library is being used. It forces at least one team member to understand the metric arithmetically,
+and that person will answer the defence question about it fluently.
+\end{goodbox}
+
+\section{Deployment Architecture}
+\label{sec:deployment}
+
+\subsection{API design}
+
+{\footnotesize
+\begin{verbatim}
+  POST /score           single customer  -> full response object (S 12)
+  POST /score/batch     CSV or JSON array -> scored file + summary
+  POST /policy/simulate budget, cost, margin -> policy comparison table
+  GET  /model/info      registered version, training date, metrics + CIs
+  GET  /monitor/drift   latest drift report
+  GET  /health          liveness / readiness
+\end{verbatim}}
+
+\subsection{Serving stack}
+
+\begin{tabularx}{\textwidth}{@{}L{3.6cm}X@{}}
+\toprule
+\textbf{Layer} & \textbf{Choice} \\
+\midrule
+Service & FastAPI with Pydantic request/response models, auto-generated OpenAPI documentation. \\
+Model loading & Pulled from the MLflow Model Registry by version at startup; version returned in
+every response. \\
+Batch path & The primary production mode --- campaign lists are scored in bulk on a schedule, not
+one customer at a time. \\
+Real-time path & Retained for the demo and for on-the-fly decisions in a servicing channel. \\
+Container & Docker, with a pinned base image and a slim runtime layer. \\
+Cloud & Azure: Blob Storage for datasets and artefacts, Azure ML for the managed endpoint and
+registry integration, Container Registry for images, Application Insights for logs and latency. \\
+Frontend & Streamlit for the dashboard and simulator. \\
+CI/CD & GitHub Actions: test, build image, push, deploy. \\
+\bottomrule
+\end{tabularx}
+
+\begin{keybox}
+\textbf{The API-first note, restated where it belongs.} \texttt{/score/batch} and
+\texttt{/policy/simulate} are defined as a contract independent of the Streamlit UI. If a web team
+is ever added, their backend becomes a client of this service and nothing on the ML side changes.
+Designing it this way costs nothing today; retrofitting it later costs a rewrite.
+\end{keybox}
+
+\begin{alertbox}
+\textbf{Azure cost discipline.} Compute instances continue to bill while idle. Shut them down after
+every session, set a budget alert well below the available credit, and train locally --- the
+project's models are gradient-boosted trees on tabular data and do not need cloud GPUs. Use the
+credit for the parts of the curriculum that require it: the managed endpoint, storage, monitoring
+and the registry.
+\end{alertbox}
+
+\section{Technology Stack}
+
+\begin{tabularx}{\textwidth}{@{}L{3.4cm}L{4.6cm}X@{}}
+\toprule
+\textbf{Layer} & \textbf{Choice} & \textbf{Reason} \\
+\midrule
+Language & Python 3.12 & Track standard; the entire causal-inference ecosystem lives here.
+Pinned to 3.12 for the reason in the note below. \\
+Data & pandas, NumPy, PyArrow / Parquet & 14M rows is comfortable in memory in Parquet; Polars is a
+reasonable substitute if memory becomes tight. \\
+Classical ML & scikit-learn, LightGBM, XGBoost & Strong tabular baselines and fast enough to tune
+properly. \\
+Uplift & \texttt{scikit-uplift}, \texttt{causalml} & \texttt{scikit-uplift} for the metric harness
+and the meta-learner basics; \texttt{causalml} for uplift forests and the wider meta-learner set. \\
+Deep learning & PyTorch & The shared-representation estimator (Section~\ref{sec:deep}). \\
+Explainability & SHAP & Standard, and integrates with the tree models. \\
+Tuning & Optuna & Qini-objective search with trial logging. \\
+Tracking & MLflow & Required by the track and genuinely the right tool here. \\
+Statistics & SciPy, statsmodels & Bootstrap intervals, balance tests. \\
+Viz & Matplotlib, Plotly & Static report figures and interactive dashboard charts. \\
+API & FastAPI, Uvicorn, Pydantic & Typed contracts and free OpenAPI docs. \\
+Frontend & Streamlit & The audience is analytical; a React frontend would add build complexity
+without adding evidence of ML skill. \\
+Storage & PostgreSQL, Azure Blob & Scoring logs and campaign metadata; datasets and artefacts. \\
+Container & Docker & Reproducible runtime. \\
+Cloud & Azure ML, ACR, App Insights & Track alignment and a real deployment story. \\
+CI/CD & GitHub Actions & Free for the repository and enough for this pipeline. \\
+Docs & MkDocs or Sphinx & Module-level documentation as required by the project standards. \\
+\bottomrule
+\end{tabularx}
+
+\begin{keybox}
+\textbf{Two environment facts that are easy to get wrong. Both were verified against PyPI,
+python.org and a working Windows install on 21 September 2026.}
+
+\texttt{causalml} contains compiled extension modules and publishes prebuilt Windows wheels for
+cp311 and cp312, but not for cp313. On a Python version with no wheel, \texttt{pip} falls back to
+building from source, which requires a C++ toolchain and frequently fails. Separately, python.org
+stops publishing Windows installers for a release line long before that line stops receiving
+security fixes: the newest Windows installer for 3.11 is 3.11.9 from April 2024, against 3.12.10
+from April 2025. Python 3.12 is the only line that has both a \texttt{causalml} wheel and a recent
+installer, which is why the project pins it.
+
+MLflow~3.x \textbf{refuses the plain \texttt{./mlruns} directory store} and raises on first use. The
+tracking backend must be a database URI. The project uses \texttt{sqlite:///mlflow.db} locally.
+\end{keybox}
+
+\section{Repository Structure}
+
+A flat notebook folder is the most common way a strong project loses marks on software-engineering
+criteria. The layout below is the one the code standards in this document imply.
+
+{\footnotesize
+\begin{verbatim}
+netlift/
+  README.md                  results summary, install, config, run, API quickstart
+  pyproject.toml             pinned dependencies
+  Dockerfile  docker-compose.yml
+  .github/workflows/ci.yml   lint, types, unit, data, integration tests
+  config/
+    data.yaml  model.yaml  policy.yaml  paths.yaml
+  src/netlift/
+    data/       loaders.py  schema.py  audit.py  split.py  preprocess.py
+    features/   engineering.py  selection.py
+    models/     baselines.py  meta_learners.py  forests.py  neural.py  registry.py
+    evaluation/ metrics.py  bootstrap.py  curves.py  negative_control.py
+                behaviour_tests.py  error_analysis.py
+    decision/   policy.py  simulator.py  abstention.py
+    api/        service.py  schemas.py  monitoring.py
+    utils/      logging.py  config.py  seeds.py
+    explain/    shap_uplift.py  segments.py        added in milestone 5
+    dashboard/  app.py  tabs/                      added in milestone 5
+  tests/        unit/  data/  model/  integration/  api/
+  notebooks/    exploration only; nothing here is a deliverable
+  docs/         specification, milestone documents, diagrams, dataset cards,
+                data dictionary, test plan, user manual
+  reports/      generated: balance report, decile tables, figures
+\end{verbatim}}
+
+Two rules that matter more than the layout itself: nothing in \texttt{notebooks/} is imported by
+anything in \texttt{src/}, and every number that appears in the final report is produced by a script
+in \texttt{src/} writing into \texttt{reports/}, never copied by hand out of a notebook cell.
+
+\section{Hardware}
+
+Training is gradient boosting over tabular data. A laptop with 16\,GB of RAM is sufficient; the
+RTX~4060's 8\,GB of VRAM is used only by the Advanced-tier neural estimator, which is a small
+multi-layer network and fits comfortably. The real resource constraint is memory during
+preprocessing of the full Criteo file, which is managed by loading Parquet column subsets and by
+processing in chunks. No cloud GPU is required at any point, and requesting one would be a signal
+that the team has not understood its own workload.
+
+\section{Curriculum Coverage --- Stated Honestly}
+\label{sec:curriculum}
+
+\begin{tabularx}{\textwidth}{@{}L{4.2cm}L{2.0cm}X@{}}
+\toprule
+\textbf{Track component} & \textbf{Covered} & \textbf{Where} \\
+\midrule
+Python & Yes & Throughout; packaged, typed, tested modules. \\
+Data preprocessing & Yes & Part III pipeline, leakage audit, split discipline. \\
+Data visualization & Yes & Qini curves with bands, calibration plots, decile tables, dashboard. \\
+Statistics & \textbf{Heavily} & Potential outcomes, balance testing, bootstrap intervals,
+significance of model differences. This is the strongest axis of the project. \\
+Machine learning & Yes & Meta-learners over gradient boosting; uplift forests. \\
+Deep learning & Yes & Shared-representation treatment-effect network (Section~\ref{sec:deep}). \\
+NLP & \textbf{No} & No text exists in either dataset. Not simulated. \\
+Computer vision & \textbf{No} & No images exist. Not simulated. \\
+Azure AI & Yes & ML endpoint, Blob, ACR, Application Insights. \\
+MLOps / MLflow & Yes & Tracking, registry, champion--challenger, drift monitors, retraining rule. \\
+Hugging Face & Partial & Model/artefact hosting for the public demo; no transformer is warranted
+by the data and none is used. \\
+Deployment & Yes & FastAPI, Docker, Azure endpoint, CI/CD. \\
+Git \& GitHub & Yes & Branching strategy, reviewed pull requests, Actions. \\
+Documentation & Yes & This specification, per-milestone documents, module docs, README, dataset cards. \\
+Testing & Yes & Unit, data, model-behaviour, integration, API, CI. \\
+\bottomrule
+\end{tabularx}
+
+\begin{alertbox}
+\textbf{Two gaps, declared rather than disguised.} There is no computer vision and no NLP in this
+project, because neither dataset contains images or text and manufacturing a use for them would
+make the system worse and the story weaker. If the evaluation criteria make coverage of those two
+components mandatory rather than desirable, that is a reason to reconsider the project choice
+\emph{now}, in the proposal window --- not a reason to attach an unrelated image classifier in
+Week~18. Raise it with the instructor at the Week~7 review and get an answer on the record.
+\end{alertbox}
+% ============================ PART V ============================
+\part{Product and Demonstration}
+
+\section{User Interface}
+
+A Streamlit dashboard with four tabs. The design principle: a marketing manager should reach a
+decision without being taught what a Qini curve is, while a technical examiner should be able to
+find every underlying number within two clicks.
+
+\subsection{Tab 1 --- Campaign Planner}
+
+Inputs: customer file or dataset selection, per-contact cost, margin per conversion, budget, and a
+policy mode. Outputs: number of customers to contact, expected incremental conversions with a
+confidence interval, expected incremental profit, and a downloadable target list. A prominent line
+states the comparison in words --- for example, ``this policy is projected to deliver $X$ more
+conversions than contacting the same number of customers by response score''.
+
+\subsection{Tab 2 --- Policy Comparison}
+
+The simulator output (Section~\ref{sec:simulator}): uplift policy, response model, blanket contact
+and random contact, side by side, as a table and as overlaid cumulative-incremental curves with
+bootstrap bands. A budget slider moves a vertical line across all curves at once.
+
+\subsection{Tab 3 --- Model Evidence}
+
+Qini curve with confidence band; AUUC and Qini coefficient with intervals; the decile table; the
+uplift calibration plot; SHAP summary; the negative-control result; and the champion--challenger
+table. This is the tab that answers examiner questions.
+
+\subsection{Tab 4 --- Monitoring}
+
+Feature and score drift charts, data quality status, the registered model version and its training
+date, and the results of each simulated campaign replay. The delayed effect-drift panel is mocked
+from replay output and labelled as such --- it shows what deployment monitoring would display,
+without pretending the signal is live.
+
+\subsection{Customer detail view}
+
+Selecting a row shows the full response object of Section~\ref{sec:schema}: score, interval,
+segment label, recommendation, verdict, and the top drivers --- with abstention verdicts rendered
+in a visually distinct style from confident ones.
+
+\section{End-to-End Demo Scenario}
+
+A concrete walkthrough for the defence. All figures below are \emph{illustrative placeholders for
+the demo script}, not results: the team fills them from its own evaluation output.
+
+\begin{enumerate}
+\item \textbf{Setup.} ``This is a base of 100{,}000 customers. Contacting one costs 5 currency
+units. A conversion is worth 200. The budget allows 20{,}000 contacts.''
+\item \textbf{The naive policy.} Run the response model. It selects the 20{,}000 customers most
+likely to convert. The simulator reports the incremental conversions actually attributable to
+contacting them --- a number visibly lower than the raw conversion count in that group, because most
+of those customers would have converted anyway. The gap between those two numbers is the whole
+argument of the project, on screen, in one moment.
+\item \textbf{The uplift policy.} Run NetLift at the same budget. It selects a different 20{,}000.
+Report incremental conversions with the interval, and the difference from the response model with
+its own interval.
+\item \textbf{The sleeping dogs.} Show the suppression list: customers with confidently negative
+uplift. State plainly that a conventional campaign would have contacted a portion of them.
+\item \textbf{Abstention.} Select a thin segment. The system returns
+\texttt{insufficient\_evidence} and refuses to make a recommendation. Explain that this is
+designed behaviour.
+\item \textbf{The negative control.} Show the permuted-treatment run collapsing to zero uplift.
+This is the moment that establishes that the pipeline is not fooling itself.
+\item \textbf{Explainability.} Open one customer, show the drivers, and describe the top-uplift
+segment in plain language.
+\item \textbf{Operations.} Show the API docs, the MLflow registry, the drift dashboard, and the CI
+run --- five minutes that convert a modelling exercise into a system.
+\end{enumerate}
+
+\section{What the Demo Must Prove}
+
+\begin{keybox}
+Three claims, in this order:
+\begin{enumerate}
+\item The system measures an \emph{effect}, not a probability --- evidenced by the negative control
+and by the divergence between the uplift and response rankings.
+\item The effect it measures is \emph{real} --- evidenced by confidence intervals that exclude zero
+on the headline result, computed on a locked test split touched once.
+\item The effect is \emph{worth money} --- evidenced by the simulator's incremental-profit
+comparison at a fixed budget.
+\end{enumerate}
+If all three land, the technical depth of the model family barely needs defending. If the first one
+does not land, nothing else in the presentation matters.
+\end{keybox}
+% ============================ PART VI ============================
+\part{Execution}
+
+\section{Team Distribution}
+\label{sec:team}
+
+Five members, five roles, defined so that no two people are blocked on the same thing at the same
+time and every member owns something they can describe end-to-end in an interview.
+
+\begin{keybox}
+\textbf{The critical path is Aliaa (M1) then Ali (M4).} Nothing anyone else produces is trustworthy
+until the data and the split are valid, and no model can be compared with another until the metric
+harness with confidence intervals exists.
+\end{keybox}
+
+\begin{longtable}{@{}L{3.1cm}L{6.0cm}L{5.0cm}@{}}
+\toprule
+\textbf{Member} & \textbf{Responsibilities and technologies} & \textbf{Deliverables} \\
+\midrule
+\endhead
+\textbf{Aliaa Gomaa} \newline \emph{Data Engineering \& Experiment Validity (M1)} &
+Ingestion and versioning of both datasets, schema contract, duplicate and null policy, the
+randomization integrity report, the leakage audit and its automated check, the joint stratified
+split, the preprocessing artefacts, the feature store layout and the ERD.
+\newline \emph{Depends on: nothing. Can start on day one, and everyone depends on this.} &
+Reproducible dataset build, the balance report, the split module with its assertions, dataset
+cards, data dictionary. \\
+\addlinespace
+\textbf{Mohammed Sherif} \newline \emph{Uplift Modeling Core (M2)} &
+The baselines (random, blanket, response model), the S/T/X-learners over LightGBM and XGBoost,
+the class-transformation demonstration including the unbalanced-design trap, model interfaces.
+\newline \emph{Depends on: Aliaa's split; Ali's metric harness to judge anything.} &
+Trained baseline and meta-learner models with their configurations, the champion--challenger
+table entries. \\
+\addlinespace
+\textbf{Mahmoud Nadeem} \newline \emph{Team Leader; Advanced Models \& Experiment Tracking (M3)} &
+Uplift Random Forest (KL / Euclidean / $\chi^2$), the shared-representation neural estimator in
+PyTorch, Optuna search under a Qini objective, the full MLflow tracking and registry setup, and
+reproducibility discipline.
+\newline \emph{Depends on: Aliaa's split; Mohammed's model interface.} &
+Advanced model results, the tuning study, the MLflow project with every run logged, the registered
+champion. \\
+\addlinespace
+\textbf{Ali Alaa} \newline \emph{Evaluation, Statistics \& Decision Layer (M4)} &
+The metric harness (Qini, AUUC, uplift@$k$, cumulative gain), bootstrap intervals, the model
+comparison procedure, the negative control, the behavioural test suite, the decision layer and
+policy modes, the abstention logic, SHAP, error analysis and the campaign simulator.
+\newline \emph{Depends on: Aliaa's split. Must deliver the harness before Mohammed and Mahmoud
+can claim any result.} &
+Evaluation library with tests, the significance protocol, the decision engine, the simulator,
+the error-analysis report. \\
+\addlinespace
+\textbf{Mazen Mahmoud} \newline \emph{MLOps, Backend \& Product (M5)} &
+FastAPI service and contracts, Docker, Azure deployment and Blob storage, PostgreSQL scoring log,
+the Streamlit dashboard, drift monitors, CI/CD, integration testing and the repository standards.
+\newline \emph{Depends on: Ali's decision layer for the policy endpoint; Mahmoud's registry
+for the model.} &
+Deployed and documented service, dashboard, monitoring, CI pipeline, README and deployment guide. \\
+\bottomrule
+\end{longtable}
+
+\begin{alertbox}
+\textbf{The critical path is Aliaa (M1) and Ali (M4), in that order --- not the modelling.} Until the split
+is valid, every model is untrustworthy; until the metric harness with intervals exists, no model can
+be compared to another. A schedule that starts modelling in Week~9 while the harness is still being
+written produces four weeks of results that have to be recomputed. Both of these must be finished
+and tested before the analysis-and-design milestone ends.
+\end{alertbox}
+
+\begin{keybox}
+\textbf{A note on how this reads in an interview.} Every member here owns a component with a
+sentence attached to it that is worth saying out loud: ``I built the check that proves our
+experiment was actually randomized''; ``I found and documented a method that silently breaks on
+unbalanced treatment assignment''; ``I built the test that catches leakage by permuting the
+treatment indicator''; ``I built the layer that decides not to contact customers our model says we
+would lose by contacting''. Distributing work so that each person gets one of those sentences is a
+design goal of this table, not an accident of it.
+\end{keybox}
+
+\begin{goodbox}
+\textbf{The campaign lifecycle is what makes five roles real.} If the project were only ``fit an
+uplift model and plot a Qini curve'', two people could do it and three would be decorative --- and
+that is the standard failure of tabular ML capstones. The closed loop of Section~\ref{sec:lifecycle}
+adds campaign and assignment entities, holdout management, an export path, outcome ingestion, a
+measurement job and a state machine, on top of an evaluation workstream that is a genuine
+statistics project in its own right and a serving surface that is a genuine backend project. Those
+are not tasks invented to fill a team; they are what the difference between a model and a system
+actually consists of.
+\end{goodbox}
+
+\section{Integration Plan}
+
+{\footnotesize
+\begin{verbatim}
+  ALIAA    (M1) --> versioned dataset + valid split + preprocessing artefacts
+       |             (contract: feature matrix X, treatment t, outcome y, fold id)
+       v
+  ALI      (M4) --> evaluation harness + decision layer
+       |             (contract: metric(y, uplift, t) -> value + CI)
+       v
+  MOHAMMED (M2) --> baselines + meta-learners  ]  both scored by
+  MAHMOUD  (M3) --> advanced models + MLflow   ]  Ali's harness, in parallel
+       |
+       v
+  MAHMOUD  (M3) --> champion registered in MLflow Model Registry
+       |             (contract: model URI + version + input schema)
+       v
+  MAZEN    (M5) --> FastAPI service + dashboard + monitoring + CI/CD
+       |          + campaign lifecycle: assignment log, holdout, export,
+       |            outcome ingestion, realised-effect measurement (S 14)
+       v
+  ALL --> integration -> testing -> deployment -> demo
+\end{verbatim}}
+
+\textbf{Three interfaces are frozen early and changed only by agreement:} the feature-matrix and
+fold contract between Aliaa and everyone; the metric-function signature between Ali and
+Mohammed and Mahmoud; and the scoring response schema of Section~\ref{sec:schema} between Ali,
+Mahmoud's registry and Mazen's API.
+
+\section{Meeting the DEPI Documentation Requirements}
+\label{sec:depi-docs}
+
+The DEPI documentation guidelines ask for artefacts that were written with software systems in
+mind --- ER diagrams, class diagrams, state diagrams, wireframes. Machine-learning teams routinely
+produce weak versions of these because they treat them as a formality. Each one below has a genuine
+referent in this system, and the table exists so that no member has to invent one under time
+pressure at the design milestone.
+
+\begin{longtable}{@{}L{3.8cm}L{10.6cm}@{}}
+\toprule
+\textbf{Required artefact} & \textbf{What it is in NetLift} \\
+\midrule
+\endhead
+Use case diagram & Actors: Marketing Analyst, Data Scientist, Scheduler, and --- drawn as an
+\emph{external, deployment-only} actor --- a Campaign Execution System. Use cases: define a replay
+scenario, score a batch, allocate under budget, reveal outcomes and measure, compare policies,
+retrain, review drift, inspect a customer explanation. The diagram marks which use cases this
+project implements and which belong to deployment (Section~\ref{sec:deployment-gap}). \\
+Functional requirements & Derived from the use cases; each traceable to an API endpoint and a test. \\
+Non-functional requirements & Batch scoring throughput, single-score latency, reproducibility,
+availability, auditability of every score, and the requirement that no recommendation is issued
+without a verdict field. \\
+Software architecture & Layered service architecture: data layer, training pipeline, model
+registry, scoring service, decision layer, presentation. Described in Section~\ref{sec:deployment}
+and drawn in Section~\ref{sec:final-arch}. \\
+ER diagram & Real entities: \texttt{customer\_snapshot} (features as of a date),
+\texttt{replay\_scenario}, \texttt{treatment\_assignment}, \texttt{holdout\_membership},
+\texttt{scoring\_run}, \texttt{score} (one row per customer per run), \texttt{model\_version},
+\texttt{outcome\_observation}, \texttt{drift\_report}. Note that
+\texttt{treatment\_assignment} and \texttt{holdout\_membership} are what make the causal claim
+auditable --- they are the database's record of the experiment. \\
+Logical / physical schema & Tables, keys, indexes on \texttt{(campaign\_id, customer\_id)} and
+\texttt{(scoring\_run\_id)}, and a stated retention policy. \\
+DFD (context and level 1) & Context: dataset store, analyst, NetLift (and, dashed,
+a campaign execution system that exists only in the deployment view). Level 1: ingest, validate,
+split, train, evaluate, register, score, decide, reveal, measure, monitor. \\
+Sequence diagrams & Three worth drawing: (1) batch scoring of a campaign list; (2) policy
+simulation from the dashboard; (3) drift detection triggering a retraining run. \\
+Activity diagram & The replay workflow from scenario definition through scoring and allocation to
+outcome reveal and measurement, including the abstention branch. \\
+State diagram & Two: the campaign lifecycle
+(\texttt{defined} $\to$ \texttt{scored} $\to$ \texttt{allocated} $\to$ \texttt{revealed} $\to$
+\texttt{measured}) and the model lifecycle
+(\texttt{registered} $\to$ \texttt{staging} $\to$ \texttt{production} $\to$ \texttt{archived}). \\
+Class diagram & The pipeline object model: \texttt{DatasetLoader}, \texttt{SchemaValidator},
+\texttt{LeakageAuditor}, \texttt{StratifiedSplitter}, \texttt{BaseLearner},
+\texttt{UpliftEstimator} (with \texttt{TLearner}, \texttt{XLearner}, \texttt{UpliftForest},
+\texttt{NeuralCATE} as subclasses), \texttt{UpliftEvaluator}, \texttt{PolicyEngine},
+\texttt{ScoringService}. \\
+Wireframes / mockups & The four dashboard tabs; produced before the UI is coded, not after. \\
+UI/UX guidelines & Colour and typography rules, and specifically the requirement that the two
+abstention verdicts are visually distinct from a confident recommendation. \\
+Component diagram & Services and their dependencies: training pipeline, registry, scoring API,
+dashboard, monitoring, database, blob storage. \\
+Deployment diagram & Azure topology: container registry, managed endpoint, blob storage,
+PostgreSQL, Application Insights, and the CI/CD path from GitHub. \\
+API documentation & Auto-generated OpenAPI from FastAPI, plus a written guide with examples for
+each endpoint including both abstention responses. \\
+Testing and validation & The test plan of Part~IV, with the test-case document listing scenario,
+input, expected outcome and result. \\
+Deployment strategy & Environments, image versioning, rollback via registry version pinning,
+and the retraining cadence. \\
+\bottomrule
+\end{longtable}
+
+\begin{goodbox}
+Draw these during the analysis and design milestone, once, properly, and reuse the same diagrams in
+the final report and the presentation. Teams that redraw them three times in three styles lose a
+week they did not have.
+\end{goodbox}
+\section{Key Performance Indicators}
+\label{sec:kpis}
+
+\begin{keybox}
+Each KPI below states what it measures, how it is measured, what counts as success, when it is first
+reported and who owns it. Two kinds appear, and they are labelled, because confusing them is how
+project reports end up making claims they cannot support:
+
+\textbf{Pass/fail} --- a condition that is either met or not, with no judgement involved.
+
+\textbf{Measured, no pre-set target} --- a number that is reported with a confidence interval. No
+numeric target is set in advance, because there is no prior result on this data to set one from, and
+inventing a threshold to be beaten would be exactly the kind of unearned claim this project is built
+to avoid. Where a success condition exists it is \emph{structural} (an interval excluding zero),
+never a number pulled from nowhere.
+\end{keybox}
+
+\begin{longtable}{@{}L{2.9cm}L{4.3cm}L{4.1cm}L{1.4cm}L{1.4cm}@{}}
+\toprule
+\textbf{KPI} & \textbf{How it is measured} & \textbf{Success condition} & \textbf{First reported} &
+\textbf{Owner} \\
+\midrule
+\endhead
+\textbf{K1 --- Incremental conversions versus the response model} \newline \emph{(the primary KPI)} &
+Simulated replay (Section~\ref{sec:lifecycle}) on the locked test split: both policies select the
+same number of customers under the same budget; incremental conversions measured against the
+withheld slice & \emph{Measured.} The 95\% bootstrap interval of the \emph{difference} excludes
+zero in favour of the uplift policy. An interval containing zero is a reportable finding, not a
+failed project & M4 (W12--13) & Ali \\
+\addlinespace
+\textbf{K2 --- Qini coefficient and AUUC} & Evaluation harness, on the locked test split, with 1000+
+bootstrap resamples within treatment arms; library and settings named in the report & \emph{Measured.}
+Interval excludes zero, i.e.\ demonstrably better than random targeting & M4 (W12--13) & Ali \\
+\addlinespace
+\textbf{K3 --- Incremental profit per unit of spend} & Replay output converted with the stated
+per-contact cost and margin & \emph{Measured.} Reported with an interval and with the cost and margin
+assumptions named on the same line & M4 (W12--13) & Ali \\
+\addlinespace
+\textbf{K4 --- Negative control} & Full pipeline re-run on a randomly permuted treatment indicator &
+\textbf{Pass/fail.} The 95\% interval of the measured uplift contains zero & M4, re-run at M6 & Ali \\
+\addlinespace
+\textbf{K5 --- Calibration} & Predicted versus measured incremental conversions per decile in the
+replay & \emph{Measured.} Differences straddle zero across deciles rather than showing a systematic
+direction & M5 & Ali \\
+\addlinespace
+\textbf{K6 --- Randomization integrity} & Standardized mean difference per covariate, plus the
+ROC--AUC of a classifier trying to predict treatment from covariates alone &
+\textbf{Pass/fail.} Every $|\mathrm{SMD}| < 0.1$ (the conventional threshold, fixed in config before
+the test is run) and treatment-predictability AUC near 0.5. Any breach documented rather than
+smoothed over & M3 (W9--10) & Aliaa \\
+\addlinespace
+\textbf{K7 --- Leakage control} & Automated forbidden-column check in CI, plus K4 & \textbf{Pass/fail.}
+The check fails the build when a post-treatment column reaches the model matrix, and a unit test
+asserts that it does & M4 & Aliaa \\
+\addlinespace
+\textbf{K8 --- Reproducibility} & Clean checkout, one documented command, compare against the
+recorded headline number & \textbf{Pass/fail.} Reproduces exactly, from config plus commit hash & M5 &
+Mahmoud \\
+\addlinespace
+\textbf{K9 --- Serving performance} & Load test against the deployed endpoint & \emph{Team-set
+target,} to be revised once first measured: p95 under 300\,ms for a single score; a
+one-million-row batch inside ten minutes on the project's own hardware & M5 & Mazen \\
+\addlinespace
+\textbf{K10 --- Engineering quality} & CI on every pull request: lint, type check, unit, data,
+model-behaviour, integration and API tests & \textbf{Pass/fail.} Green on the merge commit of every
+pull request & M5--M6 & Mazen \\
+\addlinespace
+\textbf{K11 --- Documentation completeness} & Checklist of the DEPI-required artefacts
+(Section~\ref{sec:depi-docs}) & \textbf{Pass/fail.} Every required artefact exists and is current &
+M7 & Team leader \\
+\bottomrule
+\end{longtable}
+
+\begin{alertbox}
+\textbf{K1 is the project.} Everything else supports it. If K1's interval excludes zero, the central
+claim holds and the rest of the report explains how it was earned. If it contains zero, the report
+says so, and the project becomes an investigation into why --- which is why K1 is scheduled at
+Milestone 4 and not at the end.
+\end{alertbox}
+
+
+\section{Milestones}
+\label{sec:milestones}
+
+\begin{keybox}
+The seven milestones below follow the official DEPI project plan: Team Formation and Planning
+(Week~5), Instructor Review (Week~7), Requirements Gathering (Weeks~9--10), Analysis and Design
+(from Week~12), Implementation, Testing, and Release and Final Presentation (Week~21).
+\srcnote{DEPI Project Documentation Guidelines and the trainee project instructions, R5 revision.}
+Each milestone below is written in the same fixed structure --- objective, entry criteria, work
+breakdown by member, deliverables, definition of done, risks --- so that any one of them can be
+lifted out into its own standalone document without rewriting, which is the next document the team
+needs after this one. Week numbers are \emph{programme} weeks; map them to calendar dates from the
+official training schedule.
+\end{keybox}
+
+% ---------------- M1 ----------------
+\subsection{Milestone 1 --- Team Formation and Planning (Week 5)}
+
+\textbf{Objective.} Lock the team, the roles, and the project definition, and produce the Project
+Proposal that goes to the instructor.
+
+\textbf{Entry criteria.} Project direction agreed; this specification read by all five members.
+
+\textbf{Work breakdown.}
+\begin{itemize}
+\item \textbf{All members:} read Sections~\ref{sec:fundamental}, \ref{sec:metrics} and
+\ref{sec:significance}. Every member must be able to explain, unprompted, why accuracy is not used.
+This is the single most likely question in the final defence and it should not fall to one person.
+\item \textbf{Mahmoud (team leader):} the Project Proposal document, the role table, and the GitHub repository
+request.
+\item \textbf{Aliaa:} download both datasets, confirm the published row counts and column lists
+against the actual files, and report any discrepancy immediately.
+\item \textbf{Ali:} draft the KPI list --- the measurable definitions of project success.
+\item \textbf{Mazen:} repository skeleton, branching strategy, environment file, CI stub.
+\end{itemize}
+
+\textbf{Deliverables.}
+\begin{itemize}
+\item Project Proposal (objective, description, tools and design, technologies, team members and
+responsibilities, weekly task plan with deliverables).
+\item Project plan with milestones and a Gantt chart.
+\item Task assignment and roles document.
+\item Initial risk register with mitigations (Section~\ref{sec:risks}).
+\item KPI definitions: Qini coefficient with interval, incremental conversions at fixed budget
+versus the response model, incremental profit, scoring latency, pipeline reproducibility.
+\item Repository initialised with structure, README skeleton and CI running.
+\end{itemize}
+
+\textbf{Definition of done.} Proposal submitted to the instructor; every member can state their own
+role and the project's core question in one sentence each.
+
+\textbf{Risks.} Roles assigned by preference rather than by dependency, leaving the critical path
+(Aliaa's data-validity role and Ali's evaluation role) with the least experienced members.
+
+% ---------------- M2 ----------------
+\subsection{Milestone 2 --- Instructor Review (Week 7)}
+
+\textbf{Objective.} Obtain approval and, more importantly, obtain answers to the questions that are
+expensive to get wrong later. Team membership must be final by the end of this week.
+
+\textbf{Entry criteria.} Proposal submitted; datasets downloaded and opened.
+
+\textbf{Questions to put to the instructor explicitly and record the answers to.}
+\begin{enumerate}
+\item Are computer vision and NLP \emph{required} components of the evaluation, or desirable ones?
+Section~\ref{sec:curriculum} states that this project has neither. This is the last week in which
+that answer can change the project cheaply.
+\item Is a public benchmark dataset acceptable as the primary data source, or is locally collected
+data expected?
+\item Is the project graded per team, and is there anything in the grading that depends on other
+teams? (Relevant because the mega-project option was declined.)
+\item What weight do documentation, testing and deployment carry relative to model results?
+\end{enumerate}
+
+\textbf{Work breakdown.}
+\begin{itemize}
+\item \textbf{Mahmoud (team leader):} present, capture feedback in writing, circulate the same day.
+\item \textbf{Aliaa:} first pass of the randomization integrity check on Hillstrom, so the review
+has real evidence in it rather than only a plan.
+\item \textbf{Ali:} a first Qini curve on Hillstrom, however rough --- a plot in Week~7 changes
+the tone of the review.
+\item \textbf{Mohammed, Mahmoud and Mazen:} environment set up and running on all machines; the ``it works on my
+laptop only'' problem solved now rather than in Week~15.
+\end{itemize}
+
+\textbf{Deliverables.} Instructor feedback document with suggested improvements and the grading
+criteria breakdown; updated proposal; final confirmed team membership.
+
+\textbf{Definition of done.} Written feedback received; any scope change from it reflected in an
+updated plan.
+
+\textbf{Risks.} Vague or verbal-only feedback. Ask for the answers to the four questions above
+specifically, and write down what was said.
+
+% ---------------- M3 ----------------
+\subsection{Milestone 3 --- Requirements Gathering (Weeks 9--10)}
+
+\textbf{Objective.} Convert the project into a specified system: stakeholders, use cases,
+functional and non-functional requirements. DEPI additionally requires that the task split across
+members be presented to the instructor by the end of Week~9.
+
+\textbf{Entry criteria.} Approved proposal; both datasets loading reproducibly.
+
+\textbf{Work breakdown.}
+\begin{itemize}
+\item \textbf{Mahmoud (team leader):} stakeholder analysis (marketing analyst, data scientist, campaign
+operations, finance/audit) and the confirmed task-split submission.
+\item \textbf{Ali:} user stories and use cases; the non-functional requirement that no
+recommendation is returned without a verdict field, written as a requirement rather than as an
+implementation detail.
+\item \textbf{Aliaa:} \textbf{the randomization integrity report on both datasets, completed.}
+This is the milestone's most important technical output. If it fails, the project's assumptions
+change and the team needs to know in Week~10, not Week~18.
+\item \textbf{Mohammed:} the response-model baseline running end-to-end on Hillstrom.
+\item \textbf{Mahmoud:} MLflow tracking server running and logging its first real runs.
+\item \textbf{Mazen:} API contract drafted from the use cases; wireframes for the four tabs.
+\end{itemize}
+
+\textbf{Deliverables.} Stakeholder analysis; user stories and use cases; functional requirements
+list; non-functional requirements; the randomization integrity report; the confirmed task split.
+
+\textbf{Definition of done.} Every functional requirement maps to a planned endpoint or dashboard
+element, and every non-functional requirement has a stated way of being measured.
+
+\textbf{Risks.} Requirements written as a formality and never referred to again. Prevent it by
+requiring each requirement to carry an identifier that later appears in a test name.
+
+% ---------------- M4 ----------------
+\subsection{Milestone 4 --- Analysis and Design (from Week 12)}
+
+\textbf{Objective.} Produce the full design set, and --- the part that matters most --- run the
+experiment that tests the project's central hypothesis while there is still time to react to it.
+
+\textbf{Entry criteria.} Requirements approved; valid split implemented and asserted.
+
+\textbf{Work breakdown.}
+\begin{itemize}
+\item \textbf{Aliaa:} final split module with its assertions and tests; preprocessing artefacts
+versioned; ERD and physical schema.
+\item \textbf{Ali:} \textbf{evaluation harness complete}, including bootstrap intervals and the
+permuted-treatment negative control, with unit tests against a hand-computed fixture. Nothing
+downstream is trustworthy before this exists.
+\item \textbf{Mohammed:} T-learner and X-learner running on Criteo; \textbf{the uplift-versus-response-model
+comparison executed and reported} (Section~\ref{sec:baselines}).
+\item \textbf{Mahmoud:} class, sequence, activity and state diagrams; tuning framework running.
+\item \textbf{Mazen:} component and deployment diagrams; API skeleton with mocked responses so
+that the dashboard can be built in parallel.
+\end{itemize}
+
+\textbf{Deliverables.} Problem statement and objectives; use case diagram; software architecture;
+ERD with logical and physical schema; DFD context and level~1; sequence, activity, state and class
+diagrams; wireframes and UI/UX guidelines; technology stack; deployment and component diagrams; and
+the \textbf{first end-to-end result with a confidence interval}.
+
+\textbf{Definition of done.} The central comparison has been run and its result --- positive,
+negative or inconclusive --- is written down with an interval. A negative result at this point is a
+successful milestone, not a failed one; it redirects the project into investigating why, which is a
+stronger report than a positive result nobody interrogated.
+
+\textbf{Risks.} Diagram work expanding to fill the milestone while the hypothesis test slips.
+Sequence the hypothesis test first inside the milestone, not last.
+
+% ---------------- M5 ----------------
+\subsection{Milestone 5 --- Implementation}
+
+\textbf{Objective.} Build the full system to production standards.
+
+\textbf{Entry criteria.} Design set complete; central comparison result known.
+
+\textbf{Work breakdown.}
+\begin{itemize}
+\item \textbf{Aliaa:} full pipeline productionised as modules with logging, exception handling
+and configuration; the automated leakage check enforced in CI.
+\item \textbf{Mohammed:} all meta-learners finalised on Criteo; the class-transformation trap
+demonstration produced as a figure.
+\item \textbf{Mahmoud:} uplift forest and the neural estimator; the Optuna study; champion
+registered in MLflow with its evaluation attached.
+\item \textbf{Ali:} decision layer with all four policy modes; abstention logic; SHAP; the
+campaign simulator; the error-analysis report.
+\item \textbf{Mazen:} FastAPI service against the real model; Docker; Azure deployment;
+PostgreSQL scoring log; the four dashboard tabs; drift monitors; CI/CD complete.
+\end{itemize}
+
+\textbf{Deliverables.} Structured, commented, type-hinted, modular source code; coding standards
+applied consistently; branching strategy and meaningful commit history; CI/CD; README with
+installation, requirements, configuration and execution instructions; API documentation; a deployed
+link.
+
+\textbf{Definition of done.} A clean checkout plus one documented command reproduces the headline
+result; the deployed endpoint answers a real request; the dashboard runs against the deployed model.
+
+\textbf{Risks.} Advanced-tier work starting before the MVP is complete. The scope-control order in
+Section~\ref{sec:scope} exists for this milestone specifically.
+
+% ---------------- M6 ----------------
+\subsection{Milestone 6 --- Testing and Quality Assurance}
+
+\textbf{Objective.} Establish that the system is correct, and specifically that its central claim
+is not an artefact.
+
+\textbf{Entry criteria.} System implemented and deployed.
+
+\textbf{Work breakdown.}
+\begin{itemize}
+\item \textbf{Ali:} the full behavioural and invariance suite; the negative control re-run and
+recorded; bootstrap comparison of champion against every challenger; the locked test split opened
+\emph{once} for champion confirmation.
+\item \textbf{Aliaa:} data validation tests; reproducibility test from a clean environment.
+\item \textbf{Mohammed and Mahmoud:} model regression tests pinning expected metric ranges.
+\item \textbf{Mazen:} API contract tests including both abstention verdicts and malformed input;
+load test of the batch endpoint; integration test end to end.
+\item \textbf{All:} a written test-case document --- scenario, input, expected outcome, actual
+outcome --- and a bug log with resolutions.
+\end{itemize}
+
+\textbf{Deliverables.} Test plan and test cases; automated test scripts; bug reports and
+resolutions; the final metric table with confidence intervals; the champion--challenger comparison.
+
+\textbf{Definition of done.} CI green; negative control passes; the locked test result is recorded
+and is not revisited afterwards.
+
+\textbf{Risks.} Reopening the test split after a disappointing number and re-tuning against it.
+Write down, before opening it, that it is opened once --- and hold to it. This is the discipline
+that makes the final number mean anything.
+
+% ---------------- M7 ----------------
+\subsection{Milestone 7 --- Release and Final Presentation (Week 21)}
+
+\textbf{Objective.} Deliver, document, and defend.
+
+\textbf{Entry criteria.} Testing complete; results final.
+
+\textbf{Work breakdown.}
+\begin{itemize}
+\item \textbf{All:} rehearse the demo of Part~V at least twice end to end, on the deployed system,
+with the network involved.
+\item \textbf{Mahmoud (team leader):} final upload of all project files to the assigned repository; the
+presentation; the per-member contribution slide the final evaluation explicitly requires.
+\item \textbf{Ali:} the results section of the final report, with intervals on every number.
+\item \textbf{Mazen:} user manual; deployment guide; recorded demo video as a fallback in case
+live infrastructure fails on the day.
+\item \textbf{Aliaa, Mohammed, Mahmoud:} technical documentation for their components.
+\end{itemize}
+
+\textbf{Deliverables.} User manual; technical documentation covering architecture, schema and API;
+project presentation; demo (live, with a recorded backup); final report; complete repository.
+
+\textbf{Definition of done.} Every member can answer ``what did you build?'' with a specific
+component and a specific technical decision they made inside it. The final DEPI evaluation is
+explicitly based on the team demonstrating the work completed and each individual's responsibility
+in it, so this is a graded requirement, not a courtesy.
+
+\textbf{Risks.} A live demo failing on the day. Mitigate with the recorded video and a local
+fallback mode that runs without the cloud endpoint.
+
+\section{Project Timeline}
+
+Programme weeks, aligned to the DEPI milestone plan.
+
+\begin{tabularx}{\textwidth}{@{}L{2.2cm}L{3.2cm}X@{}}
+\toprule
+\textbf{Weeks} & \textbf{Milestone} & \textbf{Work} \\
+\midrule
+5 & M1 Planning & Team and roles locked; proposal; repository and CI skeleton; datasets downloaded
+and their published figures verified against the files. \\
+6 & --- & Environment working on every machine; Hillstrom loading; first exploratory analysis. \\
+7 & M2 Instructor review & Present; get the four questions answered in writing; team membership
+final; first rough Qini curve on Hillstrom. \\
+8 & --- & Split module drafted; response-model baseline on Hillstrom. \\
+9--10 & M3 Requirements & Requirements set; \textbf{randomization integrity report on both
+datasets}; task split submitted; API contract and wireframes. \\
+11 & --- & Criteo loading at full scale; memory and format decisions settled. \\
+12--13 & M4 Analysis \& design & Full design and diagram set; \textbf{evaluation harness with
+bootstrap intervals and negative control}; \textbf{uplift versus response model, first result with
+an interval}. \\
+14--15 & M5 Implementation & Meta-learners finalised on Criteo; decision layer and policy modes;
+FastAPI service against the real model. \\
+16--17 & M5 Implementation & Advanced tier: uplift forest, neural estimator, Optuna study;
+simulator; dashboard tabs 1--3; Azure deployment. \\
+18 & M5 Implementation & Multi-treatment and revenue uplift on Hillstrom if on schedule; drift
+monitors; dashboard tab 4; CI/CD complete. \\
+19--20 & M6 Testing & Full test suite; behavioural and invariance tests; champion confirmed once on
+the locked split; error analysis; bug log. \\
+21 & M7 Release & Final report, user manual, technical documentation, presentation, rehearsed demo,
+repository upload. \\
+\bottomrule
+\end{tabularx}
+
+\begin{alertbox}
+\textbf{The two dates to protect above all others.} The randomization integrity report by the end of
+Week~10, and the uplift-versus-response-model comparison by the end of Week~13. Everything else in
+this timeline can slip by a week without damage. If either of those two slips, the project loses
+the ability to react to what it finds, and a project that cannot react to its own findings is
+reduced to reporting whatever it happens to get.
+\end{alertbox}
+\section{Scope Control}
+\label{sec:scope}
+
+\subsection{MUST HAVE}
+\begin{itemize}
+\item Randomization integrity report on both datasets
+\item Automated leakage audit, enforced by a test
+\item Joint stratified split on (treatment, outcome), asserted
+\item All three baselines: random, blanket, response model
+\item T-learner and X-learner over gradient-boosted trees
+\item Qini, AUUC and uplift@$k$ with bootstrap confidence intervals
+\item The permuted-treatment negative control
+\item Decision layer with negative-uplift suppression and both abstention verdicts
+\item Campaign policy simulator with incremental-profit output
+\item MLflow tracking and registry; reproducible from config plus commit
+\item FastAPI service, Dockerised, deployed; Streamlit dashboard
+\item Test suite covering unit, data, model behaviour, integration and API
+\end{itemize}
+
+\subsection{SHOULD HAVE}
+\begin{itemize}
+\item Uplift Random Forest as a model-class challenger
+\item Optuna tuning under a Qini objective, with trial counts reported
+\item SHAP explainability and the persuadable-segment profile
+\item Azure ML managed endpoint (rather than a container alone)
+\item Drift monitors and a documented retraining rule
+\end{itemize}
+
+\subsection{NICE TO HAVE}
+\begin{itemize}
+\item Shared-representation neural estimator
+\item Multi-treatment uplift on Hillstrom's two arms
+\item Revenue (continuous-outcome) uplift on \texttt{spend}
+\item Causal forest with interval estimates
+\item The biased-versus-corrected class-transformation figure
+\end{itemize}
+
+\subsection{REMOVE IF BEHIND SCHEDULE, in this order}
+\begin{enumerate}
+\item Causal forest
+\item Multi-treatment and revenue uplift
+\item The neural estimator --- cut without hesitation; it is a challenger, not the project
+\item Uplift Random Forest
+\item Azure managed endpoint, falling back to a container with a documented deployment path
+\end{enumerate}
+
+\begin{alertbox}
+\textbf{Never cut, at any level of schedule pressure:} the confidence intervals, the negative
+control, the locked test split discipline, and the response-model baseline. Those four are what
+separate this from a project that reports a number nobody can trust. Everything else on the lists
+above is negotiable; these four are not.
+\end{alertbox}
+
+\section{Business Model}
+
+\begin{tabularx}{\textwidth}{@{}L{4.0cm}X@{}}
+\toprule
+\textbf{Model} & \textbf{Assessment} \\
+\midrule
+B2B SaaS for mid-size retail / e-commerce & \textbf{The most realistic near-term fit.} These
+companies run campaigns constantly and have no in-house causal-inference capability; the value is
+immediate and measurable in their own reporting. \\
+Enterprise licence (banks, telecoms) & Highest value per contract, longest sales cycle. These
+organisations already have data science teams, so the sale is a capability accelerator rather than a
+replacement. Realistic only after a reference deployment exists. \\
+API / usage-based & Natural given the architecture, and the lowest-friction way to start;
+pricing per scored customer or per campaign. \\
+Consulting engagement & The most honest first revenue for a student team: run one campaign for one
+company, measure it against a real holdout, and let the result be the case study. \\
+Embedded in a CRM or marketing-automation platform & The largest eventual market and the least
+accessible one; a partnership route, not a starting point. \\
+\bottomrule
+\end{tabularx}
+
+\begin{keybox}
+\textbf{The sales sentence, and it is unusually strong for a student project:} ``Give us a
+randomized holdout on one campaign. If we do not produce more incremental conversions per unit of
+spend than your current targeting, you owe nothing.'' The product is measurable by construction ---
+the same property that makes it a good capstone makes it a good commercial pitch.
+\end{keybox}
+
+\section{Competitive Advantage}
+
+\begin{tabularx}{\textwidth}{@{}L{4.4cm}X@{}}
+\toprule
+\textbf{Compared with} & \textbf{Difference} \\
+\midrule
+Response / propensity models & Answers a different question. Cannot separate persuadables from
+customers who would have converted anyway; NetLift's entire purpose is that separation. \\
+A/B testing alone & Produces one average verdict for the whole population; NetLift produces a
+per-customer policy. \\
+Rule-based segmentation & Encodes a marketer's prior beliefs; NetLift estimates the effect from
+data and can contradict those beliefs, including in the direction of suppression. \\
+Off-the-shelf marketing-automation scoring & Optimises predicted engagement, which is the same
+mistake in a different interface, and is opaque about whether contact caused anything. \\
+Generic churn dashboards & Report who is at risk, not what to do about it, and never report whether
+the intervention worked. \\
+\bottomrule
+\end{tabularx}
+
+\section{Limitations}
+\label{sec:limitations-anchor}
+
+Stated explicitly, because a limitations section that is thin is read as a limitations section that
+was not thought about.
+
+\begin{enumerate}
+\item \textbf{Public benchmark data, not Egyptian market data.} The results describe the populations
+in the Criteo and Hillstrom experiments. The \emph{method} transfers to any market; the \emph{numbers}
+do not. Say this before being asked.
+\item \textbf{Anonymised features on the primary dataset.} Criteo's features carry no domain meaning,
+so segment descriptions on that dataset can only be structural. Interpretable segment profiling is
+possible on Hillstrom alone.
+\item \textbf{One intervention, one context.} The estimated effects belong to the specific offer,
+channel and time period of each experiment; they do not generalise to other offers.
+\item \textbf{Small effects, wide intervals.} With a conversion rate near 0.29\%, some segment-level
+estimates will be inconclusive. That is a property of the problem, and the abstention mechanism is
+the honest response to it.
+\item \textbf{Short outcome windows.} Hillstrom measures a two-week window. An offer can move a
+purchase forward in time without creating an additional purchase --- an effect that a two-week
+window reads as positive uplift and a one-year window might not.
+\item \textbf{SUTVA is assumed, not tested.} Customer-to-customer spillover would bias the estimates
+and cannot be detected in this data.
+\item \textbf{The replay is not a campaign.} Replaying decisions over recorded outcomes removes
+every operational hazard a real campaign has: no delivery failures, no channel contamination, no
+population shift between scoring and contact.
+\item \textbf{Intention-to-treat is the headline estimand.} The reported estimates describe the
+effect of being \emph{selected} for the campaign, not of having received the intervention.
+Hillstrom carries no exposure indicator at all. Criteo does, so a treatment-on-the-treated estimate
+is available there as a Wald ratio, but compliance is about 3.6\% and the resulting figure is not
+credible --- which is reported as a failure of the exclusion restriction rather than as a result
+(Section~\ref{sec:itt}).
+\item \textbf{Never validated against a live campaign.} The system is measured by replaying
+decisions over a held-out slice of historical experimental data (Section~\ref{sec:lifecycle}). It
+has never scored a live audience, and the mechanisms that would make live measurement possible ---
+a permanent randomized holdout, outcome-window measurement --- are designed but not exercised
+(Section~\ref{sec:deployment-gap}).
+\item \textbf{No computer vision or NLP} (Section~\ref{sec:curriculum}).
+\end{enumerate}
+
+\section{Ethical and Privacy Considerations}
+
+\begin{itemize}
+\item \textbf{Both datasets are public and de-identified.} No personal data is collected, processed
+or published by this project, and the repository contains loader scripts and checksums rather than
+raw data.
+\item \textbf{Uplift modelling is behaviour modification with a measured effect size} --- that is
+literally what it estimates. Applied to a discount it is ordinary marketing. Applied to
+manipulative retention tactics, to targeting customers identified as financially vulnerable, or to
+persuading someone toward a product that harms them, the same machinery becomes something else.
+The report should state a scope of acceptable use, not treat the question as outside its remit.
+\item \textbf{Differential treatment by segment} means some customers systematically receive offers
+that others do not. Where the features encode or proxy protected characteristics, the policy can
+become discriminatory even though no such feature was consciously used. \textbf{Recommended
+deliverable:} report targeting rates across available demographic-adjacent segments, and state
+that the check was performed --- on Criteo the features are anonymised and this can only be done
+structurally, which should also be stated.
+\item \textbf{The holdout has an ethical dimension too.} Withholding an offer from a control group
+is standard practice and is what makes measurement possible; it should still be named and justified
+rather than passed over silently.
+\item \textbf{Transparency of the abstention path.} A system that says ``we do not know'' is more
+honest than one that always answers, and the interface must not hide that state to look more
+decisive.
+\end{itemize}
+
+\section{Risks and Difficulties}
+\label{sec:risks}
+
+\begin{longtable}{@{}L{4.2cm}L{1.8cm}L{8.0cm}@{}}
+\toprule
+\textbf{Risk} & \textbf{Severity} & \textbf{Mitigation} \\
+\midrule
+\endhead
+\textbf{The central hypothesis does not hold} --- uplift targeting does not beat the response model
+on this data & High & Run the comparison by Week~13, not Week~19. If it holds, it is the headline.
+If it does not, the project becomes an investigation of \emph{why}, which is a legitimate and
+frequently stronger result. Neither outcome is a failed project; only discovering it too late is. \\
+\addlinespace
+\textbf{Effects too small to separate from noise} & High & Develop against \texttt{visit}
+(rate 0.046992) as well as \texttt{conversion} (0.00292); report both; use the abstention path
+rather than reporting an inconclusive number as a finding. \\
+\addlinespace
+\textbf{Curriculum gap: no CV, no NLP} & Medium--High & Raise it explicitly at the Week~7 review and
+get the answer in writing. This risk is cheap to resolve in Week~7 and expensive in Week~18. \\
+\addlinespace
+\textbf{Uneven team workload} --- a tabular ML project can leave two members working and three
+watching & Medium--High & This is a real and well-known failure mode for exactly this class of
+project, and it is why Section~\ref{sec:team} places statistics and evaluation, the decision layer
+and simulator, and the full MLOps and product surface as three independent workstreams rather than
+as appendices to the modelling. Enforce it by requiring each member to own a component that appears
+in the demo. \\
+\addlinespace
+\textbf{Metric overfitting} --- tuning against the test split & Medium & Locked test split, opened
+once, with the rule written down before it is opened. \\
+\addlinespace
+\textbf{Silent leakage} & Medium & Automated forbidden-column check; the permuted-treatment negative
+control, which catches what the check misses. \\
+\addlinespace
+\textbf{Cross-fitting implemented incorrectly} in the X- or R-learner & Medium & Use the library
+implementation; write a test asserting fold membership; do not hand-roll. \\
+\addlinespace
+\textbf{Scale problems on 14M rows} & Low--Medium & Parquet with column subsets, chunked
+preprocessing, stratified subsample for iteration, full data only for reporting. \\
+\addlinespace
+\textbf{Azure credit exhausted} & Low & Train locally; shut down compute after every session; budget
+alert set well below the limit. \\
+\addlinespace
+\textbf{Live demo failure} & Low & Recorded demo video and a local fallback mode. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Top three}
+
+\begin{enumerate}
+\item The uplift-versus-response-model comparison returning a null result, discovered too late to
+investigate.
+\item Confidence intervals on the headline result straddling zero, leaving the project with no
+statement it can defend.
+\item The curriculum gap on computer vision and NLP turning into an evaluation penalty that was
+foreseeable in Week~7.
+\end{enumerate}
+
+All three are mitigated by the same discipline: \emph{find out early}. Every one of them is cheap
+in Week~10 and expensive in Week~19.
+
+\section{Anticipated Defence Questions}
+\label{sec:defence}
+
+The questions a competent examiner will ask, and where each is answered. Every member should be
+able to handle the first four regardless of which component they own.
+
+\begin{longtable}{@{}L{6.6cm}L{8.0cm}@{}}
+\toprule
+\textbf{Question} & \textbf{Answer, and where it lives} \\
+\midrule
+\endhead
+``What was your accuracy?'' & There is none, and the reason is structural: the target is a
+difference between two potential outcomes, only one of which is ever observed
+(Section~\ref{sec:fundamental}). We report Qini, AUUC and uplift@$k$ with confidence intervals
+(Section~\ref{sec:metrics}). \\
+``How do you know the effect you measured is not noise?'' & Bootstrap intervals within treatment
+arms on every reported figure, a bootstrap comparison of champion against challenger, and a
+permuted-treatment negative control that collapses to zero (Section~\ref{sec:significance}). \\
+``How is this different from a churn model?'' & A churn model ranks by predicted outcome and cannot
+separate a customer who converts because of the contact from one who would have converted anyway.
+The response-model baseline is in the project precisely so that difference is measured rather than
+asserted (Section~\ref{sec:baselines}). \\
+``Is your campaign loop real?'' & No, and the specification says so on the first page of
+Section~\ref{sec:lifecycle}. It is a simulated replay over a held-out split: the system decides
+without reading outcomes, the outcomes are then revealed, and the decision is scored against them.
+A live loop would need the holdout of Section~\ref{sec:deployment-gap}. \\
+``Why is a public dataset acceptable?'' & Because the assumption the entire method rests on ---
+that treatment was randomly assigned --- is guaranteed by these datasets' experimental design and
+verified by our own balance report. Observational data would require assumptions we could not check
+(Section~\ref{sec:assumptions}). \\
+``Where is the deep learning?'' & A shared-representation treatment-effect network, included as a
+challenger with a problem-based justification, and honestly reported if the gradient-boosted
+baseline beats it (Section~\ref{sec:deep}). \\
+``Where is the computer vision / NLP?'' & Absent, deliberately, because neither dataset contains
+images or text. Stated in the specification rather than disguised
+(Section~\ref{sec:curriculum}). \\
+``What happens after deployment --- how do you know it still works?'' & In deployment: a permanently
+maintained randomized holdout plus drift monitors and a documented retraining rule
+(Sections~\ref{sec:drift}, \ref{sec:deployment-gap}). We designed it; we did not exercise it,
+because historical data gives us the counterfactual directly. \\
+``Did you tune on your test set?'' & No. Selection on validation, one confirmation pass on a locked
+test split, and the rule written down before the split was opened
+(Section~\ref{sec:leakage}). \\
+``What if the model is wrong about a customer?'' & The system returns an explicit
+\texttt{insufficient\_evidence} or \texttt{insufficient\_control\_data} verdict instead of a
+recommendation whenever the interval straddles zero or the control support is too thin
+(Section~\ref{sec:abstention}). \\
+``What did \emph{you} personally build?'' & Answered per member from Section~\ref{sec:team}; each
+role owns a component that appears in the demo. \\
+\bottomrule
+\end{longtable}
+
+\section{Final Deliverables}
+
+\begin{itemize}
+\item Reproducible data pipeline with schema validation, leakage audit and the split module
+\item Randomization integrity report for both datasets
+\item Trained models: three baselines, T- and X-learners, and the Advanced-tier challengers
+\item Evaluation library: Qini, AUUC, uplift@$k$, cumulative gain, bootstrap intervals, negative
+control, behavioural tests
+\item Decision engine with four policy modes and the abstention logic
+\item Campaign policy simulator
+\item MLflow project with every run logged and the champion registered
+\item FastAPI service, Dockerised and deployed, with OpenAPI documentation
+\item Streamlit dashboard, four tabs
+\item Drift monitoring and a documented retraining rule
+\item Full test suite and CI pipeline
+\item Documentation set: this specification, the seven per-milestone documents, requirements and
+design documents with the full diagram set, dataset cards, data dictionary, README, user manual,
+technical documentation, test plan and test cases, bug log
+\item Final report, presentation, and demo with a recorded backup
+\item Complete repository on the assigned organisation account
+\end{itemize}
+
+\section{Final Architecture Diagram}
+\label{sec:final-arch}
+
+{\footnotesize
+\begin{verbatim}
+ +=========================================================================+
+ |  PRESENTATION      Streamlit: Planner | Policy Comparison |             |
+ |                                Model Evidence | Monitoring             |
+ +=========================================================================+
+                     |  HTTPS
+                     v
+ +=========================================================================+
+ |  API (FastAPI)   /score  /score/batch  /policy/simulate                 |
+ |                  /model/info  /monitor/drift  /health                   |
+ +=========================================================================+
+          |                           |                        |
+          v                           v                        v
+ +------------------+    +------------------------+   +--------------------+
+ | DECISION LAYER   |    | SCORING ENGINE          |   | MONITORING         |
+ | budget / cost /  |<---| champion model from     |   | feature drift      |
+ | margin -> policy |    | MLflow Registry (by ver)|   | score drift        |
+ | suppression      |    +------------------------+   | EFFECT drift  <--+ |
+ | abstention       |                |                +--------------------+ |
+ +------------------+                |                                     |
+          |                           v                                     |
+          |                +------------------------+                       |
+          |                | PREPROCESSING ARTEFACTS|                       |
+          |                | (fitted on train only) |                       |
+          |                +------------------------+                       |
+          v                                                                 |
+ +=========================================================================+ |
+ |  PERSISTENCE   PostgreSQL: campaign, treatment_assignment,              | |
+ |                holdout_membership, scoring_run, score, outcome          | |
+ |                Azure Blob: datasets, artefacts, reports                 | |
+ +=========================================================================+ |
+                                                                            |
+ + - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -+ |
+ |  DEPLOYMENT ONLY -- NOT BUILT THIS SEMESTER                             | |
+ |  permanent randomized holdout (a few % of the base) + outcome-window    | |
+ |  measurement. In this project the counterfactual comes from the         | |
+ |  dataset instead, via the simulated replay (S 14).            <---------+
+ + - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -+
+
+ +=========================================================================+
+ |  OFFLINE TRAINING PIPELINE                                              |
+ |  ingest -> schema validate -> dedupe -> RANDOMIZATION CHECK ->          |
+ |  LEAKAGE AUDIT -> joint stratified split -> preprocess (train only) ->  |
+ |  baselines (random | blanket | response) -> uplift estimators ->        |
+ |  evaluation (Qini/AUUC/uplift@k + bootstrap CI + negative control) ->   |
+ |  champion selection on validation -> confirm ONCE on locked test ->     |
+ |  MLflow Model Registry                                                  |
+ +=========================================================================+
+\end{verbatim}}
+
+\section{Final Evaluation}
+\label{sec:final-eval}
+
+\subsection{Scores}
+
+\begin{longtable}{@{}L{4.4cm}L{1.6cm}L{8.0cm}@{}}
+\toprule
+\textbf{Dimension} & \textbf{Score} & \textbf{Justification} \\
+\midrule
+\endhead
+Technical depth & 8/10 & Causal estimation, cross-fitting, bootstrap inference and a production
+service; deep without being exotic. \\
+AI/ML depth & 9/10 & The estimand is not observable, which changes the estimator design, the
+metric set and the validation strategy at once. Very few student projects operate under that
+constraint. \\
+Statistical rigour & 10/10 & The strongest axis by a distance: potential outcomes, balance testing,
+bootstrap intervals, negative controls, locked-split discipline. \\
+Deep learning & 6/10 & Present and problem-motivated, but a challenger rather than the core, and
+honestly scored as such. \\
+Data engineering & 7/10 & Strong pipeline discipline at 14M rows, but the data is pre-collected;
+there is no collection operation as in earlier projects considered. \\
+MLOps / production & 9/10 & Registry, versioned scoring, drift monitoring, retraining rule, CI/CD,
+and a permanent production holdout --- a genuinely complete lifecycle story. \\
+Business value & 9/10 & Directly monetary, directly measurable, in the language a finance function
+uses. \\
+Employer signal & 9/10 & Retention and campaign targeting are live problems in exactly the banking,
+telecom and FinTech employers this track feeds. \\
+Innovation & 6/10 & Uplift modelling is an established field and this project does not extend it.
+Its originality lies in rigour and in the completeness of the system, not in method --- and
+claiming otherwise would be the wrong move in a defence. \\
+Portfolio value & 8/10 & The interview answer --- ``the label we were predicting does not exist, so
+here is how we validated anything at all'' --- is unusually strong. \\
+Demo quality & 6/10 & A dashboard with charts and currency figures. Legible and persuasive to a
+business audience, but it does not move on screen; weaker on immediate impact than a live camera
+demo, and honestly scored. \\
+Feasibility & 9/10 & Both datasets are public, verified and downloadable today; no external
+dependency, no permissions, no hardware constraint. \\
+\midrule
+\textbf{Overall} & \textbf{8.0/10} & Mean of the above. \\
+\midrule
+Computer vision & \emph{n/a} & Not present. Excluded from the mean rather than scored, and flagged
+as a curriculum risk in Section~\ref{sec:risks} rather than concealed. \\
+NLP & \emph{n/a} & As above. \\
+Difficulty \emph{(not a quality score)} & 7/10 & Conceptually demanding, engineering-wise moderate.
+The difficulty is in reasoning correctly, not in making things run. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Top strengths}
+
+The problem is genuinely different from the classification projects that dominate this cohort, and
+the difference is easy to state in one sentence. The business value is monetary and measurable. The
+data is verified, public and available today, so feasibility risk is close to zero. The statistical
+discipline the problem forces --- intervals, negative controls, locked splits --- is exactly the
+discipline that distinguishes an engineer from a notebook operator, and the supervising engineer's
+criterion of commercial relevance is met directly rather than argued for.
+
+\subsection{Top weaknesses}
+
+No computer vision and no NLP, which is a real gap against the track's breadth. Innovation is
+moderate: this is a well-established field and the project's contribution is rigour, not method.
+Demo quality is good but static --- there is no moment of visual surprise. And the results describe
+public benchmark populations, not the Egyptian market, which limits how far the local-relevance
+argument can be pushed.
+
+\subsection{Do I recommend building it?}
+
+\begin{goodbox}
+Yes --- with one condition attached. The project is well-scoped, the data risk is essentially zero,
+the commercial framing matches the guidance the team was given, and the technical core is a real
+problem with real depth rather than a classification task in costume. The condition is
+Section~\ref{sec:risks}: get an answer on the computer-vision and NLP question at the Week~7 review.
+That is the only issue in this document that could still change the project's viability, and it is
+answerable in one conversation.
+\end{goodbox}
+
+\subsection{Is the scope realistic for five students?}
+
+Yes, for the MVP defined in Section~\ref{sec:scope}, and only if the role split in
+Section~\ref{sec:team} is followed. The failure mode for a project of this shape is not that it is
+too hard --- it is that two members do the modelling and three find nothing substantial to own.
+The evaluation and statistics workstream, the decision layer and simulator, and the MLOps and
+product surface are what make five roles real rather than nominal.
+
+\subsection{What to remove if the project becomes too large}
+
+In the order given in Section~\ref{sec:scope}: causal forest, then multi-treatment and revenue
+uplift, then the neural estimator, then the uplift forest, then the managed cloud endpoint. Never
+the intervals, the negative control, the locked split, or the response-model baseline.
+
+\section{Final Recommended Version}
+
+\begin{keybox}
+\begin{enumerate}
+\item \textbf{Project name:} NetLift.
+\item \textbf{Problem statement:} Retention and acquisition budgets are allocated by models that
+predict who is likely to convert, which cannot distinguish customers who convert \emph{because} of
+the contact from customers who would have converted anyway --- and cannot detect the customers who
+convert less \emph{because} they were contacted.
+\item \textbf{MVP:} single-treatment, binary-outcome uplift estimation on randomized experimental
+data, with three mandatory baselines, a Qini/AUUC evaluation harness carrying bootstrap intervals
+and a permuted-treatment negative control, a budget-constrained decision layer with negative-uplift
+suppression and two abstention verdicts, a campaign policy simulator reporting incremental profit,
+and a deployed scoring service with a dashboard.
+\item \textbf{Architecture:} validated experimental data $\to$ randomization and leakage gates $\to$
+joint stratified split $\to$ baselines $\to$ meta-learner uplift estimators $\to$ evaluation with
+intervals $\to$ decision layer $\to$ FastAPI service and Streamlit dashboard $\to$ drift monitoring
+against a permanent randomized holdout.
+\item \textbf{What makes it a system rather than a model:} the simulated campaign replay of
+Section~\ref{sec:lifecycle} --- define a scenario, score, allocate under budget, hold out, reveal
+the recorded outcomes, measure what the decision produced, compare against the baseline policies.
+It measures the decision rather than the ranking, and it is what makes five roles necessary rather
+than nominal. What a live deployment would additionally need is stated separately in
+Section~\ref{sec:deployment-gap} and is not claimed as project work.
+\item \textbf{Data:} Criteo-UPLIFT as the primary result (13{,}979{,}592 rows, 12 features,
+treatment ratio 0.85); Hillstrom MineThatData for development, multi-treatment and revenue uplift
+(64{,}000 customers, three equal arms).
+\item \textbf{Models:} response-model baseline, T-learner and X-learner over gradient boosting as
+the MVP, with the X-learner favoured because of the 85/15 treatment imbalance; uplift forest and a
+shared-representation neural estimator as challengers.
+\item \textbf{Technology:} Python, pandas, LightGBM/XGBoost, scikit-uplift, CausalML, PyTorch,
+SHAP, Optuna, MLflow, FastAPI, Docker, PostgreSQL, Azure ML, Streamlit, GitHub Actions.
+\item \textbf{Team:} Aliaa Gomaa (Data Engineering and Experiment Validity) / Mohammed Sherif
+(Uplift Modeling Core) / Mahmoud Nadeem (Team Leader; Advanced Models and Tracking) / Ali Alaa
+(Evaluation, Statistics and Decision Layer) / Mazen Mahmoud (MLOps, Backend and Product).
+\item \textbf{Timeline:} DEPI programme weeks 5 to 21, with the randomization report due by Week~10
+and the central hypothesis test by Week~13.
+\item \textbf{Main risks:} a null result on the central comparison; intervals that straddle zero;
+the computer-vision and NLP curriculum gap; and uneven workload if the lifecycle work is dropped.
+\item \textbf{Explicitly not in scope this semester:} observational (non-randomized) causal
+inference; continuous-dose treatment; online policy learning; cross-campaign budget allocation.
+\item \textbf{Why this balance is the right one:} it is the only direction considered in this
+selection process where the hardest technical idea in the project (an unobservable target) is also
+the thing that produces the clearest commercial argument (money saved per campaign) and the
+cleanest defence answer (``here is how we proved it was not noise''). The cost of that alignment is
+breadth --- no vision, no language --- and the document has stated that cost plainly rather than
+disguising it.
+\end{enumerate}
+\end{keybox}
+
+\vspace{0.6cm}
+\begin{center}\rule{0.5\textwidth}{0.4pt}\end{center}
+\vspace{0.2cm}
+
+{\small\itshape
+This specification was prepared as a technical architecture review. Dataset statistics are taken
+from the sources cited at the point of use and should be re-verified against the downloaded files
+before being quoted in the team's own submitted documentation; figures marked as derived are
+arithmetic consequences of those published values, not independent measurements. Design decisions,
+scores and risk assessments are analytical judgements offered to inform the team's decisions, not
+substitutes for them. Sections marked with a red border are the ones most likely to be probed in a
+defence.}
+
+\end{document}
