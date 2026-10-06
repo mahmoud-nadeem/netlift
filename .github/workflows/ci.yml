@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Create virtual environment
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements-dev.txt
+          .venv/bin/pip install -e .
+
+      - name: Ruff check
+        run: .venv/bin/ruff check .
+
+      - name: Ruff format check
+        run: .venv/bin/ruff format --check .
+
+      - name: Mypy
+        run: .venv/bin/mypy src scripts
+
+      - name: Pytest
+        run: .venv/bin/pytest -q
+
+      - name: Verify environment
+        run: .venv/bin/python scripts/verify_environment.py

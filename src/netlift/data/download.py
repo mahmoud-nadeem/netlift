@@ -1,8 +1,8 @@
+import gzip
+from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 from urllib.request import urlopen
-from hashlib import sha256
-import gzip
-from datetime import date
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 RAW_DIR = BASE_DIR / "data" / "raw"
@@ -68,7 +68,7 @@ def main():
         print(f"  size: {size} bytes")
         print(f"  rows: {rows:,}")
         print(f"  sha256: {checksum}")
-        print(f"  download date: {date.today()}")
+        print(f"  download date: {datetime.now(tz=UTC).date()}")
 
 
 if __name__ == "__main__":
