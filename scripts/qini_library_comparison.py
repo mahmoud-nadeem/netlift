@@ -8,13 +8,15 @@ Run with the project's pinned environment:
     python scripts/qini_library_comparison.py
 """
 import warnings
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+import causalml.metrics as cmm
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
 import sklift.metrics as skm
-import causalml.metrics as cmm
+from sklearn.linear_model import LogisticRegression
+
 # ---------------------------------------------------------------
 # 1. Synthetic randomized treatment/control data
 # ---------------------------------------------------------------
