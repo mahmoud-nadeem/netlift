@@ -7,6 +7,7 @@ Run with the project's pinned environment:
     pip install -r requirements.txt
     python scripts/qini_library_comparison.py
 """
+
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -51,8 +52,12 @@ uplift_pred = m1.predict_proba(X)[:, 1] - m0.predict_proba(X)[:, 1]
 sklift_qini = skm.qini_auc_score(y_true=y, uplift=uplift_pred, treatment=treatment)
 
 df = pd.DataFrame({"y": y, "w": treatment, "uplift_pred": uplift_pred})
-causalml_qini_raw  = cmm.qini_score(df, outcome_col="y", treatment_col="w", normalize=False)["uplift_pred"]
-causalml_qini_norm = cmm.qini_score(df, outcome_col="y", treatment_col="w", normalize=True)["uplift_pred"]
+causalml_qini_raw = cmm.qini_score(
+    df, outcome_col="y", treatment_col="w", normalize=False
+)["uplift_pred"]
+causalml_qini_norm = cmm.qini_score(
+    df, outcome_col="y", treatment_col="w", normalize=True
+)["uplift_pred"]
 
 print("=== scikit-uplift ===")
 print(f"qini_auc_score:                 {sklift_qini:.4f}")
