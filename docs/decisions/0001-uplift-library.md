@@ -90,10 +90,21 @@ set, resolves xgboost to 3.4.1 instead — a reminder to always install from
 
 ### Mandatory concrete test — Qini computed by both libraries on the same predictions
 
-Built a randomized synthetic dataset (n = 4,000, 50/50 treatment split), fit a real
-T-learner (two `LogisticRegression` models, one per arm), and produced one shared
-`uplift_pred` array. Same `y`, `treatment`, and `uplift_pred` were then scored by both
-libraries:
+Reproducibility of the numbers below depends on this exact pair of versions and this
+exact seed — recorded here rather than only in `requirements.txt`, so this record
+stands on its own:
+
+```
+scikit-uplift==0.5.1
+causalml==0.17.0
+Python 3.12
+seed = 42   (np.random.default_rng(42), scripts/qini_library_comparison.py)
+```
+
+Built a randomized synthetic dataset (n = 4,000, 50/50 treatment split) from that seed,
+fit a real T-learner (two `LogisticRegression` models, one per arm), and produced one
+shared `uplift_pred` array. Same `y`, `treatment`, and `uplift_pred` were then scored by
+both libraries:
 
 | Metric | Value |
 |---|---|
@@ -137,6 +148,13 @@ must never both be called "the Qini coefficient" in the same report.**
    0/1. For `UpliftTreeClassifier` / `UpliftRandomForestClassifier`, pass
    `control_name=0` explicitly at construction rather than relying on a default, since
    causalml has no consistent default across its own API.
+5. **On K2 (95% bootstrap confidence interval on Qini/AUUC, resampled within treatment
+   arms, per `config/kpis.yaml`): neither library produces this.** `qini_auc_score`
+   returns a single point estimate, not an interval. The bootstrap required by K2 is our
+   own code, which will resample within arms and call `sklift.metrics.qini_auc_score`
+   once per resample — it is not something either library provides out of the box, and
+   nobody should assume otherwise when reading an uninterval'd `qini_auc_score` result
+   elsewhere in the codebase.
 
 ## Consequences
 
@@ -167,3 +185,34 @@ passed explicitly to causalml's tree/forest classes.
 - CI or onboarding time being measurably hurt by causalml's larger footprint, which
   would be grounds to scope causalml down to X/R/DR/forests only and keep every other
   workflow on sklift.
+
+## Implementation & verification log
+
+**2026-10-01 — Mohammed.** Reproduced the Qini experiment above locally, in the
+project's own pinned environment (Python 3.12, `pip install -r requirements.txt`,
+`scikit-uplift==0.5.1`, `causalml==0.17.0` confirmed via `pip show`), not just in a
+draft sandbox. `scripts/qini_library_comparison.py` was run from the repo root and
+produced numbers matching this record exactly:
+
+```
+=== scikit-uplift ===
+qini_auc_score:                 0.2185
+
+=== causalml ===
+qini_score (normalize=False):   43.5595
+qini_score (normalize=True):    0.6542
+```
+
+Confirms the discrepancy documented above is reproducible in the team's actual
+environment, not an artefact of a particular machine.
+
+Also corrected, against the installed package's own docstring rather than a secondary
+source: `TwoModels` is documented by scikit-uplift itself as "aka naïve approach, or
+difference score method, or double classifier approach" — not "aka X-learner" as an
+earlier draft of this record claimed. See the scikit-uplift options section above for
+the corrected text.
+
+Work was done on branch `t18-tooling-decision`: `docs/decisions/0001-uplift-library.md`
+and `scripts/qini_library_comparison.py` added, committed, and pushed. Pull request
+[#28](https://github.com/mahmoud-nadeem/netlift/pull/28) opened against `main`,
+`Closes #17`, review requested from Mahmoud. Status: awaiting review.
