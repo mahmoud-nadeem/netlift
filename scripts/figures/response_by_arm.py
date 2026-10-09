@@ -1,12 +1,13 @@
 """
-T20: response rate by treatment arm, with bootstrap confidence intervals.
+T20: visit rate by treatment arm, with bootstrap confidence intervals.
 
-Response metric: `visit` (per Spec Section 22 — the recommended development
+Response metric: `visit` (per Spec Section 22 -- the recommended development
 target, far more stable than `conversion` at this sample size).
 
-This script is the single source of truth for the committed figure.
-Nothing in notebooks/ is imported here, and the figure is never
-hand-exported from a notebook cell (repository rule, per T20's issue).
+This script is the single source of truth for the committed figure: it
+prints the numbers and saves the figure. The interpretation of the chart
+lives in one place only, the notebook markdown under the chart.
+Nothing in notebooks/ is imported here.
 """
 
 from pathlib import Path
@@ -15,12 +16,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-HILLSTROM_PATH = Path("data/raw/hillstrom.csv")
-OUTPUT_PATH = Path("reports/figures/response_by_arm.png")
+ROOT = Path(__file__).resolve().parents[2]
+HILLSTROM_PATH = ROOT / "data" / "raw" / "hillstrom.csv"
+OUTPUT_PATH = ROOT / "reports" / "figures" / "response_by_arm.png"
 
 RESPONSE_COL = "visit"
 ARM_COL = "segment"
 ARM_ORDER = ["Mens E-Mail", "Womens E-Mail", "No E-Mail"]
+ARM_COLORS = ["#4C72B0", "#55A868", "#8C8C8C"]  # control in neutral grey
 
 N_BOOTSTRAP = 2000
 CI_LOW, CI_HIGH = 2.5, 97.5
@@ -79,10 +82,11 @@ def main():
         rates,
         yerr=[err_low, err_high],
         capsize=6,
-        color=["#4C72B0", "#55A868", "#C44E52"],
+        color=ARM_COLORS,
     )
-    ax.set_ylabel(f"{RESPONSE_COL.capitalize()} rate")
-    ax.set_title("Response rate by treatment arm (Hillstrom)\nwith 95% bootstrap CI")
+    rate_label = f"{RESPONSE_COL.capitalize()} rate"
+    ax.set_ylabel(rate_label)
+    ax.set_title(f"{rate_label} by treatment arm (Hillstrom)\nwith 95% bootstrap CI")
     ax.yaxis.set_major_formatter(lambda y, _: f"{y:.1%}")
 
     # Headroom based on the tallest CI, not the tallest bar -- an arbitrary
@@ -103,29 +107,8 @@ def main():
     fig.tight_layout()
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUTPUT_PATH, dpi=150)
-    print(f"\nSaved: {OUTPUT_PATH}")
-
-    # The two sentences, derived from the computed results -- not assumed.
-    # Whichever arm actually has the highest rate drives the first sentence,
-    # so this stays correct even if the data or arm ordering changes.
-    best = max(results, key=lambda r: r["rate"])
-    control = next(r for r in results if r["arm"] == "No E-Mail")
-
-    print("\nWhat a response model would conclude:")
-    print(
-        f"The {best['arm']} arm has the highest {RESPONSE_COL} rate "
-        f"({best['rate']:.2%}), so a response model would rank those "
-        f"customers highest and target them."
-    )
-    print("\nWhy that does not tell us who to send the email to:")
-    print(
-        f"This chart shows who responded, not whose response was CAUSED by "
-        f"the email. The {control['arm']} (control) arm still shows a "
-        f"{control['rate']:.2%} {RESPONSE_COL} rate with no email at all -- "
-        f"so part of every arm's rate would have happened regardless of "
-        f"treatment. Only the gap against this control arm, not the raw "
-        f"rate, estimates the email's actual effect."
-    )
+    # Print the repo-relative path so no local machine path leaks into outputs.
+    print(f"\nSaved: {OUTPUT_PATH.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
