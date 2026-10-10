@@ -433,25 +433,25 @@ confounding.
    [1] INGESTION + SCHEMA CONTRACT
               |
               v
-   [2] RANDOMIZATION INTEGRITY CHECK      -- fails? stop. do not model. (S 16)
+   [2] RANDOMIZATION INTEGRITY CHECK      -- fails? stop. do not model. (S 20)
        standardized mean differences, treated vs control, per covariate
               |
               v
-   [3] LEAKAGE AUDIT                      -- post-treatment features removed (S 15)
+   [3] LEAKAGE AUDIT                      -- post-treatment features removed (S 18)
               |
               v
-   [4] STRATIFIED SPLIT on (treatment x outcome) jointly     (S 14)
+   [4] STRATIFIED SPLIT on (treatment x outcome) jointly     (S 19)
        train / validation / LOCKED test
               |
               v
-   [5] BASELINES FIRST                    -- random, blanket, response model (S 8)
+   [5] BASELINES FIRST                    -- random, blanket, response model (S 9)
               |
               v
    [6] UPLIFT ESTIMATORS                  -- T-learner, X-learner, uplift forest (S 7)
               |
               v
    [7] EVALUATION HARNESS                 -- Qini / AUUC / uplift@k + bootstrap CI
-              |                              (S 20, S 21)
+              |                              (S 27, S 28)
               v
    [8] DECISION LAYER                     -- budget, cost, margin -> policy   (S 10)
        negative-uplift suppression | abstention when CI straddles zero
@@ -549,19 +549,37 @@ Contamination & Control-group members reached through another channel. Biases th
 
 \subsection{The Criteo exposure column}
 
-Measured from the file during dataset verification:
+Counted from the file by \texttt{scripts/criteo\_complier\_baseline.py}, which prints the raw
+$2\times2$ table so that every figure in this section can be traced to a count rather than to a
+published ratio. The row totals agree with \texttt{docs/unit-of-observation.md}.
 
-\begin{tabularx}{\textwidth}{@{}L{7.2cm}X@{}}
+\begin{tabularx}{\textwidth}{@{}L{3.6cm}L{3.0cm}L{3.0cm}X@{}}
 \toprule
-\textbf{Quantity} & \textbf{Value} \\
+ & \textbf{\texttt{exposure}~$=0$} & \textbf{\texttt{exposure}~$=1$} & \textbf{Total} \\
 \midrule
-Rows with \texttt{exposure}~$=1$ & 428{,}212 \\
-Rows with \texttt{exposure}~$=0$ & 13{,}551{,}380 \\
-Control rows with \texttt{exposure}~$=1$ & none \\
-Treated rows & 11{,}882{,}653 \\
-Compliance, $P(\text{exposed} \mid \text{treated})$ & $\approx 3.60\%$ \emph{(derived)} \\
+\texttt{treatment}~$=0$ & 2{,}096{,}937 & 0 & 2{,}096{,}937 \\
+\texttt{treatment}~$=1$ & 11{,}454{,}443 & 428{,}212 & 11{,}882{,}655 \\
+Total & 13{,}551{,}380 & 428{,}212 & 13{,}979{,}592 \\
 \bottomrule
 \end{tabularx}
+
+\medskip
+
+Compliance, $P(\text{exposed} \mid \text{treated})$, is therefore $3.6037\%$, with a $95\%$
+bootstrap interval of $[3.5931\%,\ 3.6142\%]$.
+
+\srcnote{counts produced by \texttt{scripts/criteo\_complier\_baseline.py} (seed 42); the
+\texttt{exposure} column is documented on the Criteo AI Lab dataset page and reached through
+\texttt{scikit-uplift}'s \texttt{fetch\_criteo}. Cross-checked against
+\texttt{docs/unit-of-observation.md} and \texttt{reports/t16\_dataset\_verification.md}.}
+
+\medskip
+
+An earlier draft of this table gave 11{,}882{,}653 treated rows. That figure is
+$\text{round}(13{,}979{,}592 \times 0.85)$ --- the published treatment ratio applied to the
+published row count, not a count. The counted value is 11{,}882{,}655. No conclusion depends on the
+difference, but the distinction between a measured and a derived figure is one this document
+demands of everyone, so it is recorded rather than quietly repaired.
 
 \medskip
 
@@ -575,7 +593,8 @@ itself, not a basis for deciding whom to target.
 
 \textbf{Non-compliance is one-sided.} No control row is exposed, so $P(\text{exposed} \mid
 \text{control}) = 0$. In instrumental-variable terms there are no defiers and the monotonicity
-condition holds \emph{by construction} --- normally the hardest condition to defend, here free.
+condition holds \emph{by construction} --- a condition that normally needs defending, and here
+does not.
 
 This matters for knowing which assumption to argue about. Monotonicity is not the load-bearing one.
 The exclusion restriction is, and it is stated and examined below.
@@ -587,7 +606,7 @@ treatment-on-the-treated effect among compliers is the Wald ratio:
 
 \[
 \widehat{\text{ToT}} \;=\; \frac{\widehat{\text{ITT}}}{P(\text{exposed} \mid \text{treated})}
-\;\approx\; \frac{\widehat{\text{ITT}}}{0.036} \;\approx\; 28 \times \widehat{\text{ITT}}
+\;=\; \frac{\widehat{\text{ITT}}}{0.036037} \;\approx\; 27.7 \times \widehat{\text{ITT}}
 \]
 
 This identifies the effect on compliers only --- users who were exposed because they were assigned
@@ -595,22 +614,77 @@ This identifies the effect on compliers only --- users who were exposed because 
 \emph{only} through exposure. Being eligible for targeting but never shown the advertisement must
 have no effect of its own.
 
+\begin{keybox}
+\textbf{What the Wald ratio gives, measured.} Produced by
+\texttt{scripts/criteo\_complier\_baseline.py} (seed 42, 20{,}000 bootstrap draws). Intervals are
+$95\%$ bootstrap percentile intervals.
+
+\medskip
+
+\begin{tabularx}{\textwidth}{@{}L{7.0cm}L{2.6cm}X@{}}
+\toprule
+\textbf{Quantity} & \textbf{Estimate} & \textbf{95\% interval} \\
+\midrule
+Control conversion rate & $0.1938\%$ & $[0.1878\%,\ 0.1998\%]$ \\
+Treated, exposed & $5.3784\%$ & $[5.3108\%,\ 5.4467\%]$ \\
+Treated, unexposed & $0.1194\%$ & $[0.1174\%,\ 0.1214\%]$ \\
+ITT & $0.1152$ pp & $[0.1084,\ 0.1219]$ \\
+ToT (Wald), among compliers & $3.1964$ pp & $[3.0095,\ 3.3824]$ \\
+$E[Y(0) \mid \text{complier}]$ & $2.1820\%$ & $[2.0100\%,\ 2.3575\%]$ \\
+\midrule
+Relative lift among compliers & $1.46\times$ & $[1.28\times,\ 1.68\times]$ \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+The denominator is the point. A complier's untreated baseline is not the population control rate.
+Under one-sided non-compliance, $\texttt{exposure}=1$ inside the treated arm identifies compliers
+and $\texttt{exposure}=0$ identifies never-takers, so the exclusion restriction --- already required
+by the Wald ratio --- identifies the compliers' baseline by subtraction:
+
+\[
+E[Y(0) \mid \text{complier}] \;=\;
+\frac{\bar{y}_{\text{control}} \;-\; (1-\pi)\,\bar{y}_{\text{treated, unexposed}}}{\pi},
+\qquad \pi \;=\; P(\text{exposed} \mid \text{treated}).
+\]
+
+Against that denominator the effect is a $46\%$ relative increase on a $2.18\%$ base, which is an
+ordinary size for an advertisement shown to someone who saw it. None of the $20{,}000$ bootstrap
+draws placed the baseline below zero.
+\end{keybox}
+
 \begin{alertbox}
-\textbf{Expect this estimate to come out implausibly large, and treat that as the result.} Using the
-measured ITT on conversion --- $0.3089\%$ treated against $0.1938\%$ control, a difference of
-$0.1151$ percentage points --- the Wald ratio gives roughly $3.2$ percentage points among compliers,
-against a control base rate of $0.1938\%$. That is a relative lift of about sixteen-fold
-\emph{(derived, not measured)}.
+\textbf{Correction, 10 October 2026.} An earlier version of this subsection divided the Wald
+estimate by the \emph{population} control rate, obtained a relative lift of about sixteen-fold,
+called it implausible, and concluded --- in this box, in the decision table, and in the limitations
+list (Section~\ref{sec:limitations-anchor}) --- that the exclusion restriction fails here. All three
+said so before the analysis that would establish it existed.
 
-No display-advertising campaign moves conversion by that much. A number that size is not a finding
-about advertising; it is evidence that an assumption is carrying weight it cannot bear --- most
-likely the exclusion restriction, since a user eligible for this campaign is plausibly reached by
-other advertising in the same ecosystem.
+The denominator was wrong. A Wald estimate is an effect among compliers; dividing it by a mean taken
+over compliers and never-takers together compares two quantities that describe different people.
+Measured, compliers carry a baseline of $2.1820\%$ against $0.1194\%$ for never-takers, a factor of
+about eighteen. Dividing by the population mean understated the denominator by roughly that factor,
+and the sixteen-fold figure was that arithmetic, not a property of the data.
 
-Reporting the ratio, observing that it is not credible, and naming the assumption it breaks is worth
-considerably more in the defence than reporting ITT alone. It demonstrates that the team can read
-its own estimator rather than only run it.
+Caught in review by Ali Alaa, who supplied the estimator above.
 \end{alertbox}
+
+\begin{goodbox}
+\textbf{What the measurement settles, and what it does not.} It removes the evidence previously
+claimed \emph{against} the exclusion restriction. It does not establish that restriction, which is
+not testable here.
+
+One check is worth recording. The decomposition reconstructs the control arm from its two latent
+components,
+\[
+0.036037 \times 2.1820\% \;+\; 0.963963 \times 0.1194\% \;=\; 0.1937\%,
+\]
+against a measured control rate of $0.1938\%$. Agreement to the fourth decimal says the arithmetic
+and the one-sided premise are consistent with the data. It says nothing about whether assignment
+reaches conversion by any route other than exposure, and that is the assumption the estimate rests
+on.
+\end{goodbox}
 
 \subsection{Decision}
 
@@ -621,7 +695,9 @@ its own estimator rather than only run it.
 MVP & ITT only, on both datasets. The targeting decision is an assignment decision, so ITT is the
 quantity the product actually optimises. \\
 Advanced & The Wald estimate on Criteo, reported beside ITT, with the compliance rate, the exclusion
-restriction stated explicitly, and the implausibility of the result discussed rather than hidden. \\
+restriction stated explicitly, and the relative lift expressed against the compliers' own untreated
+baseline rather than the population control rate. Reporting it against the population mean is the
+error this section was corrected for. \\
 Never & Three things, and the second is the one a team actually does by accident.
 \textbf{(a)} \texttt{exposure} as a model feature.
 \textbf{(b)} \texttt{exposure} substituted for \texttt{treatment} as the treatment variable in an
@@ -636,9 +712,13 @@ the selection the experiment was designed to remove. \\
 \begin{keybox}
 \textbf{The sentence to use:} ``We report the intention-to-treat effect --- the effect of being
 selected for the campaign --- because that is the decision the product actually makes. Criteo also
-carries an exposure indicator, and compliance is about 3.6\%, so we additionally report the
-treatment-on-the-treated effect as a Wald ratio. It comes out implausibly large, which tells us the
-exclusion restriction does not hold here, and we report that rather than the number.'' Saying this
+carries an exposure indicator and compliance is $3.60\%$, so we additionally report the
+treatment-on-the-treated effect as a Wald ratio: $3.20$ percentage points among compliers, a $46\%$
+relative increase over the compliers' own untreated baseline of $2.18\%$. We quote it against that
+baseline and not against the population control rate, because compliers are a self-selected $3.6\%$
+whose baseline is about eighteen times the never-takers'; dividing by the population mean inflates
+the ratio by roughly that factor. The estimate rests on the exclusion restriction, which we cannot
+test.'' Saying this
 before being asked is worth more than any modelling choice in the document, because it demonstrates
 that the team knows what its own numbers mean.
 \end{keybox}
@@ -1099,11 +1179,18 @@ downloaded files in Week~9--10, because a specification is not a substitute for 
 \textbf{Property} & \textbf{Value} \\
 \midrule
 Rows & 13{,}979{,}592 \\
+Columns & 16: twelve features and four non-feature columns \\
 Features & 12, named \texttt{f0}--\texttt{f11}, all float, anonymised \\
-Treatment ratio & 0.85 \\
+Non-feature columns & \texttt{treatment} (the randomized assignment), \texttt{visit} and
+\texttt{conversion} (the two candidate outcomes), and \texttt{exposure} \\
+Treatment ratio & 0.85 published; 11{,}882{,}655 of 13{,}979{,}592 rows treated, counted \\
 Average visit rate & 0.046992 \\
 Average conversion rate & 0.00292 \\
-Targets available & \texttt{visit} (binary), \texttt{conversion} (binary) \\
+Targets available & \texttt{visit} (binary) or \texttt{conversion} (binary). Whichever is not the
+target is itself post-treatment and is leakage (Section~\ref{sec:leakage}) \\
+\texttt{exposure} & Post-treatment. \textbf{Forbidden} as a feature \emph{and} as a treatment
+variable; rejected by name in \texttt{validate\_features()} and excluded from the balance check
+(Sections~\ref{sec:itt} and~\ref{sec:leakage}) \\
 Design & Large-scale randomized advertising experiment \\
 \bottomrule
 \end{tabularx}
@@ -1178,18 +1265,18 @@ Role & Primary result & Development, multi-arm, revenue uplift \\
 This section contains the number the team should keep in front of them for the whole semester.
 \end{alertbox}
 
-From the published figures, the arithmetic runs as follows. A treatment ratio of 0.85 over
-13{,}979{,}592 rows gives roughly \textbf{11.88M treated} and \textbf{2.10M control} rows. An
-average conversion rate of 0.00292 gives roughly \textbf{40{,}800 conversions in total}. If the
-control group converted at that same average rate it would contain about \textbf{6{,}100
-conversions} --- and because a positive treatment effect pulls the average above the control rate,
-the true control figure is somewhat lower still.
+Counted from the file: \textbf{11{,}882{,}655 treated} and \textbf{2{,}096{,}937 control} rows. The
+control arm converts at $0.1938\%$, which is about \textbf{4{,}060 control conversions} in total.
+That is below the $6{,}100$ the published all-rows average of $0.00292$ would suggest, because a
+positive treatment effect pulls that average above the control rate --- so using the published
+average here would have overstated the counterfactual evidence by half.
 
-\derived{treated $= 13{,}979{,}592 \times 0.85$; control $=$ remainder; conversions $=$ rows
-$\times\ 0.00292$.}
+\srcnote{counted by \texttt{scripts/criteo\_complier\_baseline.py}; see also
+\texttt{reports/t16\_dataset\_verification.md}.}
 
 Now divide the scored population into deciles. Each decile holds about 1.40M rows, of which roughly
-210{,}000 are control, containing on the order of \textbf{600 control conversions}.
+210{,}000 are control. At the measured control rate that is on the order of \textbf{400 control
+conversions} per decile if they spread evenly, and fewer in the deciles that matter most.
 
 \begin{keybox}
 Every uplift number this project reports for a decile rests on a few hundred control-group events.
@@ -1225,7 +1312,9 @@ reliance as an assumption. \\
 Outcome-as-feature & In Hillstrom, \texttt{Visit}, \texttt{Conversion} and \texttt{Spend} are all
 post-treatment outcomes. Using \texttt{Spend} or \texttt{Visit} as an input when the target is
 \texttt{Conversion} is leakage, not feature engineering --- and it is an easy mistake because they
-sit in the same table as the features. \\
+sit in the same table as the features. Criteo carries the same trap: \texttt{visit} and
+\texttt{conversion} are both post-treatment, and whichever one is not the target is forbidden as an
+input. \texttt{validate\_features()} rejects it by name, alongside \texttt{exposure}. \\
 Treatment-indicator leakage & Outside the S-learner, where it is the design, the treatment flag must
 never enter the feature matrix. \\
 Criteo \texttt{exposure} & \textbf{Forbidden, both as a feature and as a treatment variable.} It is
@@ -2666,12 +2755,17 @@ and cannot be detected in this data.
 \item \textbf{The replay is not a campaign.} Replaying decisions over recorded outcomes removes
 every operational hazard a real campaign has: no delivery failures, no channel contamination, no
 population shift between scoring and contact.
-\item \textbf{Intention-to-treat is the headline estimand.} The reported estimates describe the
-effect of being \emph{selected} for the campaign, not of having received the intervention.
-Hillstrom carries no exposure indicator at all. Criteo does, so a treatment-on-the-treated estimate
-is available there as a Wald ratio, but compliance is about 3.6\% and the resulting figure is not
-credible --- which is reported as a failure of the exclusion restriction rather than as a result
-(Section~\ref{sec:itt}).
+\item \textbf{Intention-to-treat is the headline estimand, and the treatment-on-the-treated
+estimate describes a small, self-selected group.} The reported estimates describe the effect of
+being \emph{selected} for the campaign, not of having received the intervention. Hillstrom carries
+no exposure indicator at all. Criteo does, so a treatment-on-the-treated estimate is available
+there as a Wald ratio: $3.20$ percentage points among compliers, a $46\%$ relative increase over
+their own untreated baseline of $2.18\%$ (Section~\ref{sec:itt}). Two things limit it. It rests on
+the exclusion restriction, which cannot be tested here. And the compliers are the $3.60\%$ of
+treated users who were actually shown the advertisement, whose untreated baseline is about eighteen
+times the never-takers' --- so the estimate describes a strongly self-selected minority and says
+nothing about the other $96\%$. An earlier version of this document called the same estimate ``not
+credible''; that judgement came from dividing it by the wrong baseline and has been withdrawn.
 \item \textbf{Never validated against a live campaign.} The system is measured by replaying
 decisions over a held-out slice of historical experimental data (Section~\ref{sec:lifecycle}). It
 has never scored a live audience, and the mechanisms that would make live measurement possible ---
