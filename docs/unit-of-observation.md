@@ -73,7 +73,11 @@ One row = one user, per the dataset documentation. This cannot be verified from 
     - exposure=0: 13,551,380 rows
     - exposure=1: 428,212 rows
     - All control rows have exposure=0
-    - about 3.6% of treatment rows have exposure=1 (428,212 of 11,882,653)
+    - about 3.6% of treatment rows have exposure=1 (428,212 of 11,882,655)
+    - treated row count corrected from 11,882,653 to 11,882,655 on
+      10 Oct 2026: the earlier figure was round(13,979,592 x 0.85),
+      the published ratio rather than a count. Counted by
+      scripts/criteo_complier_baseline.py.
 
 ### Interpretation
 
@@ -116,7 +120,7 @@ taken under the assumption that one row = one independent unit.
 
 ## Criteo exposure column
 
-`exposure` exists in Criteo (428,212 of 11,882,653 treated rows, about 3.6%) and is 0
+`exposure` exists in Criteo (428,212 of 11,882,655 treated rows, about 3.6%) and is 0
 for every control row. This contradicts Specification Section 6.
 
 - `exposure` is post-treatment: it MUST be on the forbidden-column list and never
@@ -221,7 +225,7 @@ Two claims in `NetLift_Project_Specification.pdf` were found to
 contradict the data:
 
 1. **Section 6** stated "neither dataset provides an exposure
-   indicator." Criteo does contain one (428,212 of 11,882,653 treated
+   indicator." Criteo does contain one (428,212 of 11,882,655 treated
    rows, about 3.6%, all control rows = 0), which enables ToT
    estimation via the Wald/IV ratio -- contrary to the Spec's
    assumption. See the Criteo exposure column section above.
