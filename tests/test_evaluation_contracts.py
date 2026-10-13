@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy.typing as npt
+import pandas as pd
 import pytest
 
 from netlift.evaluation.contracts import (
@@ -112,22 +113,59 @@ def isolated_tracking(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
 
 
-@pytest.mark.usefixtures("isolated_tracking")
-def test_result_is_logged_against_a_kpi() -> None:
+def _last_run() -> pd.Series:
     import mlflow
-
-    result = _result(name="uplift_at_k", settings={"k": 0.3, "strategy": "overall"})
-    with start_run("metric result", seed=1) as run:
-        log_metric_result(run, "K2", result)
 
     experiment = mlflow.get_experiment_by_name("test")
     assert experiment is not None
-    row = mlflow.search_runs([experiment.experiment_id], max_results=1).iloc[0]
-    assert row["metrics.K2"] == pytest.approx(0.0847)
-    assert row["metrics.K2_ci_low"] == pytest.approx(0.0612)
-    assert row["params.K2_library"] == "scikit-uplift==0.5.1"
-    assert row["params.K2_strategy"] == "overall"
-    assert row["tags.K2_confidence"] == "0.95"
+    runs = mlflow.search_runs([experiment.experiment_id], max_results=1)
+    assert isinstance(runs, pd.DataFrame)
+    return runs.iloc[0]
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_result_is_logged_under_kpi_and_metric_name() -> None:
+    result = _result(name="uplift_at_k", settings={"k": 0.3, "strategy": "overall"})
+    with start_run("metric result", seed=1) as run:
+        key = log_metric_result(run, "K2", result)
+
+    assert key == "K2_uplift_at_k"
+    row = _last_run()
+    assert row["metrics.K2_uplift_at_k"] == pytest.approx(0.0847)
+    assert row["metrics.K2_uplift_at_k_ci_low"] == pytest.approx(0.0612)
+    assert row["params.K2_uplift_at_k_library"] == "scikit-uplift==0.5.1"
+    assert row["params.K2_uplift_at_k_strategy"] == "overall"
+    assert row["tags.K2_uplift_at_k_confidence"] == "0.95"
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_qini_and_auuc_share_one_run_under_k2() -> None:
+    qini = _result(name="qini_coefficient", seed=7)
+    auuc = _result(
+        name="auuc", value=0.031, ci_low=0.020, ci_high=0.045, n_resamples=2000, seed=8
+    )
+    with start_run("two metrics", seed=1) as run:
+        log_metric_result(run, "K2", qini)
+        log_metric_result(run, "K2", auuc)
+
+    row = _last_run()
+    assert row["metrics.K2_qini_coefficient"] == pytest.approx(0.0847)
+    assert row["metrics.K2_auuc"] == pytest.approx(0.031)
+    assert row["metrics.K2_auuc_ci_high"] == pytest.approx(0.045)
+    assert row["params.K2_qini_coefficient_n_resamples"] == "1000"
+    assert row["params.K2_auuc_n_resamples"] == "2000"
+    assert row["params.K2_qini_coefficient_seed"] == "7"
+    assert row["params.K2_auuc_seed"] == "8"
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_outside_interval_result_is_tagged() -> None:
+    with start_run("outside", seed=1) as run:
+        log_metric_result(run, "K2", _result(name="auuc", value=0.2))
+
+    row = _last_run()
+    assert row["tags.K2_auuc_value_outside_interval"] == "true"
+    assert "tags.K2_qini_coefficient_value_outside_interval" not in row.index
 
 
 @pytest.mark.usefixtures("isolated_tracking")

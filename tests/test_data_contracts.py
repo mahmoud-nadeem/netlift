@@ -40,6 +40,7 @@ def _matrix(**overrides: object) -> FeatureMatrix:
         "t": np.array([0, 1, 0, 1]),
         "y": np.array([1, 0, 0, 1]),
         "fold": np.array([0, 0, 1, 1]),
+        "row_id": np.array([10, 11, 12, 13]),
         "meta": _meta(),
     }
     parts.update(overrides)
@@ -234,6 +235,7 @@ def test_splits_must_share_columns(synthetic_splits: DatasetSplits) -> None:
         t=synthetic_splits.validation.t,
         y=synthetic_splits.validation.y,
         fold=synthetic_splits.validation.fold,
+        row_id=synthetic_splits.validation.row_id,
         meta=synthetic_splits.validation.meta,
     )
     with pytest.raises(ContractError, match="same feature columns"):
@@ -242,3 +244,63 @@ def test_splits_must_share_columns(synthetic_splits: DatasetSplits) -> None:
             validation=validation,
             test=synthetic_splits.test,
         )
+
+
+# --------------------------------------------------------------------------- #
+# row ids
+# --------------------------------------------------------------------------- #
+
+
+def test_duplicate_row_id_is_rejected() -> None:
+    with pytest.raises(
+        ContractError, match=r"unique within a matrix; repeated: \[11\]"
+    ):
+        _matrix(row_id=np.array([10, 11, 11, 13]))
+
+
+def test_negative_row_id_is_rejected() -> None:
+    with pytest.raises(ContractError, match="non-negative"):
+        _matrix(row_id=np.array([-1, 11, 12, 13]))
+
+
+def test_row_id_shared_by_two_splits_is_rejected(
+    synthetic_splits: DatasetSplits,
+) -> None:
+    leaked = synthetic_splits.validation.row_id.copy()
+    leaked[0] = synthetic_splits.train.row_id[0]
+    validation = FeatureMatrix(
+        X=synthetic_splits.validation.X,
+        t=synthetic_splits.validation.t,
+        y=synthetic_splits.validation.y,
+        fold=synthetic_splits.validation.fold,
+        row_id=leaked,
+        meta=synthetic_splits.validation.meta,
+    )
+    with pytest.raises(ContractError, match="both train and validation"):
+        DatasetSplits(
+            train=synthetic_splits.train,
+            validation=validation,
+            test=synthetic_splits.test,
+        )
+
+
+def test_synthetic_row_ids_cover_the_raw_frame_once(
+    synthetic_splits: DatasetSplits,
+) -> None:
+    every = np.concatenate(
+        [
+            synthetic_splits.train.row_id,
+            synthetic_splits.validation.row_id,
+            synthetic_splits.test.row_ids,
+        ]
+    )
+    assert sorted(every.tolist()) == list(range(600))
+
+
+def test_locked_split_row_ids_are_a_read_only_copy(
+    synthetic_splits: DatasetSplits,
+) -> None:
+    ids = synthetic_splits.test.row_ids
+    assert not synthetic_splits.test.is_open
+    with pytest.raises(ValueError, match="read-only"):
+        ids[0] = 0

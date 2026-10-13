@@ -64,10 +64,11 @@ class FeatureMatrix:
     t: NDArray[int8]                # 0 control, 1 treatment
     y: NDArray[int8]                # 0/1 target outcome
     fold: NDArray[int64]            # fold id per row
+    row_id: NDArray[int64]          # 0-based position in the raw file as loaded
     meta: FeatureMatrixMeta
 
 class LockedTestSplit:              # wraps the test FeatureMatrix
-    meta, columns, is_open          # readable without opening
+    meta, columns, row_ids, is_open # readable without opening
     def open(self, reason: str) -> FeatureMatrix
 
 @dataclass(frozen=True, eq=False)
@@ -90,11 +91,14 @@ Checked when a `FeatureMatrix` is built:
   on that list, so every outcome is forbidden whichever one is the target. The treatment flag is
   never a column of `X`, not even for the S-learner: an S-learner appends `t` inside its own fit
   and predict.
-- `X`, `t`, `y` and `fold` have the same length, and there is at least one row.
+- `X`, `t`, `y`, `fold` and `row_id` have the same length, and there is at least one row.
 - `t` and `y` are one-dimensional, have no missing values, and contain only 0 and 1.
 - `t` contains both arms.
 - Fold ids are non-negative integers. In the train split they are the cross-validation folds
   0 to K-1. The validation and test splits are each a single fold, 0.
+- Row ids are non-negative integers, unique within the matrix. A row id is the row's 0-based
+  position in the raw file as loaded. For Criteo it identifies a row, not a customer: neither
+  dataset has a customer id (`docs/unit-of-observation.md`).
 
 Checked on request, because it needs a configured value:
 
@@ -105,7 +109,10 @@ Checked on request, because it needs a configured value:
   decisions below).
 
 Checked when `DatasetSplits` is built: the three splits are named correctly and share dataset,
-target, treatment definition, seed and feature columns.
+target, treatment definition, seed and feature columns, and **their row ids are pairwise
+disjoint**. A raw row that sits in both train and test is the most common silent bug in split
+code, and with positional arrays alone nobody downstream could check for it. The row ids also
+record exactly which raw rows formed the locked test split.
 
 `FeatureMatrix.cell_counts()` returns the four (t, y) cell counts per fold, which the Splitting
 Strategy section says to assert and log after every split.
@@ -113,7 +120,7 @@ Strategy section says to assert and log after every split.
 ### The locked test split
 
 The simplest form that works: T37 hands out the test split only inside a `LockedTestSplit`. Its
-metadata and column names can be read at any time. The rows come out only through
+metadata, column names and row ids (a read-only copy) can be read at any time. The rows come out only through
 `open(reason)`, which needs a non-empty reason, logs it as a warning, and refuses a second call
 on the same object. This cannot stop someone rebuilding the split in another process; that is
 what the written opening procedure of T70 is for. It does make opening the split a deliberate,
@@ -154,7 +161,8 @@ test = splits.test.open("champion confirmation, procedure in T70")  # once
 `src/netlift/data/synthetic.py` builds a seeded synthetic dataset (600 rows by default, four
 features, both arms, both binary outcomes) and returns it as `DatasetSplits`, 60 / 20 / 20 and
 jointly stratified on (t, y). The pytest fixture `synthetic_splits` in `tests/conftest.py` returns
-it. T38 and T39 can build and test against it today.
+it. T38 and T39 can build and test against it today. Its row ids are the rows' positions in the
+generated frame, so the three splits together cover every row exactly once.
 
 **It is synthetic and never used for a reported result.** Every matrix it returns carries
 `meta.dataset == "synthetic"`, and its effect sizes are invented.
@@ -186,7 +194,7 @@ class UpliftMetric(Protocol):
     def __call__(self, y, uplift, t, *,
                  n_resamples: int, confidence_level: float, seed: int) -> MetricResult: ...
 
-def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> None
+def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str  # the key
 ```
 
 The argument order is scikit-uplift's `(y_true, uplift, treatment)`. Options specific to one
@@ -211,10 +219,16 @@ echoed in `settings`. The specification (Evaluation Metrics) notes that uplift@k
 
 ### Logging a result
 
-`log_metric_result` passes the result to the tracking wrapper's `log_kpi`, then records the
-metric name, `library==version`, the number of resamples, the seed and every setting as run
-parameters. It refuses a result with fewer than 1,000 resamples, because the specification says
-"Use at least 1,000 resamples" for a reported figure. Diagnostics with fewer resamples go through
+`log_metric_result` logs the result under the key `<KPI>_<metric name>`, for example
+`K2_qini_coefficient`. The interval goes under `<key>_ci_low` and `<key>_ci_high`, the confidence
+level is a tag `<key>_confidence`, and `library==version`, the number of resamples, the seed and
+every setting are parameters prefixed with the same key. One KPI can cover several metrics: K2 is
+both the Qini coefficient and AUUC, so one run holds `K2_qini_coefficient` and `K2_auuc` side by
+side, each with its own interval and parameters. The prefix has to be the full key, because
+MLflow refuses to change a parameter's value within a run.
+
+It refuses a result with fewer than 1,000 resamples, because the specification says "Use at
+least 1,000 resamples" for a reported figure. Diagnostics with fewer resamples go through
 `run.log_metrics`.
 
 ```python
@@ -222,16 +236,22 @@ from netlift.evaluation.contracts import log_metric_result
 from netlift.utils.tracking import start_run
 
 with start_run("x-learner, lightgbm base", dataset=path, seed=42) as run:
-    result = qini_coefficient(
-        y, uplift, t, n_resamples=1000, confidence_level=0.95, seed=42
-    )
-    log_metric_result(run, "K2", result)
+    for metric in (qini_coefficient, auuc):
+        result = metric(y, uplift, t, n_resamples=1000, confidence_level=0.95, seed=42)
+        log_metric_result(run, "K2", result)  # K2_qini_coefficient, K2_auuc
 ```
 
-**One change to the tracking wrapper.** `Run.log_kpi` used to reject a value outside its own
-interval. With a percentile bootstrap that is a legitimate result, so a valid `MetricResult`
-could not have been logged. `log_kpi` now logs a warning instead; reversed bounds are still
-rejected. `tests/test_tracking.py` and `docs/experiment-tracking.md` are updated to match.
+**Changes to the tracking wrapper.** These were made in this task:
+
+- `Run.log_kpi` used to reject a value outside its own interval. With a percentile bootstrap
+  that is a legitimate result, so a valid `MetricResult` could not have been logged. It now logs
+  a warning, and it also sets the run tag `<key>_value_outside_interval = "true"`, so the case
+  shows in the MLflow UI and not only in the console. Reversed bounds are still rejected.
+- `Run.log_kpi` takes an optional `metric`. The MLflow key is the KPI id when `metric` is
+  `None`, and `<kpi_id>_<metric>` otherwise. It returns the key. The KPI id is still checked
+  against `config/kpis.yaml`.
+
+`tests/test_tracking.py` and `docs/experiment-tracking.md` are updated to match.
 
 ---
 
@@ -327,13 +347,17 @@ The specification's own example round-trips through JSON unchanged (tested):
 4. `X` arrives preprocessed or raw? The interface does not check dtypes or missing values in `X`,
    because preprocessing is fitted on the training fold only and the matrix may come before it.
 5. The locked test split as a wrapper with a logged, once-only `open(reason)`.
+6. `row_id` on every matrix: the row's 0-based position in the raw file as loaded, unique within
+   a matrix, with the three splits' row ids pairwise disjoint. T37 must record the position
+   before any row is dropped (duplicates, the other Hillstrom arm), so the ids still point at the
+   raw file.
 
 **Ali (interfaces 2 and 3)**
 
 1. Metric names: `qini_coefficient`, `auuc`, `uplift_at_k`, and the settings recorded for each.
-2. KPI K2 covers both Qini and AUUC, but `log_kpi("K2", ...)` holds one value per run. Log AUUC
-   under a separate KPI id, or log K2 twice in separate runs?
-3. The value is not required to lie inside its interval, and `log_kpi` now warns instead of
+2. Confirm the metric key format `<KPI>_<metric name>` (for example `K2_qini_coefficient`,
+   `K2_auuc`).
+3. The value is not required to lie inside its interval; `log_kpi` now warns and tags the run instead of
    rejecting.
 4. Fewer than 1,000 resamples cannot be logged as a KPI.
 5. Should a `confident` verdict also require the customer's interval to exclude zero? The

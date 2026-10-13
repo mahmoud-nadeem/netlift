@@ -124,6 +124,7 @@ def _matrix(
         fold=fold[mask]
         if split_name == "train"
         else np.zeros(len(rows), dtype=np.int64),
+        row_id=np.flatnonzero(mask).astype(np.int64),
         meta=FeatureMatrixMeta(
             dataset="synthetic",
             target_outcome=target,

@@ -111,16 +111,22 @@ class FeatureMatrixMeta:
 
 @dataclass(frozen=True, eq=False)
 class FeatureMatrix:
-    """Features, binary treatment, binary outcome and a fold id for every row.
+    """Features, binary treatment, binary outcome, a fold id and a row id for every row.
 
     ``fold`` holds the cross-validation fold ids inside the training split
     (0 to K-1). The validation and test splits are a single fold, 0.
+
+    ``row_id`` is each row's 0-based position in the raw file as loaded. It
+    identifies a row, not a customer: neither dataset has a customer id
+    (``docs/unit-of-observation.md``). It lets anyone check that no raw row sits in
+    two splits, and records which raw rows formed the locked test split.
     """
 
     X: pd.DataFrame
     t: npt.NDArray[np.int8]
     y: npt.NDArray[np.int8]
     fold: npt.NDArray[np.int64]
+    row_id: npt.NDArray[np.int64]
     meta: FeatureMatrixMeta
 
     def __post_init__(self) -> None:
@@ -129,7 +135,14 @@ class FeatureMatrix:
         t = _as_binary(self.t, "t")
         y = _as_binary(self.y, "y")
         fold = _as_fold(self.fold)
-        lengths = {"X": len(self.X), "t": len(t), "y": len(y), "fold": len(fold)}
+        row_id = _as_row_id(self.row_id)
+        lengths = {
+            "X": len(self.X),
+            "t": len(t),
+            "y": len(y),
+            "fold": len(fold),
+            "row_id": len(row_id),
+        }
         if len(set(lengths.values())) != 1:
             raise ContractError(f"Length mismatch between the parts: {lengths}.")
         if len(t) == 0:
@@ -147,6 +160,7 @@ class FeatureMatrix:
         object.__setattr__(self, "t", t)
         object.__setattr__(self, "y", y)
         object.__setattr__(self, "fold", fold)
+        object.__setattr__(self, "row_id", row_id)
 
     @property
     def n_rows(self) -> int:
@@ -240,6 +254,13 @@ class LockedTestSplit:
         return tuple(str(column) for column in self._matrix.X.columns)
 
     @property
+    def row_ids(self) -> npt.NDArray[np.int64]:
+        """A read-only copy of the raw row ids, readable without opening the split."""
+        ids = self._matrix.row_id.copy()
+        ids.flags.writeable = False
+        return ids
+
+    @property
     def is_open(self) -> bool:
         """Whether :meth:`open` has been called."""
         return self._opened_for is not None
@@ -294,6 +315,23 @@ class DatasetSplits:
         validation_columns = tuple(str(c) for c in self.validation.X.columns)
         if validation_columns != train_columns or self.test.columns != train_columns:
             raise ContractError("All three splits must have the same feature columns.")
+        row_ids = {
+            "train": self.train.row_id,
+            "validation": self.validation.row_id,
+            "test": self.test.row_ids,
+        }
+        for first, second in (
+            ("train", "validation"),
+            ("train", "test"),
+            ("validation", "test"),
+        ):
+            shared = np.intersect1d(row_ids[first], row_ids[second])
+            if shared.size:
+                raise ContractError(
+                    f"{shared.size} raw row(s) sit in both {first} and {second}, "
+                    f"for example row id(s) {shared[:5].tolist()}. The splits must be "
+                    "disjoint."
+                )
 
 
 def _normalise(column: Hashable) -> str:
@@ -337,4 +375,23 @@ def _as_fold(values: npt.ArrayLike) -> npt.NDArray[np.int64]:
         raise ContractError(f"fold ids must be integers, got dtype {array.dtype}.")
     if array.size and array.min() < 0:
         raise ContractError("fold ids must be non-negative.")
+    return array.astype(np.int64)
+
+
+def _as_row_id(values: npt.ArrayLike) -> npt.NDArray[np.int64]:
+    """Return row ids as a 1-D int64 array of unique non-negative integers, or raise."""
+    array = np.asarray(values)
+    if array.ndim != 1:
+        raise ContractError(f"row_id must be one-dimensional, got shape {array.shape}.")
+    if array.dtype.kind not in "iu":
+        raise ContractError(f"row ids must be integers, got dtype {array.dtype}.")
+    if array.size and array.min() < 0:
+        raise ContractError("row ids must be non-negative.")
+    unique, counts = np.unique(array, return_counts=True)
+    duplicated = unique[counts > 1]
+    if duplicated.size:
+        raise ContractError(
+            f"row ids must be unique within a matrix; repeated: "
+            f"{duplicated[:5].tolist()}."
+        )
     return array.astype(np.int64)

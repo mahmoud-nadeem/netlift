@@ -124,25 +124,31 @@ class UpliftMetric(Protocol):
         ...
 
 
-def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> None:
-    """Log a metric result against a KPI through the tracking wrapper."""
+def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str:
+    """Log a metric result under ``<kpi_id>_<metric name>`` and return that key.
+
+    Every parameter is prefixed with the full key, so two metrics under one KPI
+    (Qini and AUUC under K2) can share a run: MLflow refuses to change a
+    parameter's value within a run.
+    """
     if result.n_resamples < MIN_REPORTED_RESAMPLES:
         raise ContractError(
             f"{result.name}: {result.n_resamples} bootstrap resamples. A reported "
             f"result needs at least {MIN_REPORTED_RESAMPLES}."
         )
-    run.log_kpi(
+    key = run.log_kpi(
         kpi_id,
         value=result.value,
         ci_low=result.ci_low,
         ci_high=result.ci_high,
         confidence=result.confidence_level,
+        metric=result.name,
     )
     params: dict[str, object] = {
-        f"{kpi_id}_metric": result.name,
-        f"{kpi_id}_library": f"{result.library}=={result.library_version}",
-        f"{kpi_id}_n_resamples": result.n_resamples,
-        f"{kpi_id}_seed": result.seed,
+        f"{key}_library": f"{result.library}=={result.library_version}",
+        f"{key}_n_resamples": result.n_resamples,
+        f"{key}_seed": result.seed,
     }
-    params.update({f"{kpi_id}_{key}": value for key, value in result.settings.items()})
+    params.update({f"{key}_{name}": value for name, value in result.settings.items()})
     run.log_params(params)
+    return key
