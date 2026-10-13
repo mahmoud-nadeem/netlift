@@ -72,12 +72,20 @@ def test_reversed_interval_is_rejected() -> None:
         run.log_kpi("K2", value=0.1, ci_low=0.5, ci_high=0.0)
 
 
-def test_value_outside_its_interval_is_rejected() -> None:
-    with (
-        start_run("outside", seed=1) as run,
-        pytest.raises(TrackingError, match="outside"),
-    ):
+def test_value_outside_its_interval_warns_and_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A percentile bootstrap can put the estimate outside its interval."""
+    import mlflow
+
+    with caplog.at_level("WARNING"), start_run("outside", seed=1) as run:
         run.log_kpi("K2", value=0.9, ci_low=0.0, ci_high=0.2)
+
+    assert "outside its interval" in caplog.text
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    runs = mlflow.search_runs([experiment.experiment_id], max_results=1)
+    assert runs.iloc[0]["metrics.K2"] == pytest.approx(0.9)
 
 
 def test_directory_tracking_store_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:

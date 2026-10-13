@@ -98,9 +98,12 @@ number without one. This project's rule is that every reported result carries an
 interval — and a rule that depends on five people remembering it will be broken
 at least once. Here it is enforced by the code instead.
 
-It **checks the three numbers are consistent**: bounds the right way round, and
-the value inside its own interval. Both of those have been typos in real
-projects, and both survive review because the numbers look plausible.
+It **checks the three numbers are consistent**. Bounds the wrong way round are
+rejected: that is always a typo, and it survives review because the numbers look
+plausible. A value outside its own interval is logged with a warning rather than
+rejected, because a percentile bootstrap does not guarantee the point estimate
+lies inside the interval (`docs/design/interfaces.md`, interface 2). The warning
+is the prompt to check it is not a typo.
 
 Diagnostics during development still go through `log_metrics`. `log_kpi` is for
 numbers that will be defended.

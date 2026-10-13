@@ -213,9 +213,15 @@ class Run:
                 "The bounds are the wrong way round."
             )
         if not ci_low <= value <= ci_high:
-            raise TrackingError(
-                f"{kpi_id}: value {value} lies outside its interval "
-                f"[{ci_low}, {ci_high}]. One of the three is wrong."
+            # A percentile bootstrap does not guarantee the point estimate lies
+            # inside its own interval, so this is worth a look but is not an error.
+            logger.warning(
+                "%s: value %s lies outside its interval [%s, %s]. Possible with a "
+                "percentile bootstrap on a skewed statistic; check it is not a bug.",
+                kpi_id,
+                value,
+                ci_low,
+                ci_high,
             )
         mlflow.log_metrics(
             {
