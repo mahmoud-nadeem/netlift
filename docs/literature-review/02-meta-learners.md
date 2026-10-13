@@ -1,0 +1,39 @@
+# Meta-learners and class transformation
+
+Author: Mohammed Sherif · Task: T26 · Reviewed by: Aliaa Gomaa
+
+## 1. Künzel, Sekhon, Bickel & Yu (2019) — the S-, T- and X-learners
+
+**Citation.** Künzel, S. R., Sekhon, J. S., Bickel, P. J., & Yu, B. (2019). *Metalearners for estimating heterogeneous treatment effects using machine learning*. Proceedings of the National Academy of Sciences, 116(10), 4156–4165. https://doi.org/10.1073/pnas.1804597116 (preprint: https://arxiv.org/abs/1706.03461)
+
+**What the paper says.** The paper treats CATE estimation as a meta-problem: any base model becomes a treatment-effect estimator by wrapping it in a "meta-learner" rather than redesigning it. It formalises the S-learner (one model, treatment as a feature) and T-learner (two models, one per arm), then proposes the X-learner for groups of very different sizes: it imputes each unit's missing counterfactual from the opposite arm's model, fits an effect model on each side's imputed effects, and combines them by a propensity-score weight. Under stated regularity conditions, the authors show the X-learner can reach a near-parametric rate and report it as competitive in simulation, while being explicit that no single meta-learner dominates everywhere.
+
+**What NetLift takes from it.** This is the source of the MVP's two mandatory estimators, T-learner and X-learner (Part II of `01-specification.md`), and of the spec's stated reason for making X-learner primary: Criteo's 0.85-treated split is the kind of imbalance the X-learner targets. That mapping is the project's own extrapolation, though — the paper proves efficiency on its own simulated and field-experiment data, not on Criteo or Hillstrom, so it is evidence for the choice, not proof it will hold here.
+
+## 2. Jaśkowski & Jaroszewicz (2012) — class transformation and why it needs balanced arms
+
+**Citation.** Jaśkowski, M., & Jaroszewicz, S. (2012). *Uplift modeling for clinical trial data*. ICML 2012 Workshop on Machine Learning for Clinical Data Analysis, Edinburgh, Scotland. https://home.ipipan.waw.pl/sj/pdf/logsemi.pdf
+
+**What the paper says.** An ordinary classifier trained only on treated patients answers "who responds", not "who responds *because of* treatment", so the authors relabel the problem instead. They define a target Z = 1 when a treated patient has a positive outcome or a control patient has a negative one, and derive that uplift equals 2P(Z=1∣X) − 1 *when treatment and control are equally likely*, so one classifier trained on Z yields uplift directly. On bone-marrow-transplant, tamoxifen and UCI hepatitis data, the method found a subgroup helped by a treatment worse on average overall, and beat two-model approaches on hepatitis specifically but not the other two — evidence, the authors say, that no single method wins everywhere.
+
+**What NetLift takes from it.** This is the source of the 50/50 balance condition behind the "class-transformation trap" the spec names explicitly (Part II): Criteo's 0.85 treated share breaks that condition. The paper only *suggests* reweighting for imbalance without proving the reweighted version unbiased in the same way, so the spec's "forbid the naive version, require propensity-weighting" is NetLift's own reasonable extension of that suggestion, not a result the paper itself establishes.
+
+## 3. Nie & Wager (2021) — the R-learner
+
+**Citation.** Nie, X., & Wager, S. (2021). *Quasi-oracle estimation of heterogeneous treatment effects*. Biometrika, 108(2), 299–319. https://doi.org/10.1093/biomet/asaa076 (preprint: https://arxiv.org/abs/1712.04912)
+
+**What the paper says.** Fitting outcome and propensity models and then subtracting or dividing them, as the S- and T-learners do, mixes confounding control with effect estimation, leaving the CATE estimate sensitive to regularisation bias in the nuisance models. The R-learner separates the two jobs with Robinson's transformation: cross-fit the conditional mean outcome and propensity score first, then minimise a residual-on-residual loss ("R-loss") over candidate effect functions. For penalised kernel regression, the paper proves the resulting error rate matches an oracle that already knows the nuisance functions — a "quasi-oracle" property — provided those nuisance functions are estimated at a stated minimum rate. Simulations show it competitive against S-, T-, X- and U-learner baselines.
+
+**What NetLift takes from it.** The spec places the R-learner in the Advanced tier "if time allows" (Part II), warning that incorrect cross-fitting "reintroduces exactly the bias the estimator exists to remove, and the error is invisible in the metrics" — language tracking this paper's own cross-fitting requirement. The quasi-oracle guarantee is conditional on a nuisance-estimation-rate assumption the paper states; whether NetLift's base learners meet that rate on Criteo's anonymised features is unverified, which is why the spec treats this as Advanced rather than assured.
+
+## 4. Kennedy (2023) — a two-stage doubly robust CATE estimator
+
+**Citation.** Kennedy, E. H. (2023). *Towards optimal doubly robust estimation of heterogeneous causal effects*. Electronic Journal of Statistics, 17(2), 3008–3049. https://doi.org/10.1214/23-EJS2157 (preprint: https://arxiv.org/abs/2004.14497)
+
+**What the paper says.** Kennedy's own term is "a two-stage doubly robust CATE estimator" — the paper never uses the label "DR-learner", which comes from surrounding software (e.g. EconML), not this text. It identifies a gap in the literature — unclear when such estimators are *optimal*, not merely consistent, once the true effect function has structure such as smoothness or sparsity — derives a general, model-free error bound, applies it to get rates under smoothness/sparsity, and proposes a local-polynomial double-residual-regression variant oracle-efficient under what the author argues are the weakest published conditions. The abstract itself does not spell out that the estimator stays consistent whenever only one of two nuisance models is correct; that is the standard meaning of "doubly robust" in the wider literature, but this paper's own stated contribution is about error bounds and optimality, not re-deriving that property.
+
+**What NetLift takes from it.** The spec lists this estimator as an Advanced-tier challenger alongside the R-learner (Part II), under the same caution about costly, error-prone cross-fitting. Calling it "the DR-learner" and citing it as proof that "only one nuisance model needs to be right" — as an earlier draft of this review did — over-attributed a well-known general property of doubly-robust estimators to this specific paper's stated contributions; the accurate claim is narrower: sharper error bounds and efficiency conditions, not an introduction of double robustness itself.
+
+## How these sources relate
+
+Künzel et al. frame the family the other three sit inside: S-, T- and X-learners wrap off-the-shelf models, while class transformation is a different, single-model route sharing the X-learner's sensitivity to group balance — one through its imputation weights, the other through the 50/50 identity it needs exactly. Nie & Wager and Kennedy both address a weakness the T- and X-learners share: naively combined outcome and propensity models let their own bias leak into the effect estimate. Each paper proves its guarantee only under its own stated conditions, and none of the four test NetLift's actual datasets — so the project's choices (X-learner for the MVP, R- and DR-style estimators for Advanced) are informed extrapolations from these results, not conclusions the papers draw themselves. That distinction is already reflected in the spec's conditional language ("if time allows", "Advanced tier") rather than a claim that these properties are proven for Criteo or Hillstrom.
