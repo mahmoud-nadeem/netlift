@@ -132,7 +132,7 @@ nothing now and keeps a door open.
 \textbf{On curriculum coverage --- read this before the proposal is submitted.} This project
 uses no computer vision and no NLP, and Section~\ref{sec:curriculum} says so plainly instead of
 inventing a use for them. Everything else in the track is used because the problem requires it.
-Raise this with the instructor at the Week~7 review.
+Raise this with the instructor at the first instructor review.
 \end{keybox}
 
 \vfill
@@ -882,11 +882,11 @@ rather than conversion, for the same reason as the response model. \\
 \end{tabularx}
 
 \begin{alertbox}
-\textbf{Run the uplift-versus-response-model comparison by the analysis and design milestone
-(Week~12), not at the end.} It is the experiment that tests the project's core hypothesis. If it
-comes out negative in Week~19 there is no time left to investigate why, and the team is left
-presenting a system whose premise it cannot support. If it comes out negative in Week~12, the
-investigation \emph{becomes} the project's most interesting section.
+\textbf{Run the uplift-versus-response-model comparison by the end of the analysis and design
+milestone (Friday 6 November 2026), not at the end.} It is the experiment that tests the project's
+core hypothesis. If it comes out negative on 1 December there is no time left to investigate why,
+and the team is left presenting a system whose premise it cannot support. If it comes out negative
+on 6 November, the investigation \emph{becomes} the project's most interesting section.
 \end{alertbox}
 
 \section{Uplift Score to Decision: The Targeting Policy}
@@ -1175,7 +1175,7 @@ it.''
 Every figure in this section is taken from the dataset's own published documentation and is cited
 where it appears. Nothing here is recalled from memory. Figures that are arithmetic consequences of
 the published ones are labelled \emph{derived} and should be re-checked by the team against the
-downloaded files in Week~9--10, because a specification is not a substitute for opening the data.
+downloaded files before any modelling starts, because a specification is not a substitute for opening the data.
 \end{keybox}
 
 \subsection{Criteo-UPLIFT --- the primary dataset}
@@ -1981,8 +1981,9 @@ Testing & Yes & Unit, data, model-behaviour, integration, API, CI. \\
 project, because neither dataset contains images or text and manufacturing a use for them would
 make the system worse and the story weaker. If the evaluation criteria make coverage of those two
 components mandatory rather than desirable, that is a reason to reconsider the project choice
-\emph{now}, in the proposal window --- not a reason to attach an unrelated image classifier in
-Week~18. Raise it with the instructor at the Week~7 review and get an answer on the record.
+\emph{now}, in the proposal window --- not a reason to attach an unrelated image classifier during
+implementation. Raise it with the instructor at the first instructor review and get an answer on
+the record.
 \end{alertbox}
 % ============================ PART V ============================
 \part{Product and Demonstration}
@@ -2134,8 +2135,8 @@ Deployed and documented service, dashboard, monitoring, CI pipeline, README and 
 \begin{alertbox}
 \textbf{The critical path is Aliaa (M1) and Ali (M4), in that order --- not the modelling.} Until the split
 is valid, every model is untrustworthy; until the metric harness with intervals exists, no model can
-be compared to another. A schedule that starts modelling in Week~9 while the harness is still being
-written produces four weeks of results that have to be recomputed. Both of these must be finished
+be compared to another. A schedule that starts modelling while the harness is still being written
+produces weeks of results that have to be recomputed. Both of these must be finished
 and tested before the analysis-and-design milestone ends.
 \end{alertbox}
 
@@ -2288,15 +2289,15 @@ Simulated replay (Section~\ref{sec:lifecycle}) on the locked test split: both po
 same number of customers under the same budget; incremental conversions measured against the
 withheld slice & \emph{Measured.} The 95\% bootstrap interval of the \emph{difference} excludes
 zero in favour of the uplift policy. An interval containing zero is a reportable finding, not a
-failed project & M4 (W12--13) & Ali \\
+failed project & M4 (6 Nov) & Ali \\
 \addlinespace
 \textbf{K2 --- Qini coefficient and AUUC} & Evaluation harness, on the locked test split, with 1000+
 bootstrap resamples within treatment arms; library and settings named in the report & \emph{Measured.}
-Interval excludes zero, i.e.\ demonstrably better than random targeting & M4 (W12--13) & Ali \\
+Interval excludes zero, i.e.\ demonstrably better than random targeting & M4 (6 Nov) & Ali \\
 \addlinespace
 \textbf{K3 --- Incremental profit per unit of spend} & Replay output converted with the stated
 per-contact cost and margin & \emph{Measured.} Reported with an interval and with the cost and margin
-assumptions named on the same line & M4 (W12--13) & Ali \\
+assumptions named on the same line & M4 (6 Nov) & Ali \\
 \addlinespace
 \textbf{K4 --- Negative control} & Full pipeline re-run on a randomly permuted treatment indicator &
 \textbf{Pass/fail.} The 95\% interval of the measured uplift contains zero & M4, re-run at M6 & Ali \\
@@ -2309,7 +2310,7 @@ direction & M5 & Ali \\
 ROC--AUC of a classifier trying to predict treatment from covariates alone &
 \textbf{Pass/fail.} Every $|\mathrm{SMD}| < 0.1$ (the conventional threshold, fixed in config before
 the test is run) and treatment-predictability AUC near 0.5. Any breach documented rather than
-smoothed over & M3 (W9--10) & Aliaa \\
+smoothed over & M4 (30 Oct) & Aliaa \\
 \addlinespace
 \textbf{K7 --- Leakage control} & Automated forbidden-column check in CI, plus K4 & \textbf{Pass/fail.}
 The check fails the build when a post-treatment column reaches the model matrix, and a unit test
@@ -2329,7 +2330,7 @@ pull request & M5--M6 & Mazen \\
 \addlinespace
 \textbf{K11 --- Documentation completeness} & Checklist of the DEPI-required artefacts
 (Section~\ref{sec:depi-docs}) & \textbf{Pass/fail.} Every required artefact exists and is current &
-M7 & Team leader \\
+M6 & Team leader \\
 \bottomrule
 \end{longtable}
 
@@ -2345,19 +2346,40 @@ Milestone 4 and not at the end.
 \label{sec:milestones}
 
 \begin{keybox}
-The seven milestones below follow the official DEPI project plan: Team Formation and Planning
-(Week~5), Instructor Review (Week~7), Requirements Gathering (Weeks~9--10), Analysis and Design
-(from Week~12), Implementation, Testing, and Release and Final Presentation (Week~21).
-\srcnote{DEPI Project Documentation Guidelines and the trainee project instructions, R5 revision.}
+The six milestones below follow the six phases and fixed deadlines published by DEPI. The
+committed plan, with the Gantt chart, the task list and the owner of every task, is
+\texttt{docs/project-plan.md}. It is the version of record: where this section disagrees with it,
+the plan wins.
+\srcnote{\texttt{docs/project-plan.md}, revised 13 October 2026.}
+
+\smallskip
+\begin{tabularx}{\linewidth}{@{}L{5.6cm}X@{}}
+\toprule
+\textbf{Milestone (DEPI phase)} & \textbf{Dates} \\
+\midrule
+M1 Project Planning and Management & due Friday 16 October 2026 \\
+M2 Literature Review & instructor feedback session, Friday 16 October 2026 \\
+M3 Requirements Gathering & due Friday 16 October 2026 \\
+M4 System Analysis and Design & Saturday 17 October -- Friday 6 November 2026 \\
+M5 Implementation & Saturday 7 -- Monday 30 November 2026; feature freeze Friday 27 November \\
+M6 Testing, Final Presentation and Reports & Tuesday 1 -- Friday 4 December 2026 (final
+submission) \\
+\bottomrule
+\end{tabularx}
+\smallskip
+
+Two dates are protected: the randomization integrity report on Friday 30 October and the
+uplift-versus-response-model comparison on Friday 6 November (Section~\ref{sec:timeline}).
+
 Each milestone below is written in the same fixed structure --- objective, entry criteria, work
 breakdown by member, deliverables, definition of done, risks --- so that any one of them can be
-lifted out into its own standalone document without rewriting, which is the next document the team
-needs after this one. Week numbers are \emph{programme} weeks; map them to calendar dates from the
-official training schedule.
+lifted out into its own standalone document without rewriting. The work breakdowns were written
+against the earlier seven-milestone plan; the current owner of each task is the one in the task
+tables of \texttt{docs/project-plan.md}.
 \end{keybox}
 
 % ---------------- M1 ----------------
-\subsection{Milestone 1 --- Team Formation and Planning (Week 5)}
+\subsection{Milestone 1 --- Project Planning and Management (due Friday 16 October 2026)}
 
 \textbf{Objective.} Lock the team, the roles, and the project definition, and produce the Project
 Proposal that goes to the instructor.
@@ -2396,17 +2418,17 @@ role and the project's core question in one sentence each.
 (Aliaa's data-validity role and Ali's evaluation role) with the least experienced members.
 
 % ---------------- M2 ----------------
-\subsection{Milestone 2 --- Instructor Review (Week 7)}
+\subsection{Milestone 2 --- Literature Review: instructor feedback session (Friday 16 October 2026)}
 
 \textbf{Objective.} Obtain approval and, more importantly, obtain answers to the questions that are
-expensive to get wrong later. Team membership must be final by the end of this week.
+expensive to get wrong later. Team membership must be final by the end of this milestone.
 
 \textbf{Entry criteria.} Proposal submitted; datasets downloaded and opened.
 
 \textbf{Questions to put to the instructor explicitly and record the answers to.}
 \begin{enumerate}
 \item Are computer vision and NLP \emph{required} components of the evaluation, or desirable ones?
-Section~\ref{sec:curriculum} states that this project has neither. This is the last week in which
+Section~\ref{sec:curriculum} states that this project has neither. This is the last point at which
 that answer can change the project cheaply.
 \item Is a public benchmark dataset acceptable as the primary data source, or is locally collected
 data expected?
@@ -2420,10 +2442,10 @@ teams? (Relevant because the mega-project option was declined.)
 \item \textbf{Mahmoud (team leader):} present, capture feedback in writing, circulate the same day.
 \item \textbf{Aliaa:} first pass of the randomization integrity check on Hillstrom, so the review
 has real evidence in it rather than only a plan.
-\item \textbf{Ali:} a first Qini curve on Hillstrom, however rough --- a plot in Week~7 changes
+\item \textbf{Ali:} a first Qini curve on Hillstrom, however rough --- a plot at the review changes
 the tone of the review.
 \item \textbf{Mohammed, Mahmoud and Mazen:} environment set up and running on all machines; the ``it works on my
-laptop only'' problem solved now rather than in Week~15.
+laptop only'' problem solved now rather than during implementation.
 \end{itemize}
 
 \textbf{Deliverables.} Instructor feedback document with suggested improvements and the grading
@@ -2436,11 +2458,11 @@ updated plan.
 specifically, and write down what was said.
 
 % ---------------- M3 ----------------
-\subsection{Milestone 3 --- Requirements Gathering (Weeks 9--10)}
+\subsection{Milestone 3 --- Requirements Gathering (due Friday 16 October 2026)}
 
 \textbf{Objective.} Convert the project into a specified system: stakeholders, use cases,
 functional and non-functional requirements. DEPI additionally requires that the task split across
-members be presented to the instructor by the end of Week~9.
+members be presented to the instructor.
 
 \textbf{Entry criteria.} Approved proposal; both datasets loading reproducibly.
 
@@ -2453,7 +2475,7 @@ recommendation is returned without a verdict field, written as a requirement rat
 implementation detail.
 \item \textbf{Aliaa:} \textbf{the randomization integrity report on both datasets, completed.}
 This is the milestone's most important technical output. If it fails, the project's assumptions
-change and the team needs to know in Week~10, not Week~18.
+change and the team needs to know before modelling, not after.
 \item \textbf{Mohammed:} the response-model baseline running end-to-end on Hillstrom.
 \item \textbf{Mahmoud:} MLflow tracking server running and logging its first real runs.
 \item \textbf{Mazen:} API contract drafted from the use cases; wireframes for the four tabs.
@@ -2469,7 +2491,7 @@ element, and every non-functional requirement has a stated way of being measured
 requiring each requirement to carry an identifier that later appears in a test name.
 
 % ---------------- M4 ----------------
-\subsection{Milestone 4 --- Analysis and Design (from Week 12)}
+\subsection{Milestone 4 --- System Analysis and Design (Saturday 17 October -- Friday 6 November 2026)}
 
 \textbf{Objective.} Produce the full design set, and --- the part that matters most --- run the
 experiment that tests the project's central hypothesis while there is still time to react to it.
@@ -2504,9 +2526,10 @@ stronger report than a positive result nobody interrogated.
 Sequence the hypothesis test first inside the milestone, not last.
 
 % ---------------- M5 ----------------
-\subsection{Milestone 5 --- Implementation}
+\subsection{Milestone 5 --- Implementation (Saturday 7 -- Monday 30 November 2026)}
 
-\textbf{Objective.} Build the full system to production standards.
+\textbf{Objective.} Build the full system to production standards. Feature freeze is Friday
+27 November; 28--30 November is for fixes and documentation only.
 
 \textbf{Entry criteria.} Design set complete; central comparison result known.
 
@@ -2536,7 +2559,12 @@ result; the deployed endpoint answers a real request; the dashboard runs against
 Section~\ref{sec:scope} exists for this milestone specifically.
 
 % ---------------- M6 ----------------
-\subsection{Milestone 6 --- Testing and Quality Assurance}
+\subsection{Milestone 6 --- Testing, Final Presentation and Reports (Tuesday 1 -- Friday 4 December 2026)}
+
+DEPI's final phase covers both the testing and the release work of the earlier plan. The two parts
+are kept apart below because they have different objectives and different definitions of done.
+
+\subsubsection*{Testing and quality assurance}
 
 \textbf{Objective.} Establish that the system is correct, and specifically that its central claim
 is not an artefact.
@@ -2566,8 +2594,7 @@ and is not revisited afterwards.
 Write down, before opening it, that it is opened once --- and hold to it. This is the discipline
 that makes the final number mean anything.
 
-% ---------------- M7 ----------------
-\subsection{Milestone 7 --- Release and Final Presentation (Week 21)}
+\subsubsection*{Release and final presentation (final submission Friday 4 December 2026)}
 
 \textbf{Objective.} Deliver, document, and defend.
 
@@ -2597,44 +2624,43 @@ in it, so this is a graded requirement, not a courtesy.
 fallback mode that runs without the cloud endpoint.
 
 \section{Project Timeline}
+\label{sec:timeline}
 
-Programme weeks, aligned to the DEPI milestone plan.
+The six DEPI phases and their fixed deadlines. The day-by-day Gantt chart is in
+\texttt{docs/project-plan.md}, which is the version of record.
 
-\begin{tabularx}{\textwidth}{@{}L{2.2cm}L{3.2cm}X@{}}
+\begin{tabularx}{\textwidth}{@{}L{3.0cm}L{3.0cm}X@{}}
 \toprule
-\textbf{Weeks} & \textbf{Milestone} & \textbf{Work} \\
+\textbf{Dates} & \textbf{Milestone} & \textbf{Work} \\
 \midrule
-5 & M1 Planning & Team and roles locked; proposal; repository and CI skeleton; datasets downloaded
-and their published figures verified against the files. \\
-6 & --- & Environment working on every machine; Hillstrom loading; first exploratory analysis. \\
-7 & M2 Instructor review & Present; get the four questions answered in writing; team membership
-final; first rough Qini curve on Hillstrom. \\
-8 & --- & Split module drafted; response-model baseline on Hillstrom. \\
-9--10 & M3 Requirements & Requirements set; \textbf{randomization integrity report on both
-datasets}; task split submitted; API contract and wireframes. \\
-11 & --- & Criteo loading at full scale; memory and format decisions settled. \\
-12--13 & M4 Analysis \& design & Full design and diagram set; \textbf{evaluation harness with
-bootstrap intervals and negative control}; \textbf{uplift versus response model, first result with
-an interval}. \\
-14--15 & M5 Implementation & Meta-learners finalised on Criteo; decision layer and policy modes;
-FastAPI service against the real model. \\
-16--17 & M5 Implementation & Advanced tier: uplift forest, neural estimator, Optuna study;
-simulator; dashboard tabs 1--3; Azure deployment. \\
-18 & M5 Implementation & Multi-treatment and revenue uplift on Hillstrom if on schedule; drift
-monitors; dashboard tab 4; CI/CD complete. \\
-19--20 & M6 Testing & Full test suite; behavioural and invariance tests; champion confirmed once on
-the locked split; error analysis; bug log. \\
-21 & M7 Release & Final report, user manual, technical documentation, presentation, rehearsed demo,
-repository upload. \\
+to Fri 16 Oct & M1 Planning and management & Project plan with Gantt chart; risk register
+update; working agreement; M1 retrospective. \\
+Fri 16 Oct & M2 Literature review & Instructor feedback session; the feedback recorded with the
+team's response to each point. \\
+to Fri 16 Oct & M3 Requirements & Stakeholder analysis; user stories and use cases; functional and
+non-functional requirements. \\
+Sat 17 Oct -- Fri 6 Nov & M4 Analysis \& design & Frozen interfaces; data pipeline and joint
+stratified split; baselines on Hillstrom; \textbf{evaluation harness with bootstrap intervals};
+\textbf{randomization integrity report (Fri 30 Oct)}; T- and X-learner, Hillstrom then Criteo;
+negative control; \textbf{uplift versus response model, with an interval (Fri 6 Nov)}; full design
+and diagram set; literature review. \\
+Sat 7 -- Mon 30 Nov & M5 Implementation & Decision layer; final meta-learners and the
+class-transformation trap figure; uplift forest, Optuna and the champion; FastAPI, Docker and the
+scoring log; production pipeline and leakage audit; simulator and SHAP; Streamlit dashboard; neural
+estimator (time-boxed); Azure, drift monitors and CI/CD. \textbf{Feature freeze Fri 27 Nov}; 28--30
+Nov fixes, README and API documentation only. \\
+Tue 1 -- Fri 4 Dec & M6 Testing, final presentation and reports & Locked test split opened once;
+test cases, bug log, user manual and demo video; presentation, infographic and rehearsals;
+\textbf{final upload Fri 4 Dec}. \\
 \bottomrule
 \end{tabularx}
 
 \begin{alertbox}
-\textbf{The two dates to protect above all others.} The randomization integrity report by the end of
-Week~10, and the uplift-versus-response-model comparison by the end of Week~13. Everything else in
-this timeline can slip by a week without damage. If either of those two slips, the project loses
-the ability to react to what it finds, and a project that cannot react to its own findings is
-reduced to reporting whatever it happens to get.
+\textbf{The two dates to protect above all others.} The randomization integrity report on both
+datasets by Friday 30 October 2026, and the uplift-versus-response-model comparison by Friday
+6 November 2026. Everything else in this timeline can slip by a few days without damage. If either
+of those two slips, the project loses the ability to react to what it finds, and a project that
+cannot react to its own findings is reduced to reporting whatever it happens to get.
 \end{alertbox}
 \section{Scope Control}
 \label{sec:scope}
@@ -2815,7 +2841,7 @@ decisive.
 \midrule
 \endhead
 \textbf{The central hypothesis does not hold} --- uplift targeting does not beat the response model
-on this data & High & Run the comparison by Week~13, not Week~19. If it holds, it is the headline.
+on this data & High & Run the comparison by Friday 6 November, not in December. If it holds, it is the headline.
 If it does not, the project becomes an investigation of \emph{why}, which is a legitimate and
 frequently stronger result. Neither outcome is a failed project; only discovering it too late is. \\
 \addlinespace
@@ -2823,8 +2849,9 @@ frequently stronger result. Neither outcome is a failed project; only discoverin
 (rate 0.046992) as well as \texttt{conversion} (0.00292); report both; use the abstention path
 rather than reporting an inconclusive number as a finding. \\
 \addlinespace
-\textbf{Curriculum gap: no CV, no NLP} & Medium--High & Raise it explicitly at the Week~7 review and
-get the answer in writing. This risk is cheap to resolve in Week~7 and expensive in Week~18. \\
+\textbf{Curriculum gap: no CV, no NLP} & Medium--High & Raise it explicitly at the first instructor
+review and get the answer in writing. This risk is cheap to resolve at that review and expensive
+during implementation. \\
 \addlinespace
 \textbf{Uneven team workload} --- a tabular ML project can leave two members working and three
 watching & Medium--High & This is a real and well-known failure mode for exactly this class of
@@ -2860,11 +2887,11 @@ investigate.
 \item Confidence intervals on the headline result straddling zero, leaving the project with no
 statement it can defend.
 \item The curriculum gap on computer vision and NLP turning into an evaluation penalty that was
-foreseeable in Week~7.
+foreseeable at the first instructor review.
 \end{enumerate}
 
 All three are mitigated by the same discipline: \emph{find out early}. Every one of them is cheap
-in Week~10 and expensive in Week~19.
+in October and expensive in December.
 
 \section{Anticipated Defence Questions}
 \label{sec:defence}
@@ -2933,7 +2960,7 @@ control, behavioural tests
 \item Streamlit dashboard, four tabs
 \item Drift monitoring and a documented retraining rule
 \item Full test suite and CI pipeline
-\item Documentation set: this specification, the seven per-milestone documents, requirements and
+\item Documentation set: this specification, the per-milestone documents, requirements and
 design documents with the full diagram set, dataset cards, data dictionary, README, user manual,
 technical documentation, test plan and test cases, bug log
 \item Final report, presentation, and demo with a recorded backup
@@ -3065,7 +3092,7 @@ argument can be pushed.
 Yes --- with one condition attached. The project is well-scoped, the data risk is essentially zero,
 the commercial framing matches the guidance the team was given, and the technical core is a real
 problem with real depth rather than a classification task in costume. The condition is
-Section~\ref{sec:risks}: get an answer on the computer-vision and NLP question at the Week~7 review.
+Section~\ref{sec:risks}: get an answer on the computer-vision and NLP question at the first instructor review.
 That is the only issue in this document that could still change the project's viability, and it is
 answerable in one conversation.
 \end{goodbox}
@@ -3119,8 +3146,9 @@ SHAP, Optuna, MLflow, FastAPI, Docker, PostgreSQL, Azure ML, Streamlit, GitHub A
 \item \textbf{Team:} Aliaa Gomaa (Data Engineering and Experiment Validity) / Mohammed Sherif
 (Uplift Modeling Core) / Mahmoud Nadeem (Team Leader; Advanced Models and Tracking) / Ali Alaa
 (Evaluation, Statistics and Decision Layer) / Mazen Mahmoud (MLOps, Backend and Product).
-\item \textbf{Timeline:} DEPI programme weeks 5 to 21, with the randomization report due by Week~10
-and the central hypothesis test by Week~13.
+\item \textbf{Timeline:} the six DEPI phases, ending with the final submission on Friday 4 December
+2026 (\texttt{docs/project-plan.md}), with the randomization report due by Friday 30 October and
+the central hypothesis test by Friday 6 November.
 \item \textbf{Main risks:} a null result on the central comparison; intervals that straddle zero;
 the computer-vision and NLP curriculum gap; and uneven workload if the lifecycle work is dropped.
 \item \textbf{Explicitly not in scope this semester:} observational (non-randomized) causal
