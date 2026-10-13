@@ -1,9 +1,8 @@
-"""Download the NetLift raw datasets and verify them against recorded checksums.
+"""Download the NetLift raw datasets and verify their recorded checksums.
 
-Fetches the Criteo uplift and Hillstrom datasets into ``data/raw/``. A file that
-already exists is only skipped if its SHA-256 matches the value recorded in
-``docs/data-sources.md``; otherwise it is downloaded again. After each dataset
-the script logs its path, size, row count, checksum and download date.
+Fetches the Criteo uplift and Hillstrom datasets into ``data/raw/``.
+Existing files are skipped only when their SHA-256 matches the expected
+checksum. New downloads are verified before being moved to their final path.
 
 Run from the repository root:
 
@@ -51,21 +50,23 @@ DATASETS: dict[str, Dataset] = {
 
 
 def download_file(url: str, destination: Path) -> None:
-    """Stream a URL to a local file, removing the partial file on failure."""
+    """Stream a URL to a file and remove it if downloading fails."""
     try:
-        with urlopen(url) as response, open(destination, "wb") as file:
+        with urlopen(url, timeout=60) as response, destination.open("wb") as file:
             while chunk := response.read(1024 * 1024):
                 file.write(chunk)
     except Exception as exc:
-        if destination.exists():
-            destination.unlink()
+        destination.unlink(missing_ok=True)
         raise RuntimeError(f"Download failed for {url}: {exc}") from exc
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
 
 
 def sha256_file(path: Path) -> str:
     """Return the hex SHA-256 digest of a file, read in 1 MiB chunks."""
     digest = sha256()
-    with open(path, "rb") as file:
+    with path.open("rb") as file:
         while chunk := file.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
@@ -75,7 +76,7 @@ def open_text(path: Path, compressed: bool) -> TextIO:
     """Open a CSV file for text reading, handling gzip transparently."""
     if compressed:
         return gzip.open(path, "rt", encoding="utf-8", errors="replace")
-    return open(path, encoding="utf-8", errors="replace")
+    return path.open(encoding="utf-8", errors="replace")
 
 
 def row_count(path: Path, compressed: bool) -> int:
@@ -84,35 +85,45 @@ def row_count(path: Path, compressed: bool) -> int:
         return sum(1 for _ in file) - 1
 
 
-def ensure_file(name: str, dataset: Dataset) -> tuple[Path, str]:
-    """Return the file path and SHA-256, downloading unless a verified copy exists."""
+def ensure_file(name: str, dataset: Dataset) -> tuple[Path, str, bool]:
+    """Return a verified file, downloading it if necessary."""
     destination = RAW_DIR / dataset["filename"]
+    partial = destination.with_name(destination.name + ".part")
     expected = dataset["sha256"]
 
     if destination.exists():
         checksum = sha256_file(destination)
         if checksum == expected:
             logger.info("%s: file exists and checksum matches, skipping download", name)
-            return destination, checksum
+            return destination, checksum, True
+
         logger.warning("%s: file exists but checksum differs, re-downloading", name)
     else:
         logger.info("%s: downloading...", name)
 
-    download_file(dataset["url"], destination)
-    checksum = sha256_file(destination)
-    if checksum != expected:
-        raise RuntimeError(f"{name}: expected sha256 {expected}, got {checksum}")
+    try:
+        download_file(dataset["url"], partial)
+        checksum = sha256_file(partial)
+
+        if checksum != expected:
+            raise RuntimeError(f"{name}: expected sha256 {expected}, got {checksum}")
+
+        partial.replace(destination)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+
     logger.info("%s: download complete and verified", name)
-    return destination, checksum
+    return destination, checksum, False
 
 
 def main() -> None:
-    """Download and verify every dataset, then log its size, rows and checksum."""
+    """Download and verify datasets, then log size, rows and checksum."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
     for name, dataset in DATASETS.items():
-        destination, checksum = ensure_file(name, dataset)
+        destination, checksum, skipped = ensure_file(name, dataset)
         rows = row_count(destination, dataset["compressed"])
         size = destination.stat().st_size
 
@@ -121,7 +132,9 @@ def main() -> None:
         logger.info("  size: %d bytes", size)
         logger.info("  rows: %s", f"{rows:,}")
         logger.info("  sha256: %s", checksum)
-        logger.info("  download date: %s", datetime.now(tz=UTC).date())
+
+        date_label = "verified on" if skipped else "download date"
+        logger.info("  %s: %s", date_label, datetime.now(tz=UTC).date())
 
 
 if __name__ == "__main__":
