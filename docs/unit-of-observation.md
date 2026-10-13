@@ -43,8 +43,8 @@ dominate the repeated profiles.
 
 ### Can the same unit appear under both treatment and control?
 Cannot be verified: there is no ID column. If one row is one user, as documented,
-each user is in one arm. 356,008 feature profiles appear under both arms, and 20.11%
-of rows sit inside repeated profiles. This is consistent with different users sharing
+each user is in one arm. 380 feature profiles appear under more than one of the three
+arms, and 12.83% of rows sit inside repeated profiles. This is consistent with different users sharing
 low-cardinality features, but it does not rule out repeated units.
 
 ### Consequence
@@ -73,7 +73,11 @@ One row = one user, per the dataset documentation. This cannot be verified from 
     - exposure=0: 13,551,380 rows
     - exposure=1: 428,212 rows
     - All control rows have exposure=0
-    - about 3.6% of treatment rows have exposure=1 (428,212 of 11,882,653)
+    - about 3.6% of treatment rows have exposure=1 (428,212 of 11,882,655)
+    - treated row count corrected from 11,882,653 to 11,882,655 on
+      10 Oct 2026: the earlier figure was round(13,979,592 x 0.85),
+      the published ratio rather than a count. Counted by
+      scripts/criteo_complier_baseline.py.
 
 ### Interpretation
 
@@ -116,7 +120,7 @@ taken under the assumption that one row = one independent unit.
 
 ## Criteo exposure column
 
-`exposure` exists in Criteo (428,212 of 11,882,653 treated rows, about 3.6%) and is 0
+`exposure` exists in Criteo (428,212 of 11,882,655 treated rows, about 3.6%) and is 0
 for every control row. This contradicts Specification Section 6.
 
 - `exposure` is post-treatment: it MUST be on the forbidden-column list and never
@@ -215,27 +219,27 @@ and could shift the treatment/control ratio. Specification Section 23 lists
 
 ---
 
-## Specification errors found during T17 (corrected)
+## Specification error found during T17 (corrected)
 
-Two claims in `NetLift_Project_Specification.pdf` were found to
+One claim in `NetLift_Project_Specification.pdf` was found to
 contradict the data:
 
-1. **Section 6** stated "neither dataset provides an exposure
-   indicator." Criteo does contain one (428,212 of 11,882,653 treated
-   rows, about 3.6%, all control rows = 0), which enables ToT
-   estimation via the Wald/IV ratio -- contrary to the Spec's
-   assumption. See the Criteo exposure column section above.
-2. **Section 27** stated bootstrap confidence intervals make leakage
-   "at least partially visible in the interval width." This was
-   incorrect: bootstrap CIs quantify sampling uncertainty only and do
-   not detect split-level leakage (see Risk and mitigation above).
+**Section 6** stated "neither dataset provides an exposure
+indicator." Criteo does contain one (428,212 of 11,882,655 treated
+rows, about 3.6%, all control rows = 0), which enables ToT
+estimation via the Wald/IV ratio -- contrary to the Spec's
+assumption. See the Criteo exposure column section above.
 
 Section 6 was corrected in the project specification after this
 finding. The current specification now documents the Criteo exposure
-column and the ITT MVP / optional ToT decision. Section 27's bootstrap
-claim is addressed by the Risk and mitigation section above, which
-states explicitly that bootstrap CIs do not detect split-level
-leakage.
+column and the ITT MVP / optional ToT decision.
+
+An earlier version of this list also said Section 27 claimed bootstrap
+intervals make leakage "at least partially visible in the interval
+width". That sentence is not in any committed version of the
+specification, so the item was removed on 13 Oct 2026. The point it
+made still holds and is stated under Risk and mitigation above:
+bootstrap CIs do not detect split-level leakage.
 
 ---
 
