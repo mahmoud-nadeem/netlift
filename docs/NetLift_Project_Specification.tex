@@ -867,9 +867,9 @@ a rigged comparison where the neural model wins because the baseline was undertr
 deliverable here is the comparison, not a particular winner.
 \end{keybox}
 
-\textbf{Time-box.} The neural estimator is the project's deep-learning component and is kept, but
-it gets one week, 21--27 November 2026, and it is the first item cut if implementation slips
-(\texttt{docs/project-plan.md}, T63).
+\textbf{Time-box.} The neural estimator is the project's deep-learning component. It is NICE TO
+HAVE (Section~\ref{sec:scope}): scheduled for one week, 21--27 November 2026 (task T63 in
+\texttt{docs/project-plan.md}), and the first item cut if implementation slips.
 
 \section{Baselines That Must Exist Before Any Uplift Model}
 \label{sec:baselines}
@@ -2590,8 +2590,8 @@ the API (T62, Fri 27 Nov).
 evaluation attached (T57, Fri 20 Nov); the neural estimator, time-boxed to 21--27 November and
 the first item cut if this milestone slips (T63); the weekly end-to-end integration run (T68).
 \item \textbf{Ali:} decision layer with all four policy modes and the abstention logic (T55,
-Fri 13 Nov); the campaign simulator and SHAP (T61, Fri 20 Nov); the behavioural and invariance
-tests (T65, Fri 27 Nov).
+Fri 13 Nov); the campaign simulator and SHAP (T61, Fri 20 Nov); the error analysis report and the
+behavioural and invariance tests (T65, Fri 27 Nov).
 \item \textbf{Mazen:} FastAPI service against the registered model and Docker (T59, Fri 20 Nov),
 with API contract tests covering both abstention verdicts and malformed input and the load test
 of the batch endpoint (K9); Azure container
@@ -2628,8 +2628,8 @@ Milestone 5; this part does not start testing, it reports it.
 \begin{itemize}
 \item \textbf{Ali:} the opening procedure written down first, then the locked test split opened
 \emph{once} for champion confirmation (T70, Tue 1 Dec); the negative control re-run and recorded;
-bootstrap comparison of champion against every challenger; error analysis of the confirmed
-champion.
+bootstrap comparison of champion against every challenger; the final result, with its interval,
+recorded and not revisited.
 \item \textbf{Mazen, with all members:} the test report --- a test-case document (scenario, input,
 expected outcome, actual outcome) --- and the bug log with resolutions (T71, Wed 2 Dec).
 \end{itemize}
@@ -2740,12 +2740,12 @@ cannot react to its own findings is reduced to reporting whatever it happens to 
 \item SHAP explainability and the persuadable-segment profile
 \item Container deployment of the scoring service on Azure
 \item Drift monitors and a documented retraining rule
-\item Shared-representation neural estimator, the project's deep-learning component, time-boxed to
-one week (21--27 November 2026)
 \end{itemize}
 
 \subsection{NICE TO HAVE}
 \begin{itemize}
+\item Shared-representation neural estimator, the project's deep-learning component: scheduled
+21--27 November 2026 (T63), first to cut
 \item Azure ML managed endpoint, only if implementation is ahead of schedule
 \item The biased-versus-corrected class-transformation figure
 \end{itemize}
