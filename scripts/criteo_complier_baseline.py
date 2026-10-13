@@ -187,7 +187,18 @@ def interval(samples: np.ndarray) -> tuple[float, float]:
 
 
 def percent(value: float) -> str:
+    """Format a probability as a percentage."""
     return f"{value * 100:.4f}%"
+
+
+def points(value: float) -> str:
+    """Format a difference of probabilities in percentage points."""
+    return f"{value * 100:.4f}pp"
+
+
+def relative(lift: float) -> str:
+    """Format an effect-to-baseline ratio as a relative increase."""
+    return f"{lift * 100:+.0f}% ({1 + lift:.2f}x)"
 
 
 def main() -> int:
@@ -199,13 +210,13 @@ def main() -> int:
 
     if not args.data.exists():
         print(f"Dataset not found: {args.data}", file=sys.stderr)
-        print("Run scripts/../src/netlift/data/download.py first.", file=sys.stderr)
+        print("Run src/netlift/data/download.py first.", file=sys.stderr)
         return 1
 
     counts = load_counts(args.data)
 
     n_c0, k_c0 = cell(counts, 0, 0)
-    n_c1, _ = cell(counts, 0, 1)
+    n_c1, k_c1 = cell(counts, 0, 1)
     n_t0, k_t0 = cell(counts, 1, 0)
     n_t1, k_t1 = cell(counts, 1, 1)
     total = n_c0 + n_c1 + n_t0 + n_t1
@@ -217,6 +228,10 @@ def main() -> int:
     print(f"{'treatment=0':>14}{n_c0:>16,}{n_c1:>16,}{n_c0 + n_c1:>16,}")
     print(f"{'treatment=1':>14}{n_t0:>16,}{n_t1:>16,}{n_t0 + n_t1:>16,}")
     print(f"{'total':>14}{n_c0 + n_t0:>16,}{n_c1 + n_t1:>16,}{total:>16,}")
+    print()
+    print("Conversions per cell (counted)")
+    print(f"{'treatment=0':>14}{k_c0:>16,}{k_c1:>16,}")
+    print(f"{'treatment=1':>14}{k_t0:>16,}{k_t1:>16,}")
     print()
     print(f"seed={args.seed}  bootstrap draws={args.draws:,}  source={args.data.name}")
     print()
@@ -257,8 +272,8 @@ def main() -> int:
         ("Treated conversion rate", "y_treated", percent),
         ("Treated & exposed conversion rate", "y_exposed", percent),
         ("Treated & unexposed conversion rate", "y_unexposed", percent),
-        ("ITT (treated - control)", "itt", percent),
-        ("LATE / Wald (effect on compliers)", "late", percent),
+        ("ITT (treated - control)", "itt", points),
+        ("LATE / Wald (effect on compliers)", "late", points),
         ("Complier baseline E[Y(0)|complier]", "baseline", percent),
     ]
     print("=" * 72)
@@ -274,14 +289,14 @@ def main() -> int:
     low_c, high_c = interval(draws["lift_vs_complier"])
     lift_p = float(point["lift_vs_population"][0])
     print(
-        f"{'Relative lift vs COMPLIER baseline':<38}{lift_c:>11.2f}x"
-        f"  [{low_c:.2f}x, {high_c:.2f}x]"
+        f"{'Relative lift vs COMPLIER baseline':<38}{relative(lift_c):>16}"
+        f"  [{relative(low_c)}, {relative(high_c)}]"
     )
     print(
-        f"{'Relative lift vs POPULATION control':<38}{lift_p:>11.2f}x"
-        "   <- invalid comparison, shown only"
+        f"{'Relative lift vs POPULATION control':<38}{relative(lift_p):>16}"
+        "  <- invalid comparison, shown only"
     )
-    print(f"{'':38}{'':>12}      for contrast with the old text")
+    print(f"{'':38}{'':>16}     for contrast with the old text")
 
     print()
     below = float(np.mean(draws["baseline"] < 0.0))

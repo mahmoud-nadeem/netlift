@@ -43,8 +43,8 @@ dominate the repeated profiles.
 
 ### Can the same unit appear under both treatment and control?
 Cannot be verified: there is no ID column. If one row is one user, as documented,
-each user is in one arm. 356,008 feature profiles appear under both arms, and 20.11%
-of rows sit inside repeated profiles. This is consistent with different users sharing
+each user is in one arm. 380 feature profiles appear under more than one of the three
+arms, and 12.83% of rows sit inside repeated profiles. This is consistent with different users sharing
 low-cardinality features, but it does not rule out repeated units.
 
 ### Consequence
@@ -219,27 +219,27 @@ and could shift the treatment/control ratio. Specification Section 23 lists
 
 ---
 
-## Specification errors found during T17 (corrected)
+## Specification error found during T17 (corrected)
 
-Two claims in `NetLift_Project_Specification.pdf` were found to
+One claim in `NetLift_Project_Specification.pdf` was found to
 contradict the data:
 
-1. **Section 6** stated "neither dataset provides an exposure
-   indicator." Criteo does contain one (428,212 of 11,882,655 treated
-   rows, about 3.6%, all control rows = 0), which enables ToT
-   estimation via the Wald/IV ratio -- contrary to the Spec's
-   assumption. See the Criteo exposure column section above.
-2. **Section 27** stated bootstrap confidence intervals make leakage
-   "at least partially visible in the interval width." This was
-   incorrect: bootstrap CIs quantify sampling uncertainty only and do
-   not detect split-level leakage (see Risk and mitigation above).
+**Section 6** stated "neither dataset provides an exposure
+indicator." Criteo does contain one (428,212 of 11,882,655 treated
+rows, about 3.6%, all control rows = 0), which enables ToT
+estimation via the Wald/IV ratio -- contrary to the Spec's
+assumption. See the Criteo exposure column section above.
 
 Section 6 was corrected in the project specification after this
 finding. The current specification now documents the Criteo exposure
-column and the ITT MVP / optional ToT decision. Section 27's bootstrap
-claim is addressed by the Risk and mitigation section above, which
-states explicitly that bootstrap CIs do not detect split-level
-leakage.
+column and the ITT MVP / optional ToT decision.
+
+An earlier version of this list also said Section 27 claimed bootstrap
+intervals make leakage "at least partially visible in the interval
+width". That sentence is not in any committed version of the
+specification, so the item was removed on 13 Oct 2026. The point it
+made still holds and is stated under Risk and mitigation above:
+bootstrap CIs do not detect split-level leakage.
 
 ---
 

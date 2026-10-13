@@ -632,7 +632,7 @@ ITT & $0.1152$ pp & $[0.1084,\ 0.1219]$ \\
 ToT (Wald), among compliers & $3.1964$ pp & $[3.0095,\ 3.3824]$ \\
 $E[Y(0) \mid \text{complier}]$ & $2.1820\%$ & $[2.0100\%,\ 2.3575\%]$ \\
 \midrule
-Relative lift among compliers & $1.46\times$ & $[1.28\times,\ 1.68\times]$ \\
+Relative lift among compliers & $+146\%$ ($2.46\times$ the baseline) & $[+128\%,\ +168\%]$ \\
 \bottomrule
 \end{tabularx}
 
@@ -649,9 +649,9 @@ E[Y(0) \mid \text{complier}] \;=\;
 \qquad \pi \;=\; P(\text{exposed} \mid \text{treated}).
 \]
 
-Against that denominator the effect is a $46\%$ relative increase on a $2.18\%$ base, which is an
-ordinary size for an advertisement shown to someone who saw it. None of the $20{,}000$ bootstrap
-draws placed the baseline below zero.
+Against that denominator the effect is a $146\%$ relative increase on a $2.18\%$ base: exposed
+compliers convert at $5.38\%$, $2.46$ times their untreated baseline. None of the $20{,}000$
+bootstrap draws placed the baseline below zero.
 \end{keybox}
 
 \begin{alertbox}
@@ -664,8 +664,9 @@ said so before the analysis that would establish it existed.
 The denominator was wrong. A Wald estimate is an effect among compliers; dividing it by a mean taken
 over compliers and never-takers together compares two quantities that describe different people.
 Measured, compliers carry a baseline of $2.1820\%$ against $0.1194\%$ for never-takers, a factor of
-about eighteen. Dividing by the population mean understated the denominator by roughly that factor,
-and the sixteen-fold figure was that arithmetic, not a property of the data.
+about eighteen. Dividing by the population mean of $0.1938\%$ understated the denominator by a
+factor of about eleven ($2.18\%$ against $0.19\%$), and the sixteen-fold figure was that arithmetic,
+not a property of the data.
 
 Caught in review by Ali Alaa, who supplied the estimator above.
 \end{alertbox}
@@ -675,16 +676,16 @@ Caught in review by Ali Alaa, who supplied the estimator above.
 claimed \emph{against} the exclusion restriction. It does not establish that restriction, which is
 not testable here.
 
-One check is worth recording. The decomposition reconstructs the control arm from its two latent
-components,
-\[
-0.036037 \times 2.1820\% \;+\; 0.963963 \times 0.1194\% \;=\; 0.1937\%,
-\]
-against a measured control rate of $0.1938\%$. Agreement to the fourth decimal says the arithmetic
-and the one-sided premise are consistent with the data. It says nothing about whether assignment
-reaches conversion by any route other than exposure, and that is the assumption the estimate rests
-on.
+The one-sided premise is not an assumption here: it rests on the count of zero exposed control rows
+in the table above. The exclusion restriction --- that assignment reaches conversion by no route
+other than exposure --- is the assumption the estimate rests on, and nothing in this data can check
+it.
 \end{goodbox}
+
+All intervals in this section are bootstrap percentile intervals that treat the
+$13{,}979{,}592$ rows as independent. Criteo carries no user identifier, so independence cannot be
+verified (Section~\ref{sec:data-quality} and \texttt{docs/unit-of-observation.md}); if rows are
+clustered by user, these intervals are too narrow. The point estimates are not affected.
 
 \subsection{Decision}
 
@@ -713,11 +714,11 @@ the selection the experiment was designed to remove. \\
 \textbf{The sentence to use:} ``We report the intention-to-treat effect --- the effect of being
 selected for the campaign --- because that is the decision the product actually makes. Criteo also
 carries an exposure indicator and compliance is $3.60\%$, so we additionally report the
-treatment-on-the-treated effect as a Wald ratio: $3.20$ percentage points among compliers, a $46\%$
+treatment-on-the-treated effect as a Wald ratio: $3.20$ percentage points among compliers, a $146\%$
 relative increase over the compliers' own untreated baseline of $2.18\%$. We quote it against that
 baseline and not against the population control rate, because compliers are a self-selected $3.6\%$
 whose baseline is about eighteen times the never-takers'; dividing by the population mean inflates
-the ratio by roughly that factor. The estimate rests on the exclusion restriction, which we cannot
+the effect-to-baseline ratio about eleven-fold. The estimate rests on the exclusion restriction, which we cannot
 test.'' Saying this
 before being asked is worth more than any modelling choice in the document, because it demonstrates
 that the team knows what its own numbers mean.
@@ -905,6 +906,11 @@ Contact is worthwhile when $\hat\tau(x) > c/m$. Note what this threshold is not:
 ``uplift $> 0$''. A customer with a genuinely positive but tiny uplift is still a loss when the
 contact cost exceeds the expected margin gained. The break-even ratio $c/m$ is a business input to
 the system, not a modelling choice, and the dashboard must expose it as a slider.
+
+The decision layer and the simulator (Section~\ref{sec:simulator}) use the ITT-scale uplift
+$\hat\tau(x)$ throughout. The Wald estimate describes compliers only, at about $27.7$ times ITT; it
+is reported for interpretation in Section~\ref{sec:itt} and never enters $m\,\hat\tau(x) - c$,
+where it would inflate the uplift term about $27.7$-fold.
 
 \subsection{Policy modes}
 
@@ -1266,7 +1272,7 @@ This section contains the number the team should keep in front of them for the w
 \end{alertbox}
 
 Counted from the file: \textbf{11{,}882{,}655 treated} and \textbf{2{,}096{,}937 control} rows. The
-control arm converts at $0.1938\%$, which is about \textbf{4{,}060 control conversions} in total.
+control arm converts at $0.1938\%$: \textbf{4{,}063 control conversions} in total, counted.
 That is below the $6{,}100$ the published all-rows average of $0.00292$ would suggest, because a
 positive treatment effect pulls that average above the control rate --- so using the published
 average here would have overstated the counterfactual evidence by half.
@@ -1275,7 +1281,7 @@ average here would have overstated the counterfactual evidence by half.
 \texttt{reports/t16\_dataset\_verification.md}.}
 
 Now divide the scored population into deciles. Each decile holds about 1.40M rows, of which roughly
-210{,}000 are control. At the measured control rate that is on the order of \textbf{400 control
+210{,}000 are control. At the measured control rate that is about \textbf{406 control
 conversions} per decile if they spread evenly, and fewer in the deciles that matter most.
 
 \begin{keybox}
@@ -1483,6 +1489,7 @@ orderings, and the second one is the product.
 \end{verbatim}}
 
 \section{Data Quality and Documentation Deliverables}
+\label{sec:data-quality}
 
 \begin{itemize}
 \item A dataset card for each source: origin, licence terms as published on the download page,
@@ -2759,7 +2766,7 @@ population shift between scoring and contact.
 estimate describes a small, self-selected group.} The reported estimates describe the effect of
 being \emph{selected} for the campaign, not of having received the intervention. Hillstrom carries
 no exposure indicator at all. Criteo does, so a treatment-on-the-treated estimate is available
-there as a Wald ratio: $3.20$ percentage points among compliers, a $46\%$ relative increase over
+there as a Wald ratio: $3.20$ percentage points among compliers, a $146\%$ relative increase over
 their own untreated baseline of $2.18\%$ (Section~\ref{sec:itt}). Two things limit it. It rests on
 the exclusion restriction, which cannot be tested here. And the compliers are the $3.60\%$ of
 treated users who were actually shown the advertisement, whose untreated baseline is about eighteen
