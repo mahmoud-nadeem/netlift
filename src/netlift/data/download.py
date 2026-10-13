@@ -98,6 +98,7 @@ def ensure_file(name: str, dataset: Dataset) -> tuple[Path, str, bool]:
             return destination, checksum, True
 
         logger.warning("%s: file exists but checksum differs, re-downloading", name)
+        destination.unlink(missing_ok=True)
     else:
         logger.info("%s: downloading...", name)
 
