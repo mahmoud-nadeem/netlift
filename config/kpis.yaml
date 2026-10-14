@@ -24,7 +24,9 @@ kpis:
     computed_by: >
       Simulated campaign replay (Spec Section 14) on the locked test split: both
       policies select the same number of customers under the same budget;
-      incremental conversions are measured against the withheld slice.
+      incremental conversions are measured as the treated rate minus the
+      control rate within each policy's selected customers, by their recorded
+      arm.
     gate_type: measured_no_target
     success_condition: >
       The 95% bootstrap interval of the difference (uplift policy minus response

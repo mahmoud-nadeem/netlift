@@ -247,8 +247,8 @@ Marketing manager & Compares candidate policies (uplift vs.\ response model vs.\
 blanket contact) on one screen before committing spend. \\
 Data science team & Consumes the scoring API directly, inspects the Qini curves and drift
 monitors, retrains on a schedule. \\
-Finance / campaign audit & Reads the incremental-profit report and the size of the randomized
-holdout that produced it. \\
+Finance / campaign audit & Reads the incremental-profit report and the size of the control group
+that produced it. \\
 \bottomrule
 \end{tabularx}
 
@@ -1095,20 +1095,28 @@ so the comparison can be made immediately instead of after a waiting period.
   [3] ALLOCATE              decision layer selects targets under the budget;
             |               suppresses confidently negative uplift; abstains where thin
             v
-  [4] HOLD OUT              a randomized slice of the SELECTED targets is marked
-            |               as not-contacted -- this is what makes step [6] possible
+  [4] SPLIT BY ARM          split the selected targets by their recorded arm; those
+            |               in the original control arm are the holdout
             v
-  [5] REVEAL OUTCOMES       the recorded outcomes for that slice are now read
+  [5] REVEAL OUTCOMES       the recorded outcomes of the selected targets are read
             |
             v
-  [6] MEASURE               measured incremental effect = treated rate - holdout rate,
-            |               with a bootstrap confidence interval
+  [6] MEASURE               measured incremental effect = treated rate - control rate
+            |               within the selected targets, with a bootstrap interval
+            |               resampled within arms
             v
   [7] COMPARE               predicted incremental conversions vs measured, plus the
             |               same comparison for the response-model and random policies
             v
   [8] RECORD                calibration record; the whole run is logged to MLflow
 \end{verbatim}}
+
+\textbf{Why step [4] does not draw a random holdout.} In a replay over recorded data nobody can be
+held out: every outcome was recorded under the arm the customer actually received in the original
+experiment. The original randomization already did the holding out, so the selected targets who
+were in the control arm are the holdout. Drawing a fresh random slice and calling it
+``not contacted'' would compare customers who were in fact contacted. A permanent randomized
+holdout is a deployment requirement only (Section~\ref{sec:deployment-gap}).
 
 \begin{keybox}
 \textbf{The one discipline that makes the replay honest:} steps [1]--[4] must not touch the outcome
@@ -1132,8 +1140,8 @@ already has to exist.
 
 \subsection{Where this shows up in the workload}
 
-The replay adds: scenario and assignment records in the database and the ERD; holdout-selection
-logic; the outcome-reveal boundary and the test that enforces it; the measurement job; and the
+The replay adds: scenario and assignment records in the database and the ERD; the split of the
+selected targets by recorded arm; the outcome-reveal boundary and the test that enforces it; the measurement job; and the
 scenario state machine (\texttt{defined} $\to$ \texttt{scored} $\to$ \texttt{allocated} $\to$
 \texttt{revealed} $\to$ \texttt{measured}), which is also the state diagram the DEPI documentation
 asks for (Section~\ref{sec:depi-docs}).
@@ -2178,8 +2186,8 @@ design goal of this table, not an accident of it.
 \textbf{The simulated replay is what makes five roles real.} If the project were only ``fit an
 uplift model and plot a Qini curve'', two people could do it and three would be decorative --- and
 that is the standard failure of tabular ML capstones. The simulated replay of
-Section~\ref{sec:lifecycle} adds scenario and assignment records, holdout selection inside the
-replay, the outcome-reveal boundary and the test that enforces it, a measurement job and a state
+Section~\ref{sec:lifecycle} adds scenario and assignment records, the split of the selected
+targets by recorded arm, the outcome-reveal boundary and the test that enforces it, a measurement job and a state
 machine, on top of an evaluation workstream that is a genuine
 statistics project in its own right and a serving surface that is a genuine backend project. Those
 are not tasks invented to fill a team; they are what the difference between a model and a system
@@ -2245,11 +2253,13 @@ Software architecture & Layered service architecture: data layer, training pipel
 registry, scoring service, decision layer, presentation. Described in Section~\ref{sec:deployment}
 and drawn in Section~\ref{sec:final-arch}. \\
 ER diagram & Real entities: \texttt{customer\_snapshot} (features as of a date),
-\texttt{replay\_scenario}, \texttt{treatment\_assignment}, \texttt{holdout\_membership},
+\texttt{replay\_scenario}, \texttt{treatment\_assignment},
 \texttt{scoring\_run}, \texttt{score} (one row per customer per run), \texttt{model\_version},
 \texttt{outcome\_observation}, \texttt{drift\_report}. Note that
-\texttt{treatment\_assignment} and \texttt{holdout\_membership} are what make the causal claim
-auditable --- they are the database's record of the experiment. \\
+\texttt{treatment\_assignment}, the arm each customer was recorded in, is what makes the causal
+claim auditable --- it is the database's record of the experiment, and in the replay it is also
+what separates the selected targets into treated and control. There is no separate holdout table:
+the replay's holdout is the control arm. \\
 Logical / physical schema & Tables, keys, indexes on \texttt{(scenario\_id, customer\_id)} and
 \texttt{(scoring\_run\_id)}, and a stated retention policy. \\
 DFD (context and level 1) & Context: dataset store, analyst, NetLift (and, dashed,
@@ -2315,8 +2325,9 @@ never a number pulled from nowhere.
 \endhead
 \textbf{K1 --- Incremental conversions versus the response model} \newline \emph{(the primary KPI)} &
 Simulated replay (Section~\ref{sec:lifecycle}) on the locked test split: both policies select the
-same number of customers under the same budget; incremental conversions measured against the
-withheld slice & \emph{Measured.} The 95\% bootstrap interval of the \emph{difference} excludes
+same number of customers under the same budget; incremental conversions measured as the treated
+rate minus the control rate within each policy's selected customers, by their recorded arm &
+\emph{Measured.} The 95\% bootstrap interval of the \emph{difference} excludes
 zero in favour of the uplift policy. An interval containing zero is a reportable finding, not a
 failed project & M4 (6 Nov) & Ali \\
 \addlinespace
@@ -3057,7 +3068,7 @@ technical documentation, test plan and test cases, bug log
           v                                                                 |
  +=========================================================================+ |
  |  PERSISTENCE   PostgreSQL: replay_scenario, treatment_assignment,       | |
- |                holdout_membership, scoring_run, score, outcome_obs.     | |
+ |                scoring_run, score, outcome_observation                  | |
  |                Azure Blob: datasets, artefacts, reports                 | |
  +=========================================================================+ |
                                                                             |
@@ -3191,8 +3202,9 @@ intervals $\to$ decision layer $\to$ FastAPI service and Streamlit dashboard $\t
 score drift monitoring. The permanent randomized holdout that effect-drift monitoring needs is
 designed for deployment, not built (Section~\ref{sec:deployment-gap}).
 \item \textbf{What makes it a system rather than a model:} the simulated campaign replay of
-Section~\ref{sec:lifecycle} --- define a scenario, score, allocate under budget, hold out, reveal
-the recorded outcomes, measure what the decision produced, compare against the baseline policies.
+Section~\ref{sec:lifecycle} --- define a scenario, score, allocate under budget, split the selected
+targets by their recorded arm, reveal the recorded outcomes, measure what the decision produced,
+compare against the baseline policies.
 It measures the decision rather than the ranking, and it is what makes five roles necessary rather
 than nominal. What a live deployment would additionally need is stated separately in
 Section~\ref{sec:deployment-gap} and is not claimed as project work.
