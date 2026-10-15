@@ -1,7 +1,7 @@
 # User stories and use cases
 
 Author: Ali Alaa · Task: T32 · Reviewer: Aliaa Gomaa
-Date: 13 October 2026 (first version) · Revised: 15 October 2026 (after review of PR #93)
+Date: 13 October 2026 (first version) · Revised: 15 October 2026 (after the second review of PR #93)
 Issue: #44 · Pull request: #93 · Milestone: M3 – Requirements Gathering
 
 Section numbers (§) refer to `NetLift_Project_Specification.pdf` (55 pages, snapshot of
@@ -11,6 +11,8 @@ disagree, the point is marked **[Q#]** and listed in Section 5. Where this docum
 rule the specification does not state, it is labelled **Proposed** and tied to a question, so that
 nobody mistakes a proposal for a decision. The Markdown copy of the specification is unnumbered and
 cross-references the wrong numbers, so the PDF numbers are used **[Q8]**.
+ADR 0002 fixes how UC-06, UC-07 and UC-10 are run and keeps the API at the six endpoints of §35;
+this document follows it **[Q3]**.
 
 Status legend used throughout:
 
@@ -28,13 +30,21 @@ Status legend used throughout:
 |---|---|
 | 1. Acceptance criteria without a When | Every criterion in Section 2 is now a full Given / When / Then. US-06 and US-10 were split, so there are 41 criteria (was 39). |
 | 2. UC-05 step 4 versus Q2, and how k is filled | UC-05 steps 2 and 3, alternative flows A3, A4, A6; Q2 (e) and (f). The steps were reordered: old step 4 is now step 2, old 2 is now 3, old 3 is now 4. |
-| 3. UC-07 reads or re-runs | UC-07 preconditions and main flow: it **reads** the stored result of UC-06. UC-06 steps 4 to 6. Reasons are given in UC-07. |
+| 3. UC-07 reads or re-runs | Reversed by ADR 0002 in the second review (second table below): UC-07 now **re-runs** through `POST /policy/simulate`, and UC-06 is an offline job. |
 | 4. UC-10 actor and UC-02 index | UC-10 primary actor is now the Data Scientist. The index row of UC-02 references Q7. Scheduler is treated as deployment-only in UC-02, UC-09 and UC-10. |
 | 5. US-01 "four inputs" versus three | US-01 criterion 2 and UC-01 step 3 now both validate the same four inputs. |
 | 6. US-04 criteria 1 and 5 | Tagged **[Q2]**, with the difference between the selection floor and the suppression list stated under criterion 5. |
 | 7. US-10 "either" versus "combined" | US-10 criterion 1: the rule is OR (**Proposed**, **[Q9]**). |
 | 8. Where the replay holdout comes from | UC-05 step 5; US-05 criterion 3; new question **[Q10]**. |
 | Non-blocking | Glossary added; header changed to "Reviewer"; date line corrected; Q1, Q2, Q10 flagged for decision records. |
+
+| Review point (second review, PR #93, 15 Oct) | Where it is addressed |
+|---|---|
+| Blocker: conflict with ADR 0002 | UC-06 interface and steps 1, 4, 6; UC-07 interface, preconditions, design decision, main flow, A4, A5; US-06 criterion 1; Section 4.1 note; Section 4.2 rows UC-06, UC-07, UC-10; UC-10 interface; Q3 (now decided). |
+| Non-blocking: wording | "Holdout rate" is now "control rate" everywhere; "Control rate" added to the glossary. |
+| Non-blocking: K2 | New Q11; glossary K2 row. |
+| Non-blocking: PDF figures | Q9 cites §15 for "retraining must not be purely reactive" (§32 only says the rule combines a cadence and a drift threshold). Wald ≈ 27.7 × ITT checked against §6. The 15% Criteo control share cites §16.1 (was §7.2) in UC-06 A3 and Q10. |
+| Found in the full re-read | UC-07 re-run versus reveal-once and the locked split (UC-07 A5, Q1). UC-07 now shows the holdout size that US-07 criterion 2 needs. UC-06 stores the bootstrap seed so a re-run reproduces its figures. Who runs the UC-06 command (Q3). |
 
 ---
 
@@ -58,8 +68,9 @@ specification and in `docs/glossary.md`.
 | Verdict | One of `confident`, `insufficient_evidence`, `insufficient_control_data` (§11, §12). Separate from `recommendation` on purpose. |
 | Replay | A simulated campaign over a held-out slice of historical experimental data: decide without reading outcomes, then reveal and measure (§14). Not a live campaign. |
 | Holdout | In the replay: the selected customers whose *recorded* assignment was control **[Q10]**. In deployment: a permanent randomized share withheld before contact (§15). |
+| Control rate | In the replay: the outcome rate among the holdout. The contacted-group rate minus the control rate is the measured incremental effect (§14) **[Q10]**. |
 | K1 | Incremental conversions versus the response model at equal budget (primary KPI). Success: the 95% interval of the difference excludes zero in favour of uplift. |
-| K2 | Qini coefficient and AUUC. Success: interval entirely above zero (per `config/kpis.yaml`; §46 says "excludes zero", which is looser). |
+| K2 | Qini coefficient and AUUC. Success: interval entirely above zero (per `config/kpis.yaml`; §46 says "excludes zero", which is looser) **[Q11]**. |
 | K3 | Incremental profit per unit of spend, with cost and margin stated on the same line. |
 | K4 | Negative control: full pipeline on a permuted treatment indicator; pass if the 95% interval of the uplift contains zero. |
 | K5 | Calibration: predicted versus measured incremental conversions per decile. |
@@ -82,11 +93,11 @@ IDs are **frozen**: nothing in this revision renumbers or renames a use case or 
 | UC-03 | Review model evidence | Data Scientist | Yes |
 | UC-04 | Deliver the target list to a campaign | Marketing Analyst | Partly (the download is built; delivery to a Campaign Execution System is deployment-only) |
 | UC-05 | Allocate under budget | Marketing Analyst | Yes |
-| UC-06 | Reveal outcomes and measure | Marketing Analyst | Yes |
-| UC-07 | Compare policies | Marketing Manager | Yes (reads the stored result of UC-06) |
+| UC-06 | Reveal outcomes and measure | Marketing Analyst | Yes (offline command-line job, ADR 0002) |
+| UC-07 | Compare policies | Marketing Manager | Yes (re-runs the replay through `POST /policy/simulate`, ADR 0002) |
 | UC-08 | Inspect a customer explanation | Marketing Analyst | Yes |
 | UC-09 | Review drift | Data Scientist | Partly (feature and score drift built; effect drift is mocked) |
-| UC-10 | Retrain the model | Data Scientist | Partly **[Q9]**. The scheduled trigger is deployment-only **[Q7]** |
+| UC-10 | Retrain the model | Data Scientist | Partly **[Q9]**: an offline pipeline job (ADR 0002). The scheduled trigger is deployment-only **[Q7]** |
 
 The eight use cases named in the specification (§45) are UC-01, UC-02, UC-05, UC-06, UC-07,
 UC-08, UC-09 and UC-10. UC-03 and UC-04 are added because the dashboard (§40, Tab 3) and the
@@ -248,7 +259,7 @@ Acceptance criteria:
 2. **Given** a scenario that is not in state `allocated` (not yet allocated, or already revealed),
    **when** I trigger the reveal, **then** it is refused, so each scenario is revealed once.
 3. **Given** a revealed scenario, **when** the measurement runs, **then** the measured incremental
-   effect is the contacted-group rate minus the holdout rate, where the holdout is the selected
+   effect is the contacted-group rate minus the control rate, where the holdout is the selected
    customers whose recorded assignment was control **[Q10]**, with a bootstrap confidence interval
    that resamples within treatment arms (§14, §28).
 4. **Given** a measured scenario, **when** I open its result, **then** predicted and measured
@@ -267,8 +278,8 @@ Acceptance criteria:
 
 1. **Given** a measured scenario, **when** I open *Policy Comparison*, **then** a table shows, for
    each of the four policies: number contacted, total cost, incremental conversions with a
-   confidence interval, incremental profit, and profit per unit spent (§13), read from the stored
-   result of UC-06.
+   confidence interval, incremental profit, and profit per unit spent (§13), obtained by re-running the
+   replay via `POST /policy/simulate` (UC-07).
 2. **Given** the *Policy Comparison* screen is open, **when** I move the budget slider, **then**
    overlaid cumulative-incremental curves with bootstrap bands are shown and one vertical line
    moves across all curves at once (§40, Tab 2).
@@ -603,32 +614,33 @@ reason why they cannot arise in that use case.
 
 - **Primary actor:** Marketing Analyst
 - **Secondary actors:** Finance / Campaign Audit (reads the result)
-- **Interface:** A replay job started from the dashboard, with results shown in Tab 2 and Tab 4.
-  The policy comparison is computed once by `POST /policy/simulate` (budget, cost, margin → policy
-  comparison table). The reveal trigger itself has no endpoint among the six of §35 **[Q3]**.
+- **Interface:** Offline command-line job (replay job), logged to MLflow. No API endpoint (ADR 0002).
+  Its stored result is listed in Tab 4 (§40); the comparison screen is UC-07. Who runs the command
+  is open **[Q3]**.
 - **Preconditions:**
   1. The scenario is in state `allocated` (UC-05): targets are fixed and the holdout is recorded.
   2. Steps 1 to 5 of UC-05 did not read the outcome column (§14).
   3. The slice used is one that may be revealed at this stage of the project **[Q1]**.
 - **Main flow:**
-  1. The analyst triggers the reveal.
+  1. The analyst starts the replay job for the scenario from the command line.
   2. The system checks that the scenario is `allocated` and has not been revealed before, then
      reads the recorded outcomes of the slice for the first time. State: `revealed`.
   3. The system measures, for each policy, the incremental effect as the contacted-group rate minus
-     the holdout rate (the holdout is the selected customers whose recorded assignment was control
+     the control rate (the holdout: the selected customers whose recorded assignment was control
      **[Q10]**), with a 95% bootstrap interval that resamples within treatment arms (§14, §28, at
      least 1,000 resamples, K2).
-  4. The system replays the four policies once, through `POST /policy/simulate`, at an identical
-     budget: uplift, response model, blanket contact and random contact. For each it produces the
+  4. The job replays the four policies once, at an identical budget (the same replay code that
+     UC-07 re-runs): uplift, response model, blanket contact and random contact. For each it produces the
      number contacted, total cost, predicted and measured incremental conversions each with an
      interval, incremental profit and profit per unit spent (§13, §14), and the cumulative curves
      with bootstrap bands.
   5. The system converts the result to incremental profit using the stated cost and margin (K3),
      and records predicted-versus-measured differences per decile (K5).
   6. The system stores the complete result with the scenario (tables, curves, intervals, holdout
-     size, library and settings), logs the whole run to MLflow, and sets the state to `measured`.
-     UC-07 and Finance read this stored result. Nothing is recomputed from outcomes after this
-     point.
+     size, library and settings, and the bootstrap seed), logs the whole run to MLflow, and sets the
+     state to `measured`. Finance reads the stored result and the MLflow run. UC-07 does not read
+     it: it re-runs the replay code, and the recorded seed lets that re-run reproduce these figures
+     **Proposed [Q1]**.
 - **Alternative flows:**
   - A1. *Reveal requested when the state is not `allocated`:* refused, whether the scenario was not
     allocated yet or was already revealed or measured, so each scenario is revealed once (§14).
@@ -639,7 +651,7 @@ reason why they cannot arise in that use case.
   - A3. *`insufficient_control_data`:* a policy or decile whose holdout holds fewer than the
     configured minimum number of control events is reported as `insufficient_control_data`, and no
     measured effect is claimed for it (§11). Because the replay holdout is only the recorded control
-    share of the selected customers, about 15% on Criteo (§7.2), this is an expected outcome and not
+    share of the selected customers, about 15% on Criteo (§16.1), this is an expected outcome and not
     a rare one **[Q10]**.
   - A4. *Outcome leak detected:* if the test that asserts "no outcome column before the reveal"
     fails, the run is invalid and its result is not reported (§14).
@@ -647,7 +659,7 @@ reason why they cannot arise in that use case.
   The run is in MLflow. Every figure is an *estimated* incremental effect on held-out experimental
   data, not realised money (§13).
 - **Implemented this semester or deployment-only:** Yes, as a simulated replay over recorded
-  outcomes. A live campaign is deployment-only (UC-04, §15).
+  outcomes, run as an offline job. A live campaign is deployment-only (UC-04, §15).
 - **Related user stories:** US-05, US-07
 - **Specification basis:** §13, §14, §28, §35, §46 (K1, K3, K5).
 
@@ -655,29 +667,35 @@ reason why they cannot arise in that use case.
 
 - **Primary actor:** Marketing Manager
 - **Secondary actors:** Marketing Analyst; Finance / Campaign Audit
-- **Interface:** Dashboard, Tab 2 (Policy Comparison). It **reads** the stored result of UC-06.
-  `POST /policy/simulate` is called by UC-06, not by this use case. Whether a read endpoint is
-  needed is open **[Q3]**.
+- **Interface:** Dashboard, Tab 2 (Policy Comparison); `POST /policy/simulate` (re-runs the replay code).
 - **Preconditions:**
-  1. The scenario is in state `measured` (UC-06), so the result of all four policies is stored.
+  1. The scenario is in state `measured` (UC-06): its allocation, holdout record, replay seed and
+     stored result exist.
   2. The champion model and the response-model baseline both took part in that result.
-- **Design decision (reuse, not re-run):** UC-07 presents a result that UC-06 computed once. It does
-  not simulate again, for three reasons. (1) A re-run reads the recorded outcomes again, and the
-  reveal is meant to happen once per scenario (§14, **[Q1]**). (2) The figure on Tab 2, in the
-  Finance report and in MLflow must be the same number; two computations with different bootstrap
-  resamples would give two slightly different intervals. (3) The slider and the cost and margin
-  what-if need no outcomes: they are read off the stored curves and recomputed arithmetically from
-  the stored incremental conversions and contact counts. A different slice or a different model is
-  a new scenario (UC-01).
+  3. The scenario's slice is not the locked test split: a re-run reads the recorded outcomes again
+     **[Q1]**.
+- **Design decision (re-run, not reuse; ADR 0002):** UC-07 re-runs the replay code through
+  `POST /policy/simulate`. It does not read a stored result. Reasons: (1) ADR 0002 keeps the API at
+  the six endpoints of §35, so no "read stored result" endpoint exists, and `POST /policy/simulate`
+  (budget, cost, margin → policy comparison table) already is the contract for this screen. (2) UC-06
+  is an offline job, so the dashboard cannot start it; the manager's what-if on budget, cost and
+  margin needs a call that takes those inputs. (3) UC-06 and UC-07 run the same replay code, and the
+  recorded seed makes the two reproducible against each other (K8). Cost of the choice: a re-run
+  reads the recorded outcomes again, so the reveal-once rule is stated precisely in **[Q1]** and the
+  locked test split is excluded (A5). A different slice or a different model is a new scenario
+  (UC-01).
 - **Main flow:**
   1. The Marketing Manager opens Policy Comparison and selects a measured scenario.
-  2. The system reads the stored result of UC-06.
+  2. The system calls `POST /policy/simulate` with the scenario's budget, cost and margin. The
+     endpoint re-runs the replay code with the recorded seed and returns the policy comparison
+     table (§35).
   3. The system shows one table: number contacted, total cost, incremental conversions with a
-     confidence interval, incremental profit, and profit per unit spent, for each policy (§13).
+     confidence interval, incremental profit, and profit per unit spent, for each policy (§13), with
+     the size of the holdout behind each figure (US-07).
   4. The system shows overlaid cumulative-incremental curves with bootstrap bands.
-  5. The manager moves the budget slider; one vertical line moves across all curves at once (§40).
-     The manager may also change the cost and margin; profit is recomputed from the stored
-     figures, with the new assumptions named on the same line.
+  5. The manager moves the budget slider; one vertical line moves across all returned curves at once
+     without a new call (§40). Changing the budget, cost or margin used for the table is a new call
+     to `POST /policy/simulate`, and the new assumptions are named on the same line as the figure.
   6. The system states the headline comparison in words, with its interval (K1).
 - **Alternative flows:**
   - A1. *`insufficient_evidence`:* the 95% interval of the difference between the uplift policy and
@@ -689,9 +707,12 @@ reason why they cannot arise in that use case.
   - A3. *Profit shown as money saved:* not allowed. Every profit figure is labelled estimated, with
     cost and margin on the same line (§13, K3).
   - A4. *Scenario not yet `measured`:* the screen says the comparison does not exist yet and points
-    to UC-06. Nothing is computed.
-- **Postconditions:** Read-only. The result is available for the final presentation, where the
-  simulator output is the artefact to open with (§13).
+    to UC-06. No re-run is started.
+  - A5. *Scenario on the locked test split:* the re-run is refused, and the screen shows only the
+    figures that UC-06 stored. The locked split is read once (T70, §18). **Proposed [Q1].**
+- **Postconditions:** Read-only: the scenario state and the stored result of UC-06 are unchanged.
+  The comparison is available for the final presentation, where the simulator output is the
+  artefact to open with (§13).
 - **Implemented this semester or deployment-only:** Yes.
 - **Related user stories:** US-06, US-07
 - **Specification basis:** §13, §14, §28, §40, §46 (K1, K3).
@@ -774,8 +795,8 @@ reason why they cannot arise in that use case.
 
 - **Primary actor:** Data Scientist
 - **Secondary actors:** Scheduler (scheduled cadence; **deployment-only** **[Q7]**)
-- **Interface:** The training pipeline and the MLflow Model Registry. No endpoint among the six of
-  §35 **[Q3]**.
+- **Interface:** Offline pipeline job (training pipeline) and the MLflow Model Registry. No API
+  endpoint (ADR 0002).
 - **Preconditions:**
   1. A documented retraining rule exists: retrain when the scheduled cadence is reached **or** a
      drift threshold is breached, either one being enough (§32). The OR reading is **Proposed**
@@ -832,8 +853,10 @@ reason why they cannot arise in that use case.
 | US-10 | | | | | | | | | | ● |
 
 Coverage check: every use case is reached by at least one story, and every story reaches at least
-one use case. US-06 and US-07 (criterion 2) depend on UC-06 having produced a stored result: this is
-a precondition of UC-07, not a second use case of the story.
+one use case. US-06 and US-07 (criterion 2) depend on UC-06 having measured the scenario (stored
+allocation, holdout record, seed and result): this is a precondition of UC-07, not a second use case
+of the story. UC-07 re-runs the replay and does not read the stored result (ADR 0002; locked split:
+UC-07 A5).
 
 ### 4.2 Use case ↔ interface ↔ specification
 
@@ -847,11 +870,14 @@ and a test), T45 (API contract), T46 (use-case diagram) and T51 (test plan).
 | UC-03 | Tab 3 | `GET /model/info` | 27, 28, 29, 31, 40 | Yes |
 | UC-04 | Tab 1 (download) | none **[Q3]** | 6, 14, 15, 43, 44 | Partly |
 | UC-05 | Tab 1 | none (decision layer called by the dashboard) **[Q3]** | 5, 10, 11, 14, 15 | Yes |
-| UC-06 | Tab 4, Tab 2 | `POST /policy/simulate` (called once per scenario); reveal trigger none **[Q3]** | 13, 14, 28, 35, 46 | Yes |
-| UC-07 | Tab 2 | none: reads the stored result of UC-06 **[Q3]** | 13, 14, 28, 40, 46 | Yes |
+| UC-06 | Tab 4 (result listing) | none: offline command-line job, logged to MLflow (ADR 0002) | 13, 14, 28, 35, 46 | Yes |
+| UC-07 | Tab 2 | `POST /policy/simulate` (re-runs the replay code; ADR 0002) | 13, 14, 28, 35, 40, 46 | Yes |
 | UC-08 | Customer detail | `POST /score` | 11, 12, 31, 40 | Yes |
 | UC-09 | Tab 4 | `GET /monitor/drift` | 15, 32, 40 | Partly **[Q7]** |
-| UC-10 | none | none **[Q3]** | 15, 28, 32, 33, 45 | Partly **[Q7] [Q9]** |
+| UC-10 | none | none: offline pipeline job (ADR 0002) | 15, 28, 32, 33, 45 | Partly **[Q7] [Q9]** |
+
+The API stays at the six endpoints of §35 (ADR 0002). Every other trigger is a dashboard action or
+an offline job.
 
 `GET /health` (liveness and readiness) is used by UC-02 (A7) and is otherwise an operational
 endpoint, not tied to a use case.
@@ -864,20 +890,22 @@ requires.
 
 ## 5. Open questions and assumptions
 
-Raised from writing this document. None is decided here; each needs an owner. **Q1, Q2 and Q10 need
+Raised from writing this document. None is decided here, except Q3, which ADR 0002 has decided and
+which stays listed for traceability; each needs an owner. **Q1, Q2 and Q10 need
 a numbered record in `docs/decisions/` before T33 is frozen** (working agreement, §6), because
 requirements and the decision layer depend on them. Items labelled **Proposed** in the text are
 this document's suggested answers, not agreements.
 
 | ID | Question | Why it matters | Suggested owner |
 |---|---|---|---|
-| Q1 | The specification says the locked test split is "touched exactly once, at champion confirmation" (§18), and the plan opens it once on 1 December (T70). Yet K1, K2 and K3 are "measured on the locked test split" and first reported at M4 (§46), and §13 and §14 replay on "the held-out test split". A replay run repeatedly for development, or for every demo, would reopen it. Which split does each replay use at each stage? Proposed: development and demo replays use the validation split or a pre-agreed replay slice, and the locked test split is used once, in T70. Each scenario is also revealed once (UC-06 A1). | Reopening the locked split is the failure the project exists to avoid | Ali with Mahmoud |
+| Q1 | The specification says the locked test split is "touched exactly once, at champion confirmation" (§18), and the plan opens it once on 1 December (T70). Yet K1, K2 and K3 are "measured on the locked test split" and first reported at M4 (§46), and §13 and §14 replay on "the held-out test split". A replay run repeatedly for development, or for every demo, would reopen it. Which split does each replay use at each stage? Proposed: development and demo replays use the validation split or a pre-agreed replay slice, and the locked test split is used once, in T70. Each scenario is also revealed once (UC-06 A1). Because UC-07 re-runs the replay (ADR 0002) and so reads the recorded outcomes again, the reveal-once rule is read as: the allocation is fixed before the reveal and never changed after it, and a re-run leaves the scenario state and the stored result unchanged. On the locked split no re-run is allowed (UC-07 A5). | Reopening the locked split is the failure the project exists to avoid | Ali with Mahmoud |
 | Q2 | The rules linking `verdict`, `recommendation` and `segment_label`, and the treatment of abstained customers by the decision layer, are not specified. (a) What does `recommendation` hold when the verdict is `insufficient_*`? Proposed: `no_action`. (b) *Fixed budget* does not select any estimate ≤ 0, but the sleeping-dog rule needs the interval entirely below zero, and *Suppression-only* says "negative-uplift customers" without saying which test. Proposed: two mechanisms (selection floor on the point estimate; suppression list on the interval), and *Suppression-only* excludes the suppression list only. (c) May `segment_label` be `unknown` under abstention? Proposed: yes. (d) Does the abstention state also apply to a policy-level figure (UC-07)? §11 names customer, decile and policy for the interval but states the verdict rule for a segment. (e) How is k filled when abstained customers are left out? Proposed: build the eligible pool of `confident` customers first, then take the top k from it; never fill k with abstained customers; if the pool has fewer than k, leave the budget unspent. (f) How is "identical budget" kept when the uplift policy contacts fewer than k? Proposed: baselines use the same k, and the number actually contacted and the unspent budget are reported next to every figure. Because individual-level effects are small, the eligible pool may be much smaller than k; its size should be measured early. | These fields are frozen in T36 and drive T33, T55, T44 and the API tests | Ali (T55) with Mahmoud (T36) |
-| Q3 | The six endpoints of §35 do not cover defining a scenario, allocating, revealing outcomes, reading a stored measured result, or retraining. Are these dashboard-triggered jobs, command-line jobs, or additional endpoints? `POST /policy/simulate` is assigned to UC-06 (once per scenario); UC-07 reads the stored result. | T45 freezes the API contract; T33 needs a requirement for each use case | Mazen (T45) |
+| Q3 | The six endpoints of §35 do not cover defining a scenario, allocating, revealing outcomes, comparing policies from a stored scenario, or retraining. **Decided in ADR 0002:** the API keeps the six endpoints and gets no new one. UC-06 is an offline command-line job (replay job), logged to MLflow, with no endpoint. UC-07 re-runs the replay code through `POST /policy/simulate` (re-run, not reuse). UC-10 is an offline pipeline job. UC-01, UC-04 and UC-05 stay dashboard-side, with no endpoint. Still open: who runs the UC-06 command (its primary actor is the Marketing Analyst, and a command-line job suggests the Data Scientist), and where Tab 4 reads the stored result from. | T45 freezes the API contract; T33 needs a requirement for each use case | Mazen (T45) |
 | Q4 | `expected_incremental_profit` is m · uplift − c, but `POST /score` and `POST /score/batch` take no m and c in §35. Where do they come from outside a scenario: the request, or configuration? | The response schema cannot be filled otherwise | Ali, Mazen |
 | Q5 | *Fixed target:* what happens when no set of customers is expected to deliver N incremental conversions? | Decision-layer edge case (T55) | Ali |
 | Q6 | The use-case-diagram actors (§45) and the target users (§1.5) differ. This document keeps six actors. T31 and T46 must use the same names. | Three documents would otherwise describe different actors | Mohammed (T31), Ali (T46) |
 | Q7 | The Scheduler is an actor in §45, but the specification does not say whether it is built. This document treats it as **deployment-only**, so scheduled batch scoring, scheduled drift reports and the scheduled retraining trigger are deployment-only, and drift reports are produced on demand (UC-09). Please confirm. | Decides what is "Yes" and what is "Deployment-only" in UC-02, UC-09, UC-10 | Mazen, Mahmoud |
 | Q8 | `01-specification.md` is unnumbered, and its internal cross-references use different numbers from the PDF (for example, it refers to the schema as Section 9 and the deployment gap as Section 12; the PDF numbers them 12 and 15). This document cites the PDF numbers. | A reviewer following the Markdown copy would land on the wrong section | Mahmoud |
-| Q9 | UC-10 and US-10: the specification lists "retrain" as a use case and "a documented retraining rule" as SHOULD HAVE, but does not say whether a retraining run is built or only documented, whether the trigger is OR or AND, or what makes a retrained candidate replace the champion. Proposed: OR (cadence or drift threshold, either is enough; an AND would make the cadence pointless, and §32 says retraining must not be purely reactive); this semester a retraining run is a reproducible pipeline run started by the Data Scientist. A new champion would also normally need confirming on the locked split (see Q1). | Decides the status "Partly" and the acceptance criteria of US-10 | Mahmoud |
-| Q10 | §14 step 4 says "a randomized slice of the selected targets is marked as not-contacted". In a replay over recorded data a fresh randomization is impossible: a customer who was treated has no outcome for "not contacted". Proposed reading: the holdout is the selected customers whose *recorded* assignment was control, joined after the target list is fixed; the scoring and allocation functions see neither outcome nor treatment. This is valid because selection uses pre-treatment features only. Consequence: the holdout is the control share of the selection, about 15% on Criteo (§7.2), so `insufficient_control_data` is likely. How the measured per-contact effect is scaled to k selected customers is to be defined in T44. The wording of §14 needs aligning in T52. | Feeds US-05 criterion 3, UC-05 step 5 and UC-06 steps 3 and 4 | Ali with Mahmoud (T52) |
+| Q9 | UC-10 and US-10: the specification lists "retrain" as a use case and "a documented retraining rule" as SHOULD HAVE, but does not say whether a retraining run is built or only documented, whether the trigger is OR or AND, or what makes a retrained candidate replace the champion. Proposed: OR (cadence or drift threshold, either is enough; an AND would make the cadence pointless, and §15 says retraining must not be purely reactive, which §32 turns into a rule combining a cadence with a drift threshold); this semester a retraining run is a reproducible pipeline run started by the Data Scientist. A new champion would also normally need confirming on the locked split (see Q1). | Decides the status "Partly" and the acceptance criteria of US-10 | Mahmoud |
+| Q10 | §14 step 4 says "a randomized slice of the selected targets is marked as not-contacted". In a replay over recorded data a fresh randomization is impossible: a customer who was treated has no outcome for "not contacted". Proposed reading: the holdout is the selected customers whose *recorded* assignment was control, joined after the target list is fixed; the scoring and allocation functions see neither outcome nor treatment. This is valid because selection uses pre-treatment features only. Consequence: the holdout is the control share of the selection, about 15% on Criteo (§16.1), so `insufficient_control_data` is likely. How the measured per-contact effect is scaled to k selected customers is to be defined in T44. The wording of §14 needs aligning in T52. | Feeds US-05 criterion 3, UC-05 step 5 and UC-06 steps 3 and 4 | Ali with Mahmoud (T52) |
+| Q11 | K2 has two success conditions. §46 says "Interval excludes zero, i.e. demonstrably better than random targeting"; `config/kpis.yaml` says the interval is "entirely above zero" and adds that an interval entirely below zero is worse than random, so "excludes zero" alone is not sufficient. Proposed: use `config/kpis.yaml` (entirely above zero), because "excludes zero" would pass a worse-than-random model; align §46 in T52. K1 is not affected: it already says "in favour of the uplift policy". | Fixes the K2 pass condition in the harness (T39), the test plan (T51) and the Model Evidence tab | Ali with Mahmoud (T52) |
