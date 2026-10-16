@@ -24,45 +24,6 @@ Status legend used throughout:
 
 ---
 
-## Changes since the first version (remove this table after the merge)
-
-| Review point (PR #93, 15 Oct) | Where it is addressed |
-|---|---|
-| 1. Acceptance criteria without a When | Every criterion in Section 2 is now a full Given / When / Then. US-06 and US-10 were split, so there are 41 criteria (was 39). |
-| 2. UC-05 step 4 versus Q2, and how k is filled | UC-05 steps 2 and 3, alternative flows A3, A4, A6; Q2 (e) and (f). The steps were reordered: old step 4 is now step 2, old 2 is now 3, old 3 is now 4. |
-| 3. UC-07 reads or re-runs | Reversed by ADR 0002 in the second review (second table below): UC-07 now **re-runs** through `POST /policy/simulate`, and UC-06 is an offline job. |
-| 4. UC-10 actor and UC-02 index | UC-10 primary actor is now the Data Scientist. The index row of UC-02 references Q7. Scheduler is treated as deployment-only in UC-02, UC-09 and UC-10. |
-| 5. US-01 "four inputs" versus three | US-01 criterion 2 and UC-01 step 3 now both validate the same four inputs. |
-| 6. US-04 criteria 1 and 5 | Tagged **[Q2]**, with the difference between the selection floor and the suppression list stated under criterion 5. |
-| 7. US-10 "either" versus "combined" | US-10 criterion 1: the rule is OR (**Proposed**, **[Q9]**). |
-| 8. Where the replay holdout comes from | UC-05 step 5; US-05 criterion 3; new question **[Q10]**, now decided by ADR 0002. |
-| Non-blocking | Glossary added; header changed to "Reviewer"; date line corrected; Q1, Q2, Q10 flagged for decision records. |
-
-| Review point (second review, PR #93, 15 Oct) | Where it is addressed |
-|---|---|
-| Blocker: conflict with ADR 0002 | UC-06 interface and steps 1, 4, 6; UC-07 interface, preconditions, design decision, main flow, A4, A5; US-06 criterion 1; Section 4.1 note; Section 4.2 rows UC-06, UC-07, UC-10; UC-10 interface; Q3 (now decided). |
-| Non-blocking: wording | "Holdout rate" is now "control rate" everywhere; "Control rate" added to the glossary. |
-| Non-blocking: K2 | New Q11; glossary K2 row. |
-| Non-blocking: PDF figures | Q9 cites §15 for "retraining must not be purely reactive" (§32 only says the rule combines a cadence and a drift threshold). Wald ≈ 27.7 × ITT checked against §6. The 15% Criteo control share cites §16.1 (was §7.2) in UC-06 A3 and Q10. |
-| Found in the full re-read | UC-07 re-run versus reveal-once and the locked split (UC-07 A5, Q1). UC-07 now shows the holdout size that US-07 criterion 2 needs. UC-06 stores the bootstrap seed so a re-run reproduces its figures. Who runs the UC-06 command (Q3). |
-
-| Review point (review against ADR 0002, PR #95, 16 Oct) | Where it is addressed |
-|---|---|
-| ADR decision 1: one offline run covers §14 steps [1]–[8], so UC-01 and UC-05 are steps of the job, not dashboard flows | Use-case index; typical-order paragraph; UC-01 interface, preconditions, main flow, A1; UC-05 interface; UC-06 interface, preconditions, main flow; US-05 criteria 1 and 2; Section 4.2 rows UC-01, UC-05, UC-06. |
-| ADR consequence: Tab 2 and Tab 4 show recorded runs | UC-06 interface; UC-07 main flow step 1; Section 4.2 row UC-06. |
-| UC-07 reasons attributed to the ADR | The design decision now states only the grounds the ADR gives; the reveal-once note is marked as this document's own. A simulate call creates no recorded run (UC-07 postconditions). |
-| Q10 is decided by ADR 0002 | UC-05 step 5; Q10; Section 5 introduction. "Contacted-group rate" is now "treated rate", as in the ADR. |
-| The two Proposed items, checked against the ADR | The stored seed (UC-06 step 7): the ADR is silent on storing it, so it stays Proposed. UC-07 A5 (locked split): the ADR is silent and its `LockedTestSplit.open` rule is compatible, so it stays Proposed. |
-| Smaller fixes | US-07 story ("randomized holdout" is deployment-only); Q2 (g) for *Suppression-only*; Q3 narrowed to what the ADR leaves open; SMD wording in the glossary. |
-| Process | The ADR's status line still reads "proposed". Merge T32 after PR #95. |
-
-| Review point (v6, 16 Oct) | Where it is addressed |
-|---|---|
-| Blocker: policy mode not defined in the recorded run | UC-01 precondition 4 and main flow step 2; UC-05 precondition 3 and step 1; UC-06 step 5; UC-07 step 2; Glossary row "Policy mode vs. policies compared"; new Q12. |
-| Non-blocking | Actors table: "randomized holdout" is now "holdout (the recorded control arm)". UC-06 step 7: the seed is no longer tagged Proposed. |
-
----
-
 ## Glossary
 
 Short definitions for the readers of T33 and T34 and for Finance. Full definitions are in the
