@@ -208,6 +208,10 @@ Acceptance criteria:
 4. **Given** the same inputs, **when** I run the allocation with *Suppression-only*, **then**
    everyone except negative-uplift customers is selected (§10). Which test defines
    "negative-uplift" is open **[Q2]**.
+
+Note on criteria 1-4: in a recorded run, the policy mode is set in the scenario config (UC-01); the
+analyst does not choose it interactively. The "when I run the allocation with ..." wording describes
+the behavior under each mode.
 5. **Given** a customer whose estimated uplift is negative and whose 95% confidence interval lies
    entirely below zero, **when** the allocation runs in any policy mode, **then** that customer is
    on the suppression list and is never contacted by the policy, regardless of remaining budget
@@ -363,13 +367,14 @@ reason why they cannot arise in that use case.
   2. A held-out slice of data exists that can stand in for "next month's campaign" (§14). Which
      split is allowed at which stage is open **[Q1]**.
   3. The analyst can run the replay job from the command line **[Q3]**.
-  4. The analyst sets the policy mode in the config. If not set, the default is Fixed budget
-     **[Q12]**.
+  4. The analyst sets the policy mode in the config. If not set, the default is Fixed budget. If
+     the mode is Fixed target, N is required **[Q12]**.
 - **Main flow:**
   1. The analyst writes the scenario configuration: the dataset and the slice of the held-out split
      that stands in for the audience.
   2. The configuration also holds the cost per contact c, the margin per conversion m, the budget,
-     and the policy mode (Fixed budget / Profit-maximising / Fixed target / Suppression-only).
+     and the policy mode (Fixed budget / Profit-maximising / Fixed target / Suppression-only). When
+     the mode is Fixed target, it also holds N (the target number of incremental conversions).
   3. The system validates the four inputs: cost, margin and budget are numbers greater than zero
      (k = budget / c and c/m need them), and a slice is selected.
   4. The job reports the break-even ratio c/m (a business input; the dashboard exposes it as a
@@ -537,8 +542,8 @@ reason why they cannot arise in that use case.
        customer whose estimated uplift ≤ 0, even if budget is left unspent.
      - *Profit-maximising:* contact every customer whose estimated uplift > c/m; the budget is an
        output, not an input.
-     - *Fixed target:* contact the smallest set expected to deliver N incremental conversions;
-       report the budget required and the uncertainty on it.
+     - *Fixed target:* contact the smallest set expected to deliver N incremental conversions (N
+       comes from the config, UC-01); report the budget required and the uncertainty on it.
      - *Suppression-only:* contact everyone except negative-uplift customers.
   2. The decision layer builds the **eligible pool**: the customers whose verdict is `confident`.
      Customers with `insufficient_evidence` or `insufficient_control_data` are not eligible for a
@@ -901,4 +906,4 @@ this document's suggested answers, not agreements.
 | Q9 | UC-10 and US-10: the specification lists "retrain" as a use case and "a documented retraining rule" as SHOULD HAVE, but does not say whether a retraining run is built or only documented, whether the trigger is OR or AND, or what makes a retrained candidate replace the champion. Proposed: OR (cadence or drift threshold, either is enough; an AND would make the cadence pointless, and §15 says retraining must not be purely reactive, which §32 turns into a rule combining a cadence with a drift threshold); this semester a retraining run is a reproducible pipeline run started by the Data Scientist. A new champion would also normally need confirming on the locked split (see Q1). | Decides the status "Partly" and the acceptance criteria of US-10 | Mahmoud |
 | Q10 | **Decided in ADR 0002** (with the §14 correction in T52, #94): the replay draws no random holdout; the holdout is the selected targets in the original control arm, and the effect is the treated rate minus the control rate within them, with a bootstrap interval resampled within arms. The original question follows. §14 step 4 says "a randomized slice of the selected targets is marked as not-contacted". In a replay over recorded data a fresh randomization is impossible: a customer who was treated has no outcome for "not contacted". Proposed reading: the holdout is the selected customers whose *recorded* assignment was control, joined after the target list is fixed; the scoring and allocation functions see neither outcome nor treatment. This is valid because selection uses pre-treatment features only. Consequence: the holdout is the control share of the selection, about 15% on Criteo (§16.1), so `insufficient_control_data` is likely. How the measured per-contact effect is scaled to k selected customers is to be defined in T44. The wording of §14 needs aligning in T52. | Feeds US-05 criterion 3, UC-05 step 5 and UC-06 steps 3 and 4 | Ali with Mahmoud (T52) |
 | Q11 | K2 has two success conditions. §46 says "Interval excludes zero, i.e. demonstrably better than random targeting"; `config/kpis.yaml` says the interval is "entirely above zero" and adds that an interval entirely below zero is worse than random, so "excludes zero" alone is not sufficient. Proposed: use `config/kpis.yaml` (entirely above zero), because "excludes zero" would pass a worse-than-random model; align §46 in T52. K1 is not affected: it already says "in favour of the uplift policy". | Fixes the K2 pass condition in the harness (T39), the test plan (T51) and the Model Evidence tab | Ali with Mahmoud (T52) |
-| Q12 | Which policy mode is the default if not set? [Proposed: Fixed budget]. Is Tab 1's interactive allocation still needed, or is the policy mode set only in the config? [Q3]. | UC-01 precondition 4, UC-05 step 1 and precondition 3, UC-06 step 5 and UC-07 step 2 all read the policy mode from the config | Ali with Mazen (T45) and Mohammed (T62) |
+| Q12 | Which policy mode is the default if not set? [Proposed: Fixed budget]. What happens if Fixed target is chosen without N? [Proposed: reject the config]. Is Tab 1's interactive allocation still needed, or is the policy mode set only in the config? [Q3]. | UC-01 precondition 4, UC-05 step 1 and precondition 3, UC-06 step 5 and UC-07 step 2 all read the policy mode from the config | Ali with Mazen (T45) and Mohammed (T62) |
