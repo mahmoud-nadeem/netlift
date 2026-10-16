@@ -56,6 +56,11 @@ Status legend used throughout:
 | Smaller fixes | US-07 story ("randomized holdout" is deployment-only); Q2 (g) for *Suppression-only*; Q3 narrowed to what the ADR leaves open; SMD wording in the glossary. |
 | Process | The ADR's status line still reads "proposed". Merge T32 after PR #95. |
 
+| Review point (v6, 16 Oct) | Where it is addressed |
+|---|---|
+| Blocker: policy mode not defined in the recorded run | UC-01 precondition 4 and main flow step 2; UC-05 precondition 3 and step 1; UC-06 step 5; UC-07 step 2; Glossary row "Policy mode vs. policies compared"; new Q12. |
+| Non-blocking | Actors table: "randomized holdout" is now "holdout (the recorded control arm)". UC-06 step 7: the seed is no longer tagged Proposed. |
+
 ---
 
 ## Glossary
@@ -75,6 +80,7 @@ specification and in `docs/glossary.md`.
 | SMD | Standardized mean difference between treated and control for one covariate; the randomization-integrity check flags \|SMD\| > 0.1 (§20); K6 passes only when every \|SMD\| < 0.1. |
 | PSI / KS | Population Stability Index and Kolmogorov–Smirnov statistic: feature-drift measures against the training reference (§32). |
 | c, m, k, c/m | Cost per contact, margin per conversion, number of contacts k = budget / c, and the break-even ratio c/m (§10). |
+| Policy mode vs. policies compared | Policy mode (Fixed budget / Profit-maximising / Fixed target / Suppression-only) is different from the policies compared (Uplift / Response model / Blanket / Random). The policy mode is how the Uplift Policy selects customers; the policies compared are the four systems compared in UC-06 and UC-07 (§10, §13). |
 | Verdict | One of `confident`, `insufficient_evidence`, `insufficient_control_data` (§11, §12). Separate from `recommendation` on purpose. |
 | Replay | A simulated campaign over a held-out slice of historical experimental data: decide without reading outcomes, then reveal and measure (§14). Not a live campaign. |
 | Holdout | In the replay: the selected customers whose *recorded* assignment was control **[Q10]**. In deployment: a permanent randomized share withheld before contact (§15). |
@@ -127,7 +133,7 @@ is historical; the order above is the one that matters.
 | Marketing Analyst | Primary, human | Defines scenarios, sets cost, margin, budget and policy mode, scores customer lists, downloads the target list, inspects individual customers. Called "Retention / CRM analyst" in the target-user table. | §1.5 target users; §45 |
 | Marketing Manager | Primary, human | Compares candidate policies on one screen before committing spend. | §1.5 target users |
 | Data Scientist | Primary, human | Consumes the scoring API, inspects Qini curves and drift monitors, starts retraining runs. Called "Data science team" in the target-user table. | §1.5 target users; §45 |
-| Finance / Campaign Audit | Secondary, human (reader) | Reads the incremental-profit report and the size of the randomized holdout that produced it. Never changes anything. | §1.5 target users |
+| Finance / Campaign Audit | Secondary, human (reader) | Reads the incremental-profit report and the size of the holdout (the recorded control arm) that produced it. Never changes anything. | §1.5 target users |
 | Scheduler | Supporting, internal system. **Deployment-only** (working assumption, to be confirmed **[Q7]**) | Would start scheduled batch scoring, scheduled drift reports and the scheduled part of the retraining rule. Not built this semester. | §45; §35 (batch path); §32 |
 | Campaign Execution System | **External system, deployment-only** | Would receive the approved target list, run the real campaign and return real outcomes after an outcome window. Does not exist in this project. | §45; §15 |
 
@@ -396,11 +402,13 @@ reason why they cannot arise in that use case.
   2. A held-out slice of data exists that can stand in for "next month's campaign" (§14). Which
      split is allowed at which stage is open **[Q1]**.
   3. The analyst can run the replay job from the command line **[Q3]**.
+  4. The analyst sets the policy mode in the config. If not set, the default is Fixed budget
+     **[Q12]**.
 - **Main flow:**
   1. The analyst writes the scenario configuration: the dataset and the slice of the held-out split
      that stands in for the audience.
-  2. The configuration also holds the cost per contact c, the margin per conversion m and the
-     budget.
+  2. The configuration also holds the cost per contact c, the margin per conversion m, the budget,
+     and the policy mode (Fixed budget / Profit-maximising / Fixed target / Suppression-only).
   3. The system validates the four inputs: cost, margin and budget are numbers greater than zero
      (k = budget / c and c/m need them), and a slice is selected.
   4. The job reports the break-even ratio c/m (a business input; the dashboard exposes it as a
@@ -561,8 +569,9 @@ reason why they cannot arise in that use case.
   1. The scenario is in state `scored` (UC-02): every customer has an uplift estimate, an interval
      and a verdict.
   2. Per-contact cost c, margin m and budget B are known (UC-01).
+  3. The scenario configuration has a policy_mode set (UC-01).
 - **Main flow:**
-  1. The analyst selects a policy mode (§10):
+  1. The replay job reads the policy_mode from the scenario configuration (UC-01) and applies it (§10):
      - *Fixed budget:* contact the top k by estimated uplift, k = B / c; suppress any selected
        customer whose estimated uplift ≤ 0, even if budget is left unspent.
      - *Profit-maximising:* contact every customer whose estimated uplift > c/m; the budget is an
@@ -647,7 +656,9 @@ reason why they cannot arise in that use case.
      **[Q10]**), with a 95% bootstrap interval that resamples within treatment arms (§14, §28, at
      least 1,000 resamples, K2).
   5. The job replays the four policies once, at an identical budget (the same replay code that
-     UC-07 re-runs): uplift, response model, blanket contact and random contact. For each it
+     UC-07 re-runs): uplift, response model, blanket contact and random contact. The Uplift Policy
+     uses the policy_mode from the config (UC-01). The other three (response model, blanket, random)
+     are fixed, as §10 and §13 define them. For each it
      produces the number contacted, total cost, predicted and measured incremental conversions each
      with an interval, incremental profit and profit per unit spent (§13, §14), and the cumulative
      curves with bootstrap bands.
@@ -656,9 +667,8 @@ reason why they cannot arise in that use case.
   7. The job stores the complete result with the scenario (tables, curves, intervals, holdout size,
      library and settings, and the bootstrap seed), logs the whole run to MLflow, and sets the state
      to `measured`. Finance reads the stored result and the MLflow run. The what-if of UC-07 does
-     not read it: it re-runs the replay code. Storing the seed so that a re-run reproduces these
-     figures is **Proposed**; ADR 0002 only requires that the same inputs and seed give the same
-     result.
+     not read it: it re-runs the replay code. The seed is stored so that a re-run reproduces these
+     figures; ADR 0002 only requires that the same inputs and seed give the same result.
 - **Alternative flows:**
   - A1. *Reveal requested when the state is not `allocated`:* refused, whether the scenario was not
     allocated yet or was already revealed or measured, so each scenario is revealed once (§14).
@@ -707,7 +717,8 @@ reason why they cannot arise in that use case.
   1. The Marketing Manager opens Policy Comparison (Tab 2, which shows the recorded runs, ADR 0002)
      and selects a measured scenario.
   2. The system calls `POST /policy/simulate` with the scenario's budget, cost and margin. The
-     endpoint re-runs the replay code with the recorded seed and returns the policy comparison
+     endpoint re-runs the replay code with the recorded seed. It uses the policy_mode from the
+     scenario's configuration (UC-01) for the Uplift Policy. It returns the policy comparison
      table (§35).
   3. The system shows one table: number contacted, total cost, incremental conversions with a
      confidence interval, incremental profit, and profit per unit spent, for each policy (§13), with
@@ -929,3 +940,4 @@ this document's suggested answers, not agreements.
 | Q9 | UC-10 and US-10: the specification lists "retrain" as a use case and "a documented retraining rule" as SHOULD HAVE, but does not say whether a retraining run is built or only documented, whether the trigger is OR or AND, or what makes a retrained candidate replace the champion. Proposed: OR (cadence or drift threshold, either is enough; an AND would make the cadence pointless, and §15 says retraining must not be purely reactive, which §32 turns into a rule combining a cadence with a drift threshold); this semester a retraining run is a reproducible pipeline run started by the Data Scientist. A new champion would also normally need confirming on the locked split (see Q1). | Decides the status "Partly" and the acceptance criteria of US-10 | Mahmoud |
 | Q10 | **Decided in ADR 0002** (with the §14 correction in T52, #94): the replay draws no random holdout; the holdout is the selected targets in the original control arm, and the effect is the treated rate minus the control rate within them, with a bootstrap interval resampled within arms. The original question follows. §14 step 4 says "a randomized slice of the selected targets is marked as not-contacted". In a replay over recorded data a fresh randomization is impossible: a customer who was treated has no outcome for "not contacted". Proposed reading: the holdout is the selected customers whose *recorded* assignment was control, joined after the target list is fixed; the scoring and allocation functions see neither outcome nor treatment. This is valid because selection uses pre-treatment features only. Consequence: the holdout is the control share of the selection, about 15% on Criteo (§16.1), so `insufficient_control_data` is likely. How the measured per-contact effect is scaled to k selected customers is to be defined in T44. The wording of §14 needs aligning in T52. | Feeds US-05 criterion 3, UC-05 step 5 and UC-06 steps 3 and 4 | Ali with Mahmoud (T52) |
 | Q11 | K2 has two success conditions. §46 says "Interval excludes zero, i.e. demonstrably better than random targeting"; `config/kpis.yaml` says the interval is "entirely above zero" and adds that an interval entirely below zero is worse than random, so "excludes zero" alone is not sufficient. Proposed: use `config/kpis.yaml` (entirely above zero), because "excludes zero" would pass a worse-than-random model; align §46 in T52. K1 is not affected: it already says "in favour of the uplift policy". | Fixes the K2 pass condition in the harness (T39), the test plan (T51) and the Model Evidence tab | Ali with Mahmoud (T52) |
+| Q12 | Which policy mode is the default if not set? [Proposed: Fixed budget]. Is Tab 1's interactive allocation still needed, or is the policy mode set only in the config? [Q3]. | UC-01 precondition 4, UC-05 step 1 and precondition 3, UC-06 step 5 and UC-07 step 2 all read the policy mode from the config | Ali with Mazen (T45) and Mohammed (T62) |
