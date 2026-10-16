@@ -56,9 +56,9 @@ conflicts and replanning rather than in the technical work.
 |---|---|---|---|
 | Aliaa | not stated | about 18 h (T6, T16, T17) | — |
 | Mohammed | 4 h for T18 (owner 2.5 h, reviewer 1.5 h) | about 5 h or a little more | CI failures and a merge conflict |
-| Mahmoud | 24.5 h (15.5 h for the role, 9 h leader overhead, from the Milestone 1 plan) | about 30 h or a little more, not tracked precisely | problems and rework: the red `main` branch (#32), the Section 6 correction and its two review rounds (#27), and the replan against DEPI's deadlines |
+| Mahmoud | 24.5 h (15.5 h for the role, 9 h leader overhead, from the Milestone 1 plan) | about 30 h or a little more, not tracked precisely (self-reported 16 Oct, see #20) | problems and rework: the red `main` branch (#32), the Section 6 correction and its two review rounds (#27), and the replan against DEPI's deadlines |
 | Ali | about 16 h (T7 4 h, T20 3.5 h, T16 review 1 h) | about 20 h (T7 5 h, T20 6 h, T16 review 4 h) | review revisions and follow-up; the T16 review hours are the ones that found `exposure` |
-| Mazen | 17 h in the Milestone 1 document | about 3 h per week | not broken down |
+| Mazen | 17 h in the Milestone 1 document | total not tracked; about 3 h per week as reported on #20 | not broken down |
 
 ---
 
