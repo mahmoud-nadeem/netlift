@@ -76,6 +76,8 @@ data.
 2. **`POST /policy/simulate` re-runs the same replay code for a given budget, cost and margin
    (UC-07).** It simulates again; it does not read a stored UC-06 result. This answers Aliaa's
    point 3. A simulate call is an interactive what-if, and it does not create a recorded run.
+   Its request fields beyond budget, cost and margin (the scenario or data slice, the model
+   version and the seed) are deferred to T45 (#57); see "Not decided here".
 3. **Retraining is an offline pipeline job (UC-10).** A retraining run is the same reproducible
    pipeline run again. The scheduled trigger is deployment-only. What makes a retrained candidate
    replace the champion stays open (Q9).
@@ -107,9 +109,15 @@ re-simulates.
 **For the dashboard (T62).** Tab 4 and Tab 2 show recorded replay runs. Whether the dashboard
 reads them through `GET /model/info` or from MLflow directly is for T45 and T62 to settle.
 
-**Not decided here.** Which split each replay uses at each stage (Q1), including when the locked
-test split is opened. A replay job that needs the locked split must open it through
-`LockedTestSplit.open(reason)` (interface 1, proposed in #92), once, under the T70 procedure.
+**Not decided here.**
+
+- **Which split each replay uses at each stage (Q1)**, including when the locked test split is
+  opened. Q1 stays open. Until it is decided, the interim rule follows from the locked-split
+  rule: replays run only on the validation split, and the locked test split is opened only
+  through `LockedTestSplit.open(reason)` (interface 1, #92) under the T70 procedure.
+- **The request fields of `POST /policy/simulate`** beyond budget, cost and margin: how a call
+  names the scenario or data slice, the model version and the seed. Deferred to T45 (#57), which
+  freezes the API contract.
 
 **Limitations / trade-offs.** A user cannot start a recorded replay from the dashboard; someone
 runs the job. For the demo, recorded runs are prepared in advance, and `POST /policy/simulate`
