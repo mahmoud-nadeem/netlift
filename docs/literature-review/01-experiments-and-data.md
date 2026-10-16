@@ -1,0 +1,34 @@
+# Literature review: randomized experiments, non-compliance and the two datasets
+
+Author: Aliaa Gomaa · Task: T25 · Reviewed by: Mazen
+
+## 1. Diemert et al. (2021), the Criteo uplift benchmark
+
+**Citation.** Diemert, E., Betlei, A., Renaudin, C., Amini, M.-R., Gregoir, T., & Rahier, T. (2021). *A Large Scale Benchmark for Individual Treatment Effect Prediction and Uplift Modeling*. arXiv preprint arXiv:2111.10106.
+https://arxiv.org/abs/2111.10106
+
+**Summary.** Public uplift datasets were small, so the authors release about 14 million users from advertising incrementality tests at Criteo, where a random share of users is held out from ads. Each row holds twelve anonymised features measured before assignment, a treatment flag, an exposure flag (did the user actually see an ad), and visit and conversion outcomes over two weeks. Because the tests used different treatment shares, the test identity acted as a hidden confounder in the 2018 release, so every test was subsampled to one common ratio of about 85% treated. The authors then check with a classifier two-sample test that treatment cannot be predicted from the features, and that the features do predict the outcomes. Their main result is that baseline uplift methods whose confidence intervals overlap on small samples only become separable at around one million test points. The paper also states that control users are, by definition, never exposed.
+
+**What NetLift takes from it.** It fixes which release of Criteo we use: the 13,979,592 rows counted in T16 are the figure in Table 1 of this paper, whereas the 2018 paper cited in `docs/unit-of-observation.md` describes the earlier release, later decommissioned, with 25.3 million rows. Its statement that control users are never exposed matches what T17 counted in the data and what Section 6 now says: non-compliance is one-sided. Its classifier two-sample test, which asks whether treatment can be predicted from the features, is the same idea as the treatment-predictability AUC in the specification's Randomization Integrity Check. Finally, the test identifier was never released, so no true group id exists for the sensitivity check in issue #29, which has to use a feature-profile proxy.
+
+## 2. Hillstrom (2008), the MineThatData e-mail challenge
+
+**Citation.** Hillstrom, K. (2008). *The MineThatData E-Mail Analytics And Data Mining Challenge*. MineThatData blog, 20 March 2008.
+https://blog.minethatdata.com/2008/03/minethatdata-e-mail-analytics-and-data.html
+
+**Summary.** Hillstrom, an analytics consultant, posted a dataset from an e-mail test and asked readers to analyse it. 64,000 customers who had purchased in the last twelve months were randomly split into thirds: a Mens e-mail, a Womens e-mail, or no e-mail. Visits, conversions and spend were tracked for two weeks afterwards. The pre-campaign attributes are recency, past spend, whether the customer bought Mens or Womens items, an urban/suburban/rural zip class, a new-customer flag and purchase channel. The post is a dataset description and a set of questions, not a study, so it reports no result and says nothing about whether e-mails were delivered or opened.
+
+**What NetLift takes from it.** The variable list has no exposure or delivery column, only the arm assigned, so Hillstrom supports intention-to-treat analysis only, and the complier (ToT) extension discussed in Section 6 applies to Criteo alone. The published size also depends on the contrast: 64,000 is the full three-arm file, while the Criteo papers list Hillstrom as 42,693 rows, which the 2018 paper identifies as the Womens-versus-no-e-mail split. `scripts/figures/response_by_arm.py` keeps all three arms, so it matches the full file; any two-arm analysis added later must say which contrast it uses.
+
+## 3. Angrist, Imbens & Rubin (1996), instrumental variables and compliers
+
+**Citation.** Angrist, J. D., Imbens, G. W., & Rubin, D. B. (1996). *Identification of causal effects using instrumental variables*. Journal of the American Statistical Association, 91(434), 444-455.
+https://doi.org/10.2307/2291629
+
+**Summary.** The paper treats studies where assignment to a treatment is random but compliance is imperfect, so actual receipt of treatment is not random. Comparing people by assignment, the intention-to-treat analysis, remains valid but answers a question about being offered the treatment. Economists used instrumental variables for this problem, but under models with constant treatment effects. The authors embed the IV approach in the Rubin Causal Model and show that, under a few interpretable assumptions, the IV estimand is the average effect for compliers only; without those assumptions it is just a ratio of intention-to-treat effects with no causal reading. They illustrate it with the Vietnam-era draft lottery and test sensitivity to the assumptions.
+
+**What NetLift takes from it.** Section 6 of the specification and `docs/unit-of-observation.md` decide that the MVP estimates ITT only, with the Wald-ratio ToT among compliers as an optional Advanced-tier extension. This paper is the reason for that split: the ITT is always identified because assignment is random, while the complier effect is a causal average only under extra assumptions, above all the exclusion restriction that Section 6 singles out. It also explains why `scripts/criteo_complier_baseline.py` reports the ITT next to the Wald ratio, and why the ToT is described as an effect among compliers (about 3.6% of treated users were exposed), never as an effect on everyone treated.
+
+## How these sources relate
+
+Hillstrom is the clean case: randomized assignment and no way to observe compliance, so ITT is the only estimand. Criteo adds exposure and one-sided non-compliance, which is exactly the setting Angrist, Imbens and Rubin analyse. Diemert et al. connect the two, since their dataset is presented as a larger successor to Hillstrom's. Together they give NetLift one rule: ITT on both datasets, a complier effect only where exposure exists.
