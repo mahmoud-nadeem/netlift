@@ -123,9 +123,9 @@ Everything else in the timeline can slip by a few days without damage. These two
 The final submission moved from mid-January to 4 December: roughly six weeks fewer. Three things
 change as a result.
 
-**Testing is no longer a phase of its own.** Tests are written with the code they test, during
-M5, and every pull request keeps CI green. The M6 window is for opening the locked test split once,
-writing the test report, and the final presentation.
+**Testing is written with the code in M5; M6 keeps a dedicated window for opening the locked test
+split once and the test report.** Every pull request in M5 keeps CI green. The rest of M6 is the
+final presentation and reports.
 
 **Implementation and design overlap.** M4 is a design milestone, but the data pipeline, the split,
 the evaluation harness and the first estimators are built inside it, because the central comparison
@@ -160,6 +160,9 @@ person who designs the screens builds them.
 | M4 Analysis and design | 17 Oct – 6 Nov | Full DEPI design set; literature review with every source verified; split, harness and baselines built and tested; randomization report; central comparison reported with an interval |
 | M5 Implementation | 7 – 30 Nov | A clean checkout plus one documented command reproduces the headline result; the deployed endpoint answers a real request; the dashboard runs against it |
 | M6 Testing and final | 1 – 4 Dec | Champion confirmed on the locked test split, opened once; test cases and bug log; final report, user manual, presentation, infographic; rehearsed demo; final upload |
+
+M2 is the instructor feedback session only, because the written literature review moved to M4
+(T25–T29).
 
 ---
 

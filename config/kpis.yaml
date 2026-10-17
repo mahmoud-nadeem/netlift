@@ -24,13 +24,15 @@ kpis:
     computed_by: >
       Simulated campaign replay (Spec Section 14) on the locked test split: both
       policies select the same number of customers under the same budget;
-      incremental conversions are measured against the withheld slice.
+      incremental conversions are measured as the treated rate minus the
+      control rate within each policy's selected customers, by their recorded
+      arm.
     gate_type: measured_no_target
     success_condition: >
       The 95% bootstrap interval of the difference (uplift policy minus response
       model) excludes zero in favour of the uplift policy. An interval containing
       zero is a reportable finding, not a failed project.
-    first_reported: M4 (Week 12-13)
+    first_reported: M4 (6 Nov)
     owner: Ali
 
   - id: K2
@@ -48,7 +50,7 @@ kpis:
         indicating performance demonstrably better than random targeting.
         (An interval entirely below zero would indicate worse-than-random
         targeting, not success — "excludes zero" alone is not sufficient.)
-    first_reported: M4 (Week 12-13)
+    first_reported: M4 (6 Nov)
     owner: Ali
 
   - id: K3
@@ -62,7 +64,7 @@ kpis:
     success_condition: >
       Reported with a confidence interval, and with the cost and margin
       assumptions stated on the same line as the figure.
-    first_reported: M4 (Week 12-13)
+    first_reported: M4 (6 Nov)
     owner: Ali
 
   - id: K4
@@ -105,7 +107,7 @@ kpis:
       Every |SMD| < 0.1 (the conventional threshold, fixed in config before the
       test is run) and treatment-predictability AUC near 0.5. Any breach is
       documented rather than smoothed over.
-    first_reported: M3 (Week 9-10)
+    first_reported: M4 (30 Oct)
     owner: Aliaa
 
   - id: K7
@@ -172,5 +174,5 @@ kpis:
     gate_type: pass_fail
     success_condition: >
       Every required artefact exists and is current.
-    first_reported: M7
+    first_reported: M6
     owner: Team leader
