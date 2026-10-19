@@ -86,6 +86,10 @@ after.
 5. **Small tasks.** Every task fits in three working days. If it does not, split it before starting.
 6. **The internal deadline is the day before DEPI's.** The deadline day itself is for review,
    merging and uploading.
+7. **Less paperwork.** A document is written only if DEPI requires it or it prevents a real error.
+   Nothing already written is deleted. (Decided 16 October.)
+8. **Block only what breaks.** A review requests changes only for something that breaks a result
+   or a deliverable; everything else is a non-blocking comment.
 
 ---
 
