@@ -91,6 +91,8 @@ Checked when a `FeatureMatrix` is built:
   on that list, so every outcome is forbidden whichever one is the target. The treatment flag is
   never a column of `X`, not even for the S-learner: an S-learner appends `t` inside its own fit
   and predict.
+- **Every column of `X` is numeric** (dtype kind bool, int, unsigned or float). `X` arrives after
+  preprocessing, so a raw categorical such as Hillstrom's `Zip_Code` or `Channel` is rejected.
 - `X`, `t`, `y`, `fold` and `row_id` have the same length, and there is at least one row.
 - `t` and `y` are one-dimensional, have no missing values, and contain only 0 and 1.
 - `t` contains both arms.
@@ -114,17 +116,24 @@ disjoint**. A raw row that sits in both train and test is the most common silent
 code, and with positional arrays alone nobody downstream could check for it. The row ids also
 record exactly which raw rows formed the locked test split.
 
+**The split does not depend on the target.** A dataset is split once per (dataset, seed);
+`target_outcome` only selects the `y` column. Otherwise, under "develop on visit, report on
+conversion", a conversion-test row could sit in the visit-train split, a leak that row-id
+disjointness inside one `DatasetSplits` cannot catch. Which column the split is stratified on,
+together with treatment, is Aliaa's decision in T37; the invariant is only that it is the same for
+every target.
+
 `FeatureMatrix.cell_counts()` returns the four (t, y) cell counts per fold, which the Splitting
 Strategy section says to assert and log after every split.
 
 ### The locked test split
 
 The simplest form that works: T37 hands out the test split only inside a `LockedTestSplit`. Its
-metadata, column names and row ids (a read-only copy) can be read at any time. The rows come out only through
-`open(reason)`, which needs a non-empty reason, logs it as a warning, and refuses a second call
-on the same object. This cannot stop someone rebuilding the split in another process; that is
-what the written opening procedure of T70 is for. It does make opening the split a deliberate,
-logged act rather than an attribute access.
+metadata, column names and row ids (a read-only copy) can be read at any time. The rows come out
+only through `open(reason)`, which needs a non-empty reason, logs it as a warning, and refuses a
+second call on the same object. The "opened" state lives in memory, so it cannot stop a second
+process opening the split again; a persistent marker belongs to the T70 procedure (#82). It does
+make opening the split a deliberate, logged act rather than an attribute access.
 
 ### Treatment definitions
 
@@ -160,7 +169,7 @@ test = splits.test.open("champion confirmation, procedure in T70")  # once
 
 `src/netlift/data/synthetic.py` builds a seeded synthetic dataset (600 rows by default, four
 features, both arms, both binary outcomes) and returns it as `DatasetSplits`, 60 / 20 / 20 and
-jointly stratified on (t, y). The pytest fixture `synthetic_splits` in `tests/conftest.py` returns
+jointly stratified on (treatment, conversion) for every target. The pytest fixture `synthetic_splits` in `tests/conftest.py` returns
 it. T38 and T39 can build and test against it today. Its row ids are the rows' positions in the
 generated frame, so the three splits together cover every row exactly once.
 
@@ -188,12 +197,19 @@ class MetricResult:
     seed: int
     library: str               # "scikit-uplift" for the reported metrics
     library_version: str
+    resamples: tuple[float, ...]   # the metric on each resample, in order
+    resample_fingerprint: str      # sha256 of the resample index arrays
     settings: dict[str, str | int | float] = {}   # e.g. {"k": 0.3, "strategy": "overall"}
+
+    metric_key: str            # property: "uplift_at_30pct_overall" for uplift@k
 
 class UpliftMetric(Protocol):
     def __call__(self, y, uplift, t, *,
                  n_resamples: int, confidence_level: float, seed: int) -> MetricResult: ...
 
+def within_arm_bootstrap_indices(t, n_resamples: int, seed: int) -> Iterator[NDArray[int64]]
+def fingerprint_indices(indices: Iterable[ArrayLike]) -> str
+def paired_difference(a: MetricResult, b: MetricResult) -> MetricResult
 def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str  # the key
 ```
 
@@ -216,13 +232,38 @@ echoed in `settings`. The specification (Evaluation Metrics) notes that uplift@k
 - The bootstrap resamples **within treatment arms**, preserving the arm proportions
   (Specification, Statistical Significance). Neither library provides this (ADR 0001, decision 5);
   T39 writes it and calls scikit-uplift once per resample.
+- **uplift@k records its k and strategy.** A result named `uplift_at_k` must carry
+  `settings["k"]` with 0 < k <= 1 and `settings["strategy"]` of `overall` or `by_group`. Its
+  `metric_key` carries both, so k=0.1 with `overall` logs as `uplift_at_10pct_overall`, and two
+  values of k never share a key.
+- **`resamples` has exactly `n_resamples` finite values**, and `resample_fingerprint` is a
+  SHA-256 hex digest.
+
+### The same resamples for every model
+
+The specification (Statistical Significance) requires champion and challenger to be compared "on
+the same bootstrap resamples", and K1, the primary KPI, is such a difference. Two intervals cannot
+be subtracted; the per-resample values can. So:
+
+- **The resample indices depend only on (t, n_resamples, seed)**, never on `y` or on a model's
+  scores. `within_arm_bootstrap_indices(t, n_resamples, seed)` draws them, within each arm, one
+  resample at a time (1,000 resamples of Criteo's 14M rows would not fit in memory at once). Its
+  signature has no `y` and no `uplift`, so the rule is enforced by the code, not by convention.
+- `fingerprint_indices(...)` hashes the index arrays, and the harness stores the result as
+  `resample_fingerprint`. The fingerprint makes "same resamples" checked, not trusted.
+- `paired_difference(a, b)` refuses unless name, settings, `n_resamples`, seed and fingerprint all
+  match. Its value is `a.value - b.value`, and its interval is the percentiles of the per-resample
+  differences at `a.confidence_level`. Its name is `<name>_difference`.
+
+Logging the per-resample values as an MLflow artifact belongs to T41, not to this interface.
 
 ### Logging a result
 
-`log_metric_result` logs the result under the key `<KPI>_<metric name>`, for example
-`K2_qini_coefficient`. The interval goes under `<key>_ci_low` and `<key>_ci_high`, the confidence
-level is a tag `<key>_confidence`, and `library==version`, the number of resamples, the seed and
-every setting are parameters prefixed with the same key. One KPI can cover several metrics: K2 is
+`log_metric_result` logs the result under the key `<KPI>_<metric key>`, for example
+`K2_qini_coefficient` or `K2_uplift_at_10pct_overall`. The interval goes under `<key>_ci_low` and
+`<key>_ci_high`, the confidence level is a tag `<key>_confidence`, and `library==version`, the
+number of resamples, the seed, the resample fingerprint and every setting are parameters prefixed
+with the same key. One KPI can cover several metrics: K2 is
 both the Qini coefficient and AUUC, so one run holds `K2_qini_coefficient` and `K2_auuc` side by
 side, each with its own interval and parameters. The prefix has to be the full key, because
 MLflow refuses to change a parameter's value within a run.
@@ -303,6 +344,14 @@ class ScoringResponse:
   `no_action`.** This encodes the rule in the specification's Uncertainty and Abstention section:
   "Where a segment's interval straddles zero, the system returns verdict = "insufficient_evidence"
   rather than a directional recommendation." The same holds for `insufficient_control_data`.
+- **The verdict is based on the interval carried in the response** (`uplift_ci_95`):
+  `confident` requires an interval that excludes zero; `contact` requires its lower bound above
+  zero; `suppress` requires its upper bound below zero (the sleeping-dog rule, Uplift Score to
+  Decision); and a `sleeping_dog` label never carries `contact`. So a straddling interval is
+  always `insufficient_evidence` with `no_action`, in every policy mode, suppression-only included.
+- **`recommendation` is the model's recommendation**, and each policy mode defines what it does
+  with `no_action`: suppression-only contacts those customers as business as usual; the other
+  modes do not contact them.
 - `scored_at` is timezone-aware, and `to_dict` writes UTC with a `Z` suffix, as in the
   specification's example.
 - `from_dict` names every missing and every unknown key, so a schema mismatch between the API and
@@ -344,25 +393,30 @@ The specification's own example round-trips through JSON unchanged (tested):
 2. Hillstrom is analysed one arm at a time against the shared control, the other arm dropped.
    Which arm comes first, or both?
 3. Validation and test are single folds (id 0); cross-validation folds exist only inside train.
-4. `X` arrives preprocessed or raw? The interface does not check dtypes or missing values in `X`,
-   because preprocessing is fitted on the training fold only and the matrix may come before it.
-5. The locked test split as a wrapper with a logged, once-only `open(reason)`.
+4. `X` arrives preprocessed: `validate_features` now rejects any non-numeric column. Missing
+   values in `X` are still not checked.
+5. The locked test split as a wrapper with a logged, once-only `open(reason)`; the persistent
+   marker is T70's (#82).
 6. `row_id` on every matrix: the row's 0-based position in the raw file as loaded, unique within
    a matrix, with the three splits' row ids pairwise disjoint. T37 must record the position
    before any row is dropped (duplicates, the other Hillstrom arm), so the ids still point at the
    raw file.
+7. **The stratification key of the split.** The split must not depend on the target (it is
+   built once per dataset and seed); which outcome it is stratified on together with treatment
+   is your call in T37. The synthetic fixture uses (treatment, conversion).
 
 **Ali (interfaces 2 and 3)**
 
 1. Metric names: `qini_coefficient`, `auuc`, `uplift_at_k`, and the settings recorded for each.
-2. Confirm the metric key format `<KPI>_<metric name>` (for example `K2_qini_coefficient`,
-   `K2_auuc`).
-3. The value is not required to lie inside its interval; `log_kpi` now warns and tags the run instead of
-   rejecting.
+2. Confirm the metric key format `<KPI>_<metric key>` (for example `K2_qini_coefficient`,
+   `K2_uplift_at_10pct_overall`).
+3. The value is not required to lie inside its interval; `log_kpi` now warns and tags the run
+   instead of rejecting.
 4. Fewer than 1,000 resamples cannot be logged as a KPI.
-5. Should a `confident` verdict also require the customer's interval to exclude zero? The
-   specification states the abstention rule per segment, so the type does not enforce it per
-   customer.
+5. T39 draws resamples with `within_arm_bootstrap_indices` and fills `resamples` and
+   `resample_fingerprint`; K1 is built with `paired_difference`.
+6. The verdict rules in the scoring response (interval excludes zero for `confident`, and so on),
+   and that each policy mode decides what to do with `no_action`.
 
 **Mazen (interface 3)**
 
