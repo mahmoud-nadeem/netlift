@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import pytest
@@ -11,10 +12,15 @@ import pytest
 from netlift.evaluation.contracts import (
     MetricResult,
     UpliftMetric,
+    fingerprint_indices,
     log_metric_result,
+    paired_difference,
+    within_arm_bootstrap_indices,
 )
 from netlift.utils.errors import ContractError
 from netlift.utils.tracking import start_run
+
+FINGERPRINT = "ab" * 32
 
 
 def _result(**overrides: object) -> MetricResult:
@@ -28,13 +34,21 @@ def _result(**overrides: object) -> MetricResult:
         "seed": 42,
         "library": "scikit-uplift",
         "library_version": "0.5.1",
+        "resample_fingerprint": FINGERPRINT,
     }
     fields.update(overrides)
+    if "resamples" not in fields:
+        count = fields["n_resamples"]
+        fields["resamples"] = (0.08,) * (count if isinstance(count, int) else 1)
     return MetricResult(**fields)  # type: ignore[arg-type]
 
 
+def _uplift_at_k(k: float, strategy: str = "overall") -> MetricResult:
+    return _result(name="uplift_at_k", settings={"k": k, "strategy": strategy})
+
+
 def test_valid_result_is_accepted() -> None:
-    result = _result(name="uplift_at_k", settings={"k": 0.3, "strategy": "overall"})
+    result = _uplift_at_k(0.3)
     assert result.value_inside_interval
     assert result.settings["strategy"] == "overall"
 
@@ -101,6 +115,114 @@ def test_a_conforming_function_satisfies_the_protocol() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# uplift@k carries k and strategy
+# --------------------------------------------------------------------------- #
+
+
+def test_uplift_at_k_key_carries_k_and_strategy() -> None:
+    assert _uplift_at_k(0.1).metric_key == "uplift_at_10pct_overall"
+    assert _uplift_at_k(0.125, "by_group").metric_key == "uplift_at_12.5pct_by_group"
+    assert _result().metric_key == "qini_coefficient"
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"strategy": "overall"},
+        {"k": 0.0, "strategy": "overall"},
+        {"k": 1.5, "strategy": "overall"},
+        {"k": True, "strategy": "overall"},
+        {"k": 0.1},
+        {"k": 0.1, "strategy": "top"},
+    ],
+)
+def test_uplift_at_k_requires_valid_k_and_strategy(settings: dict[str, object]) -> None:
+    with pytest.raises(ContractError, match="settings"):
+        _result(name="uplift_at_k", settings=settings)
+
+
+# --------------------------------------------------------------------------- #
+# resamples, fingerprint and the paired comparison
+# --------------------------------------------------------------------------- #
+
+
+def test_resample_count_must_match_n_resamples() -> None:
+    with pytest.raises(ContractError, match="must match"):
+        _result(n_resamples=1000, resamples=(0.1, 0.2))
+
+
+def test_fingerprint_must_be_a_sha256_digest() -> None:
+    with pytest.raises(ContractError, match="sha256"):
+        _result(resample_fingerprint="not-a-digest")
+
+
+def test_indices_stay_within_arms() -> None:
+    t = np.array([0, 0, 0, 1, 1, 1, 1, 1])
+    for indices in within_arm_bootstrap_indices(t, n_resamples=20, seed=5):
+        assert len(indices) == len(t)
+        assert int((t[indices] == 0).sum()) == 3
+        assert int((t[indices] == 1).sum()) == 5
+
+
+def _mean_uplift(
+    uplift: npt.NDArray[np.float64], t: npt.NDArray[np.int64], *, n: int, seed: int
+) -> MetricResult:
+    """A toy metric built the way T39 is meant to build real ones."""
+    values = tuple(
+        float(uplift[indices].mean())
+        for indices in within_arm_bootstrap_indices(t, n_resamples=n, seed=seed)
+    )
+    low, high = np.percentile(values, [2.5, 97.5])
+    return MetricResult(
+        name="mean_uplift",
+        value=float(uplift.mean()),
+        ci_low=float(low),
+        ci_high=float(high),
+        confidence_level=0.95,
+        n_resamples=n,
+        seed=seed,
+        library="numpy",
+        library_version=np.__version__,
+        resamples=values,
+        resample_fingerprint=fingerprint_indices(
+            within_arm_bootstrap_indices(t, n_resamples=n, seed=seed)
+        ),
+    )
+
+
+def test_same_t_and_seed_give_the_same_fingerprint_and_a_paired_difference() -> None:
+    rng = np.random.default_rng(0)
+    t = rng.integers(0, 2, size=300)
+    champion = _mean_uplift(rng.normal(0.05, 0.02, size=300), t, n=200, seed=11)
+    challenger = _mean_uplift(rng.normal(0.03, 0.02, size=300), t, n=200, seed=11)
+    assert champion.resample_fingerprint == challenger.resample_fingerprint
+
+    difference = paired_difference(champion, challenger)
+    per_resample = np.asarray(champion.resamples) - np.asarray(challenger.resamples)
+    assert difference.name == "mean_uplift_difference"
+    assert difference.value == pytest.approx(champion.value - challenger.value)
+    assert difference.ci_low == pytest.approx(np.percentile(per_resample, 2.5))
+    assert difference.ci_high == pytest.approx(np.percentile(per_resample, 97.5))
+    assert difference.resample_fingerprint == champion.resample_fingerprint
+
+
+def test_a_different_seed_cannot_be_paired() -> None:
+    rng = np.random.default_rng(1)
+    t = rng.integers(0, 2, size=200)
+    uplift = rng.normal(0.05, 0.02, size=200)
+    first = _mean_uplift(uplift, t, n=100, seed=1)
+    second = _mean_uplift(uplift, t, n=100, seed=2)
+    assert first.resample_fingerprint != second.resample_fingerprint
+    with pytest.raises(ContractError, match="seed"):
+        paired_difference(first, second)
+
+
+def test_different_settings_cannot_be_paired() -> None:
+    with pytest.raises(ContractError, match="settings"):
+        paired_difference(_uplift_at_k(0.1), _uplift_at_k(0.3))
+
+
+# --------------------------------------------------------------------------- #
 # logging through the tracking wrapper
 # --------------------------------------------------------------------------- #
 
@@ -124,18 +246,34 @@ def _last_run() -> pd.Series:
 
 
 @pytest.mark.usefixtures("isolated_tracking")
-def test_result_is_logged_under_kpi_and_metric_name() -> None:
-    result = _result(name="uplift_at_k", settings={"k": 0.3, "strategy": "overall"})
+def test_result_is_logged_under_kpi_and_metric_key() -> None:
     with start_run("metric result", seed=1) as run:
-        key = log_metric_result(run, "K2", result)
+        key = log_metric_result(run, "K2", _uplift_at_k(0.3))
 
-    assert key == "K2_uplift_at_k"
+    assert key == "K2_uplift_at_30pct_overall"
     row = _last_run()
-    assert row["metrics.K2_uplift_at_k"] == pytest.approx(0.0847)
-    assert row["metrics.K2_uplift_at_k_ci_low"] == pytest.approx(0.0612)
-    assert row["params.K2_uplift_at_k_library"] == "scikit-uplift==0.5.1"
-    assert row["params.K2_uplift_at_k_strategy"] == "overall"
-    assert row["tags.K2_uplift_at_k_confidence"] == "0.95"
+    assert row["metrics.K2_uplift_at_30pct_overall"] == pytest.approx(0.0847)
+    assert row["metrics.K2_uplift_at_30pct_overall_ci_low"] == pytest.approx(0.0612)
+    assert row["params.K2_uplift_at_30pct_overall_library"] == "scikit-uplift==0.5.1"
+    assert row["params.K2_uplift_at_30pct_overall_strategy"] == "overall"
+    assert row["params.K2_uplift_at_30pct_overall_resample_fingerprint"] == FINGERPRINT
+    assert row["tags.K2_uplift_at_30pct_overall_confidence"] == "0.95"
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_two_k_values_share_one_run() -> None:
+    """The collision Ali found: k=0.1 and k=0.3 used to share one key."""
+    with start_run("two k", seed=1) as run:
+        first = log_metric_result(run, "K2", _uplift_at_k(0.1))
+        second = log_metric_result(run, "K2", _uplift_at_k(0.3))
+
+    assert (first, second) == (
+        "K2_uplift_at_10pct_overall",
+        "K2_uplift_at_30pct_overall",
+    )
+    row = _last_run()
+    assert row["params.K2_uplift_at_10pct_overall_k"] == "0.1"
+    assert row["params.K2_uplift_at_30pct_overall_k"] == "0.3"
 
 
 @pytest.mark.usefixtures("isolated_tracking")
