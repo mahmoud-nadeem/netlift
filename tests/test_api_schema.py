@@ -86,6 +86,58 @@ def test_estimate_outside_its_interval_is_allowed() -> None:
     assert _response(uplift_score=0.02).uplift_score == 0.02
 
 
+# --------------------------------------------------------------------------- #
+# the verdict follows the interval (Ali's blocker 4)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("interval", [(-0.01, 0.02), (0.0, 0.02), (-0.02, 0.0)])
+def test_confident_needs_an_interval_that_excludes_zero(
+    interval: tuple[float, float],
+) -> None:
+    with pytest.raises(ContractError, match="excludes zero"):
+        _response(uplift_ci_95=interval, recommendation="no_action")
+
+
+def test_straddling_interval_is_insufficient_evidence_with_no_action() -> None:
+    response = _response(
+        uplift_ci_95=(-0.01, 0.02),
+        verdict="insufficient_evidence",
+        recommendation="no_action",
+    )
+    assert response.recommendation == "no_action"
+
+
+def test_contact_needs_a_lower_bound_above_zero() -> None:
+    with pytest.raises(ContractError, match="'contact' needs"):
+        _response(uplift_ci_95=(-0.03, -0.01), recommendation="contact")
+
+
+def test_suppress_needs_an_upper_bound_below_zero() -> None:
+    with pytest.raises(ContractError, match="'suppress' needs"):
+        _response(uplift_ci_95=(0.001, 0.007), recommendation="suppress")
+
+
+def test_suppress_with_an_interval_below_zero_is_accepted() -> None:
+    response = _response(
+        uplift_score=-0.004,
+        uplift_ci_95=(-0.007, -0.001),
+        segment_label="sleeping_dog",
+        recommendation="suppress",
+    )
+    assert response.recommendation == "suppress"
+
+
+def test_sleeping_dog_never_carries_contact() -> None:
+    with pytest.raises(ContractError, match="sleeping_dog"):
+        _response(segment_label="sleeping_dog", recommendation="contact")
+
+
+def test_confident_no_action_with_an_interval_above_zero_is_accepted() -> None:
+    """For example, uplift too small to cover the contact cost."""
+    assert _response(recommendation="no_action").verdict == "confident"
+
+
 @pytest.mark.parametrize("decile", [0, 11, 1.0, True])
 def test_decile_must_be_an_int_from_1_to_10(decile: object) -> None:
     with pytest.raises(ContractError, match="decile"):

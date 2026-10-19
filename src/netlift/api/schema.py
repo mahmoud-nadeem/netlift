@@ -15,6 +15,20 @@ verdict = "insufficient_evidence" rather than a directional recommendation." The
 same applies to ``insufficient_control_data``. So any verdict other than
 ``confident`` carries ``recommendation = "no_action"``.
 
+The verdict is based on the interval carried in the response (``uplift_ci_95``):
+
+* ``confident`` requires an interval that excludes zero, so a straddling
+  interval is always ``insufficient_evidence`` with ``no_action``, in every
+  policy mode, suppression-only included;
+* ``contact`` requires the lower bound above zero;
+* ``suppress`` requires the upper bound below zero (the sleeping-dog rule,
+  Specification, Uplift Score to Decision);
+* a ``sleeping_dog`` label never carries ``contact``.
+
+``recommendation`` is the model's recommendation. Each policy mode decides what
+it does with ``no_action``: suppression-only contacts those customers as
+business as usual; the other modes do not contact them.
+
 ``segment_label`` is presentational only. No dataset labels customers as
 persuadables, so nothing may treat the label as ground truth.
 """
@@ -118,6 +132,23 @@ class ScoringResponse:
                 f"'{self.recommendation}'; it must be 'no_action' "
                 "(Specification, Uncertainty and Abstention)."
             )
+        if self.verdict == "confident" and low <= 0.0 <= high:
+            raise ContractError(
+                f"verdict 'confident' needs an interval that excludes zero; "
+                f"uplift_ci_95 is [{low}, {high}]. A straddling interval is "
+                "'insufficient_evidence' with 'no_action'."
+            )
+        if self.recommendation == "contact" and not low > 0.0:
+            raise ContractError(
+                f"'contact' needs the interval's lower bound above zero; it is {low}."
+            )
+        if self.recommendation == "suppress" and not high < 0.0:
+            raise ContractError(
+                f"'suppress' needs the interval's upper bound below zero (the "
+                f"sleeping-dog rule); it is {high}."
+            )
+        if self.segment_label == "sleeping_dog" and self.recommendation == "contact":
+            raise ContractError("A 'sleeping_dog' never carries 'contact'.")
         if not all(isinstance(driver, Driver) for driver in self.top_drivers):
             raise ContractError("top_drivers must contain Driver objects.")
         if (
