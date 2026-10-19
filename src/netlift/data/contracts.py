@@ -15,7 +15,12 @@ The rules this module enforces come from the specification:
   and Validity Audit, metric overfitting).
 
 The treatment flag is never a column of ``X``, not even for the S-learner: an
-S-learner appends ``t`` itself inside its own fit and predict.
+S-learner appends ``t`` itself inside its own fit and predict. ``X`` arrives
+after preprocessing, so every column is numeric.
+
+A dataset is split once per (dataset, seed). The split never depends on the
+target outcome: ``target_outcome`` only selects the ``y`` column, so a row that
+is in one target's test split is in every target's test split.
 """
 
 from __future__ import annotations
@@ -41,6 +46,9 @@ SplitName = Literal["train", "validation", "test"]
 FORBIDDEN_COLUMNS: frozenset[str] = frozenset(
     {"exposure", "visit", "conversion", "spend", "treatment", "segment"}
 )
+
+# numpy dtype kinds allowed in X: bool, signed int, unsigned int, float.
+NUMERIC_KINDS = "biuf"
 
 ArmValue = str | int
 
@@ -181,7 +189,7 @@ class FeatureMatrix:
 
 
 def validate_features(X: pd.DataFrame) -> None:
-    """Raise if a forbidden column (outcome, treatment or exposure) is in ``X``."""
+    """Raise if ``X`` holds a forbidden column or a column that is not numeric."""
     if not isinstance(X, pd.DataFrame):
         raise ContractError(f"X must be a pandas DataFrame, got {type(X).__name__}.")
     found = sorted(
@@ -192,6 +200,17 @@ def validate_features(X: pd.DataFrame) -> None:
             f"Forbidden column(s) in the feature matrix: {found}. Outcomes, the "
             "treatment column and Criteo's exposure are post-treatment or the "
             "treatment itself, and never enter X (Leakage and Validity Audit)."
+        )
+    non_numeric = sorted(
+        f"{column} ({dtype})"
+        for column, dtype in X.dtypes.items()
+        if getattr(dtype, "kind", "O") not in NUMERIC_KINDS
+    )
+    if non_numeric:
+        raise ContractError(
+            f"Non-numeric column(s) in the feature matrix: {non_numeric}. X arrives "
+            "after preprocessing, so every column is bool, int, unsigned or float; "
+            "encode categoricals such as Zip_Code and Channel first."
         )
 
 

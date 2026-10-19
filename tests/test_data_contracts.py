@@ -304,3 +304,44 @@ def test_locked_split_row_ids_are_a_read_only_copy(
     assert not synthetic_splits.test.is_open
     with pytest.raises(ValueError, match="read-only"):
         ids[0] = 0
+
+
+def test_split_does_not_depend_on_the_target() -> None:
+    """Ali's blocker: a visit-train row must never be a conversion-test row."""
+    visit = make_synthetic_splits("visit", seed=4)
+    conversion = make_synthetic_splits("conversion", seed=4)
+    assert np.array_equal(visit.train.row_id, conversion.train.row_id)
+    assert np.array_equal(visit.validation.row_id, conversion.validation.row_id)
+    assert np.array_equal(visit.test.row_ids, conversion.test.row_ids)
+    assert not np.array_equal(visit.train.y, conversion.train.y)
+
+
+# --------------------------------------------------------------------------- #
+# numeric columns only
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "column",
+    [
+        ["Urban", "Rural"],
+        pd.Categorical(["Web", "Phone"]),
+        pd.to_datetime(["2026-10-01", "2026-10-02"]),
+    ],
+)
+def test_non_numeric_column_is_rejected(column: object) -> None:
+    frame = pd.DataFrame({"f0": [0.1, 0.2], "zip_code": column})
+    with pytest.raises(ContractError, match="Non-numeric"):
+        validate_features(frame)
+
+
+def test_bool_int_unsigned_and_float_columns_are_accepted() -> None:
+    frame = pd.DataFrame(
+        {
+            "b": np.array([True, False]),
+            "i": np.array([1, 2], dtype=np.int32),
+            "u": np.array([1, 2], dtype=np.uint8),
+            "f": np.array([0.1, 0.2]),
+        }
+    )
+    validate_features(frame)

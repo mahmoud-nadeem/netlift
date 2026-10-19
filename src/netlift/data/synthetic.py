@@ -4,8 +4,11 @@ Never use anything from this module for a reported result. Every matrix it
 returns carries ``meta.dataset == "synthetic"`` so that the origin stays visible
 wherever the matrix goes. Its effect sizes are invented and mean nothing.
 
-The split here is a minimal joint stratification on (treatment, outcome), good
-enough for a fixture. The real split is T37's job.
+The split here is a minimal joint stratification on (treatment, conversion),
+good enough for a fixture. It is built once per seed and does not depend on the
+target: ``target`` only selects the ``y`` column, so the visit and conversion
+matrices share the same rows in each split. The real split, and its
+stratification key, is T37's job.
 """
 
 from __future__ import annotations
@@ -32,6 +35,7 @@ logger = logging.getLogger(__name__)
 FEATURES = ("f0", "f1", "f2", "f3")
 SPLIT_NAMES: tuple[SplitName, ...] = ("train", "validation", "test")
 SPLIT_SHARES = (0.6, 0.2, 0.2)  # Specification, Splitting Strategy: 60 / 20 / 20.
+STRATIFY_ON = "conversion"  # fixture only; the real key is decided in T37
 
 
 def make_synthetic_frame(n_rows: int = 600, seed: int = 0) -> pd.DataFrame:
@@ -69,11 +73,13 @@ def make_synthetic_splits(
     frame = make_synthetic_frame(n_rows, seed)
     rng = np.random.default_rng(seed + 1)
     t = frame["treatment"].to_numpy()
-    y = frame[target].to_numpy()
+    # The split never depends on the target, so a visit-train row can never be a
+    # conversion-test row. The target only picks the y column in _matrix().
+    stratum = frame[STRATIFY_ON].to_numpy()
     split = np.empty(n_rows, dtype=object)
     fold = np.zeros(n_rows, dtype=np.int64)
 
-    for cell in _cells(t, y):
+    for cell in _cells(t, stratum):
         order = rng.permutation(cell)
         n_train = round(len(order) * SPLIT_SHARES[0])
         n_validation = round(len(order) * SPLIT_SHARES[1])
