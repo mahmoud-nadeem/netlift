@@ -187,6 +187,12 @@ def within_arm_bootstrap_indices(
     arms = np.asarray(t)
     if arms.ndim != 1:
         raise ContractError(f"t must be one-dimensional, got shape {arms.shape}.")
+    if arms.dtype.kind not in "biuf" or not np.isin(arms, (0, 1)).all():
+        unexpected = sorted({str(v) for v in arms[~np.isin(arms, (0, 1))].tolist()})
+        raise ContractError(
+            f"t must be binary 0/1 (bool is fine); found {unexpected[:5]}. A raw arm "
+            "column with more than two arms must be mapped by a TreatmentDefinition first."
+        )
     control = np.flatnonzero(arms == 0).astype(np.int64)
     treated = np.flatnonzero(arms == 1).astype(np.int64)
     if control.size == 0 or treated.size == 0:
@@ -224,8 +230,9 @@ def fingerprint_indices(indices: Iterable[npt.ArrayLike]) -> str:
 def paired_difference(a: MetricResult, b: MetricResult) -> MetricResult:
     """The difference a - b, with its interval from the per-resample differences.
 
-    Refuses unless both results were computed on the same resamples: same name,
-    settings, number of resamples, seed and resample fingerprint.
+    Refuses unless both results were computed on the same resamples and the same
+    way: same name, settings, number of resamples, seed, resample fingerprint,
+    confidence level and library version.
     """
     mismatched = [
         label
@@ -235,6 +242,8 @@ def paired_difference(a: MetricResult, b: MetricResult) -> MetricResult:
             ("n_resamples", a.n_resamples, b.n_resamples),
             ("seed", a.seed, b.seed),
             ("resample_fingerprint", a.resample_fingerprint, b.resample_fingerprint),
+            ("confidence_level", a.confidence_level, b.confidence_level),
+            ("library_version", a.library_version, b.library_version),
         )
         if left != right
     ]

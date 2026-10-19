@@ -217,6 +217,32 @@ def test_a_different_seed_cannot_be_paired() -> None:
         paired_difference(first, second)
 
 
+@pytest.mark.parametrize("t", [[0, 0, 1, 1, 2, 2], [0, 1, -1], [0.0, 1.0, 0.5]])
+def test_indices_reject_t_outside_zero_and_one(t: list[float]) -> None:
+    """A raw three-arm column would otherwise lose an arm without an error."""
+    with pytest.raises(ContractError, match="binary 0/1"):
+        next(within_arm_bootstrap_indices(np.array(t), n_resamples=3, seed=0))
+
+
+def test_indices_accept_bool_t() -> None:
+    t = np.array([False, False, True, True])
+    assert len(next(within_arm_bootstrap_indices(t, n_resamples=1, seed=0))) == 4
+
+
+@pytest.mark.parametrize(
+    ("override", "field"),
+    [
+        ({"confidence_level": 0.9}, "confidence_level"),
+        ({"library_version": "0.5.2"}, "library_version"),
+    ],
+)
+def test_different_level_or_library_version_cannot_be_paired(
+    override: dict[str, object], field: str
+) -> None:
+    with pytest.raises(ContractError, match=field):
+        paired_difference(_result(), _result(**override))
+
+
 def test_different_settings_cannot_be_paired() -> None:
     with pytest.raises(ContractError, match="settings"):
         paired_difference(_uplift_at_k(0.1), _uplift_at_k(0.3))

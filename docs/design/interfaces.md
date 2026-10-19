@@ -249,10 +249,12 @@ be subtracted; the per-resample values can. So:
   scores. `within_arm_bootstrap_indices(t, n_resamples, seed)` draws them, within each arm, one
   resample at a time (1,000 resamples of Criteo's 14M rows would not fit in memory at once). Its
   signature has no `y` and no `uplift`, so the rule is enforced by the code, not by convention.
+  It rejects any `t` value outside {0, 1} (bool is fine), so a raw three-arm column cannot lose
+  an arm silently.
 - `fingerprint_indices(...)` hashes the index arrays, and the harness stores the result as
   `resample_fingerprint`. The fingerprint makes "same resamples" checked, not trusted.
-- `paired_difference(a, b)` refuses unless name, settings, `n_resamples`, seed and fingerprint all
-  match. Its value is `a.value - b.value`, and its interval is the percentiles of the per-resample
+- `paired_difference(a, b)` refuses unless name, settings, `n_resamples`, seed, fingerprint,
+  confidence level and library version all match. Its value is `a.value - b.value`, and its interval is the percentiles of the per-resample
   differences at `a.confidence_level`. Its name is `<name>_difference`.
 
 Logging the per-resample values as an MLflow artifact belongs to T41, not to this interface.
