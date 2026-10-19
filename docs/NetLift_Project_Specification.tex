@@ -468,7 +468,7 @@ confounding.
               |
               v
   [11] SIMULATED CAMPAIGN REPLAY          -- decide on a held-out slice without
-       over the held-out test split           reading outcomes, then reveal and
+       over a held-out split                  reading outcomes, then reveal and
                                               measure what the decision produced (S 14)
 \end{verbatim}}
 
@@ -1068,7 +1068,8 @@ that will close while the team waits. Every outcome in both datasets was recorde
 already in the file.
 
 What this project builds is therefore a \textbf{simulated campaign replay}: a slice of the
-held-out test split is treated as ``next month's campaign'', the system makes its decisions on it
+held-out split (validation for the M4 development run; locked test only at T70) is treated as
+``next month's campaign'', the system makes its decisions on it
 without looking at the outcomes, and the outcomes are then revealed and compared against what was
 predicted. That is a real and measurable exercise --- it is simply not a live campaign, and this
 document does not claim it is. Section~\ref{sec:deployment-gap} states separately what a genuine
@@ -1087,7 +1088,9 @@ so the comparison can be made immediately instead of after a waiting period.
 {\footnotesize
 \begin{verbatim}
   [1] DEFINE THE SCENARIO   offer cost per contact, margin, budget, and the slice of
-            |               the held-out test split that stands in for the audience
+            |               the held-out split that stands in for the audience
+            |               (validation for the M4 development run; locked test
+            |               only at T70)
             v
   [2] SCORE                 champion model scores that slice -> uplift + interval
             |               (outcomes are NOT read at this stage)
@@ -1117,6 +1120,11 @@ experiment. The original randomization already did the holding out, so the selec
 were in the control arm are the holdout. Drawing a fresh random slice and calling it
 ``not contacted'' would compare customers who were in fact contacted. A permanent randomized
 holdout is a deployment requirement only (Section~\ref{sec:deployment-gap}).
+
+\textbf{For K1, both policies contact the same number of customers.} The uplift policy and the
+response-model policy each contact exactly the same $k$ customers, each ranked by its own score,
+with suppression not applied, so the comparison is at an identical contact count. Suppression of
+confidently negative uplift is evaluated on its own, not inside K1.
 
 \begin{keybox}
 \textbf{The one discipline that makes the replay honest:} steps [1]--[4] must not touch the outcome
@@ -2324,22 +2332,26 @@ never a number pulled from nowhere.
 \midrule
 \endhead
 \textbf{K1 --- Incremental conversions versus the response model} \newline \emph{(the primary KPI)} &
-Simulated replay (Section~\ref{sec:lifecycle}) on the locked test split: both policies select the
-same number of customers under the same budget; incremental conversions measured as the treated
-rate minus the control rate within each policy's selected customers, by their recorded arm &
+Simulated replay (Section~\ref{sec:lifecycle}) on the validation split for the M4 report;
+confirmed once on the locked test split at T70. Both policies contact exactly the same $k$
+customers under the same budget, each ranked by its own score, with suppression not applied;
+incremental conversions measured as the treated rate minus the control rate within each policy's
+selected customers, by their recorded arm &
 \emph{Measured.} The 95\% bootstrap interval of the \emph{difference} excludes
 zero in favour of the uplift policy. An interval containing zero is a reportable finding, not a
-failed project & M4 (6 Nov) & Ali \\
+failed project & M4 (6 Nov, validation); confirmed M6 (1 Dec, locked) & Ali \\
 \addlinespace
-\textbf{K2 --- Qini coefficient and AUUC} & Evaluation harness, on the locked test split, with 1000+
-bootstrap resamples within treatment arms; library and settings named in the report & \emph{Measured.}
+\textbf{K2 --- Qini coefficient and AUUC} & Evaluation harness, on the validation split for the M4
+report; confirmed once on the locked test split at T70. 1000+ bootstrap resamples within treatment
+arms; library and settings named in the report & \emph{Measured.}
 The 95\% interval lies entirely above zero, i.e.\ demonstrably better than random targeting. An
 interval entirely below zero would mean worse than random, so ``excludes zero'' alone is not
-enough & M4 (6 Nov) & Ali \\
+enough & M4 (6 Nov, validation); confirmed M6 (1 Dec, locked) & Ali \\
 \addlinespace
 \textbf{K3 --- Incremental profit per unit of spend} & Replay output converted with the stated
-per-contact cost and margin & \emph{Measured.} Reported with an interval and with the cost and margin
-assumptions named on the same line & M4 (6 Nov) & Ali \\
+per-contact cost and margin, on the same split as K1 & \emph{Measured.} Reported with an interval
+and with the cost and margin assumptions named on the same line & M4 (6 Nov, validation); confirmed
+M6 (1 Dec, locked) & Ali \\
 \addlinespace
 \textbf{K4 --- Negative control} & Full pipeline re-run on a randomly permuted treatment indicator &
 \textbf{Pass/fail.} The 95\% interval of the measured uplift contains zero & M4, re-run at M6 & Ali \\

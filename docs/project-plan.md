@@ -200,7 +200,7 @@ The literature tasks T25–T29 were moved to M4 on 13 October (see section 1).
 | T41 | MLflow tracking server logging runs from the harness | Mahmoud | Mazen | Fri 30 Oct | `docs/experiment-tracking.md` updated |
 | T42 | T-learner and X-learner, Hillstrom then Criteo | Mohammed | Mahmoud | Tue 3 Nov | `src/netlift/models/`, MLflow runs |
 | T43 | Permuted-treatment negative control | Ali | Mohammed | Wed 4 Nov | test and report section |
-| T44 | Uplift versus response model at equal budget, with interval: K1 (protected) | Ali | Mohammed | Fri 6 Nov | `reports/central-comparison.md` |
+| T44 | Uplift versus response model at equal budget, with interval: K1 (protected) | Ali | Mohammed | Fri 6 Nov | `reports/central-comparison.md` (validation split) |
 | #29 | Sensitivity check: StratifiedGroupKFold on the feature-profile hash | Aliaa | Ali | Fri 6 Nov | report section |
 | T45 | API contract (OpenAPI) and FastAPI skeleton with mocked responses | Mazen | Ali | Fri 30 Oct | `src/netlift/api/`, `docs/design/api-contract.md` |
 | T46 | Use case diagram and descriptions | Ali | Mohammed | Fri 30 Oct | `docs/design/use-cases.md` |
@@ -252,7 +252,7 @@ Report drafts start in the last week of M5, so the final week is for assembly, n
 | ID | Task | Owner | Partner | Due |
 |---|---|---|---|---|
 | T69 | Final report: each member drafts their component section by Fri 27 Nov; assembly | Mahmoud | all | Thu 3 Dec |
-| T70 | Champion confirmed on the locked test split, opened once, procedure written down first | Ali | Mahmoud | Tue 1 Dec |
+| T70 | Champion confirmed on the locked test split, opened once, procedure written down first; K1–K3 confirmed here | Ali | Mahmoud | Tue 1 Dec |
 | T71 | Test-case document and bug log | Mazen | all | Wed 2 Dec |
 | T72 | User manual and recorded demo video (fallback for the live demo) | Mohammed | Mazen | Wed 2 Dec |
 | T73 | Technical documentation: architecture, schema, API | Mazen | Aliaa | Thu 3 Dec |

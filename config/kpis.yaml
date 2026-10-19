@@ -22,17 +22,19 @@ kpis:
       Whether the uplift-targeting policy delivers more incremental conversions
       than the response-model baseline, at the same budget.
     computed_by: >
-      Simulated campaign replay (Spec Section 14) on the locked test split: both
-      policies select the same number of customers under the same budget;
-      incremental conversions are measured as the treated rate minus the
-      control rate within each policy's selected customers, by their recorded
-      arm.
+      Simulated campaign replay (Spec Section 14) on the validation split for
+      the M4 report (6 Nov); confirmed once on the locked test split at T70
+      (1 Dec). Both policies contact exactly the same k customers under the
+      same budget, each ranked by its own score, with suppression not applied;
+      suppression is evaluated on its own. Incremental conversions are measured
+      as the treated rate minus the control rate within each policy's selected
+      customers, by their recorded arm.
     gate_type: measured_no_target
     success_condition: >
       The 95% bootstrap interval of the difference (uplift policy minus response
       model) excludes zero in favour of the uplift policy. An interval containing
       zero is a reportable finding, not a failed project.
-    first_reported: M4 (6 Nov)
+    first_reported: M4 (6 Nov, validation split); confirmed M6 (1 Dec, locked split)
     owner: Ali
 
   - id: K2
@@ -41,7 +43,8 @@ kpis:
       Whether the uplift model ranks customers by treatment effect better than
       random targeting.
     computed_by: >
-      Evaluation harness, on the locked test split, with 1000+ bootstrap
+      Evaluation harness, on the validation split for the M4 report (6 Nov);
+      confirmed once on the locked test split at T70 (1 Dec). 1000+ bootstrap
       resamples within treatment arms. Library and settings must be named in
       the report (Qini/AUUC normalisation differs across libraries).
     gate_type: measured_no_target
@@ -50,7 +53,7 @@ kpis:
         indicating performance demonstrably better than random targeting.
         (An interval entirely below zero would indicate worse-than-random
         targeting, not success — "excludes zero" alone is not sufficient.)
-    first_reported: M4 (6 Nov)
+    first_reported: M4 (6 Nov, validation split); confirmed M6 (1 Dec, locked split)
     owner: Ali
 
   - id: K3
@@ -64,7 +67,7 @@ kpis:
     success_condition: >
       Reported with a confidence interval, and with the cost and margin
       assumptions stated on the same line as the figure.
-    first_reported: M4 (6 Nov)
+    first_reported: M4 (6 Nov, validation split); confirmed M6 (1 Dec, locked split)
     owner: Ali
 
   - id: K4
