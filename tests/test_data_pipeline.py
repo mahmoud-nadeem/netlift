@@ -17,7 +17,13 @@ from netlift.data.schema import (
 from netlift.data.split import assert_cells_balanced, assign_splits
 from netlift.utils.errors import ContractError
 
-CFG = {"seed": 42, "n_folds": 5, "shares": [0.6, 0.2, 0.2], "tolerance": 0.02, "min_control_events": 5}
+CFG = {
+    "seed": 42,
+    "n_folds": 5,
+    "shares": [0.6, 0.2, 0.2],
+    "tolerance": 0.02,
+    "min_control_events": 5,
+}
 
 
 def fake_hillstrom(n=2000, seed=0):
@@ -44,7 +50,11 @@ def fake_criteo(n=3000, seed=0):
     r = np.random.default_rng(seed)
     t = (r.random(n) < 0.85).astype(int)
     d = {f"f{i}": r.normal(size=n).astype("float32") for i in range(12)}
-    d.update(treatment=t, conversion=(r.random(n) < 0.1).astype(int), visit=r.integers(0, 2, n))
+    d.update(
+        treatment=t,
+        conversion=(r.random(n) < 0.1).astype(int),
+        visit=r.integers(0, 2, n),
+    )
     d["exposure"] = t * (r.random(n) < 0.04).astype(int)
     return pd.DataFrame(d)
 
@@ -54,7 +64,9 @@ def test_split_disjoint_and_covers_all_rows():
     t, y = r.integers(0, 2, 5000), (r.random(5000) < 0.1).astype(int)
     tr, va, te, _ = assign_splits(t, y, seed=1, n_folds=5)
     assert len(set(tr) | set(va) | set(te)) == 5000
-    assert not (set(tr) & set(va)) and not (set(tr) & set(te)) and not (set(va) & set(te))
+    assert (
+        not (set(tr) & set(va)) and not (set(tr) & set(te)) and not (set(va) & set(te))
+    )
     assert abs(len(tr) / 5000 - 0.6) < 0.01
 
 
@@ -105,7 +117,9 @@ def test_hillstrom_drops_other_arm_and_keeps_raw_row_ids():
     p = prepare_hillstrom(raw, HILLSTROM_MENS_VS_CONTROL)
     kept = raw.loc[p.row_id]
     assert "Womens E-Mail" not in set(kept["segment"])
-    assert np.array_equal(p.t, (kept["segment"] == "Mens E-Mail").to_numpy().astype(int))
+    assert np.array_equal(
+        p.t, (kept["segment"] == "Mens E-Mail").to_numpy().astype(int)
+    )
     assert np.array_equal(p.y_conversion, kept["conversion"].to_numpy())
 
 
@@ -118,8 +132,20 @@ def test_criteo_exposure_not_in_features_and_subsample_is_stratified():
 
 def test_end_to_end_hillstrom_both_targets_share_rows():
     p = prepare_hillstrom(fake_hillstrom(), HILLSTROM_MENS_VS_CONTROL)
-    a = build_splits(p, dataset="hillstrom", target="visit", treatment=HILLSTROM_MENS_VS_CONTROL, cfg=CFG)
-    b = build_splits(p, dataset="hillstrom", target="conversion", treatment=HILLSTROM_MENS_VS_CONTROL, cfg=CFG)
+    a = build_splits(
+        p,
+        dataset="hillstrom",
+        target="visit",
+        treatment=HILLSTROM_MENS_VS_CONTROL,
+        cfg=CFG,
+    )
+    b = build_splits(
+        p,
+        dataset="hillstrom",
+        target="conversion",
+        treatment=HILLSTROM_MENS_VS_CONTROL,
+        cfg=CFG,
+    )
     assert np.array_equal(a.train.row_id, b.train.row_id)
     assert np.array_equal(a.test.row_ids, b.test.row_ids)
     assert a.train.fold_ids == (0, 1, 2, 3, 4)
@@ -128,5 +154,10 @@ def test_end_to_end_hillstrom_both_targets_share_rows():
 def test_min_control_events_fails_when_too_high():
     p = prepare_hillstrom(fake_hillstrom(), HILLSTROM_MENS_VS_CONTROL)
     with pytest.raises(ContractError):
-        build_splits(p, dataset="hillstrom", target="conversion",
-                     treatment=HILLSTROM_MENS_VS_CONTROL, cfg={**CFG, "min_control_events": 10_000})
+        build_splits(
+            p,
+            dataset="hillstrom",
+            target="conversion",
+            treatment=HILLSTROM_MENS_VS_CONTROL,
+            cfg={**CFG, "min_control_events": 10_000},
+        )

@@ -66,7 +66,9 @@ def build_splits(
 
     tr, va, te = matrix(train, "train"), matrix(val, "validation"), matrix(test, "test")
     for m in (tr, va):
-        counts = check_control_events(m, min_control_events=int(cfg["min_control_events"]))
+        counts = check_control_events(
+            m, min_control_events=int(cfg["min_control_events"])
+        )
         logger.info("%s control events per fold: %s", m.meta.split_name, counts)
         logger.info("%s cell counts:\n%s", m.meta.split_name, m.cell_counts())
     return DatasetSplits(train=tr, validation=va, test=LockedTestSplit(te))
@@ -89,5 +91,7 @@ def load_splits(
         treatment = CRITEO_TREATMENT
         p = load_criteo(subsample_frac=subsample_frac, seed=int(cfg["seed"]))
     else:
-        raise ContractError(f"load_splits supports 'hillstrom' and 'criteo', got {dataset!r}.")
+        raise ContractError(
+            f"load_splits supports 'hillstrom' and 'criteo', got {dataset!r}."
+        )
     return build_splits(p, dataset=dataset, target=target, treatment=treatment, cfg=cfg)

@@ -36,7 +36,9 @@ class Prepared:
     t: npt.NDArray[np.int8]
     y_visit: npt.NDArray[np.int8]
     y_conversion: npt.NDArray[np.int8]
-    row_id: npt.NDArray[np.int64]  # position in the raw file, recorded before any row is dropped
+    row_id: npt.NDArray[
+        np.int64
+    ]  # position in the raw file, recorded before any row is dropped
 
 
 def prepare_hillstrom(raw: pd.DataFrame, treatment: TreatmentDefinition) -> Prepared:
@@ -86,7 +88,11 @@ def prepare_criteo(
         keep = np.sort(keep)
         raw = raw.iloc[keep].reset_index(drop=True)
         row_id = keep
-        logger.info("criteo: stratified subsample %.0f%% -> %d rows", subsample_frac * 100, len(raw))
+        logger.info(
+            "criteo: stratified subsample %.0f%% -> %d rows",
+            subsample_frac * 100,
+            len(raw),
+        )
     # exposure is post-treatment: it was only schema-checked, it never enters X.
     return Prepared(
         X=raw[list(CRITEO_FEATURES)].reset_index(drop=True),
@@ -97,7 +103,9 @@ def prepare_criteo(
     )
 
 
-def load_hillstrom(treatment: TreatmentDefinition, path: Path = HILLSTROM_CSV) -> Prepared:
+def load_hillstrom(
+    treatment: TreatmentDefinition, path: Path = HILLSTROM_CSV
+) -> Prepared:
     """Read the Hillstrom CSV and prepare it."""
     return prepare_hillstrom(pd.read_csv(path), treatment)
 
@@ -107,5 +115,9 @@ def load_criteo(
 ) -> Prepared:
     """Read the typed Parquet file (made by scripts/criteo_to_parquet.py) and prepare it."""
     if not path.exists():
-        raise FileNotFoundError(f"{path} not found. Run: python scripts/criteo_to_parquet.py")
-    return prepare_criteo(pd.read_parquet(path), subsample_frac=subsample_frac, seed=seed)
+        raise FileNotFoundError(
+            f"{path} not found. Run: python scripts/criteo_to_parquet.py"
+        )
+    return prepare_criteo(
+        pd.read_parquet(path), subsample_frac=subsample_frac, seed=seed
+    )

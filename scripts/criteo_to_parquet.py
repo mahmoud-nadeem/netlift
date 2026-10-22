@@ -1,4 +1,5 @@
 """One-off: convert the Criteo CSV.gz to a typed Parquet file (risk R08)."""
+
 from pathlib import Path
 
 import pandas as pd

@@ -7,13 +7,28 @@ import pandas as pd
 from netlift.utils.errors import ContractError
 
 HILLSTROM_COLUMNS = (
-    "recency", "history_segment", "history", "mens", "womens", "zip_code",
-    "newbie", "channel", "segment", "visit", "conversion", "spend",
+    "recency",
+    "history_segment",
+    "history",
+    "mens",
+    "womens",
+    "zip_code",
+    "newbie",
+    "channel",
+    "segment",
+    "visit",
+    "conversion",
+    "spend",
 )
 HILLSTROM_SEGMENTS = {"Mens E-Mail", "No E-Mail", "Womens E-Mail"}
 HILLSTROM_HISTORY_SEGMENTS = (
-    "1) $0 - $100", "2) $100 - $200", "3) $200 - $350", "4) $350 - $500",
-    "5) $500 - $750", "6) $750 - $1,000", "7) $1,000 +",
+    "1) $0 - $100",
+    "2) $100 - $200",
+    "3) $200 - $350",
+    "4) $350 - $500",
+    "5) $500 - $750",
+    "6) $750 - $1,000",
+    "7) $1,000 +",
 )
 HILLSTROM_ZIP = ("Rural", "Surburban", "Urban")  # "Surburban" is the raw spelling
 HILLSTROM_CHANNEL = ("Multichannel", "Phone", "Web")
@@ -38,14 +53,18 @@ def _require_binary(df: pd.DataFrame, columns: tuple[str, ...], name: str) -> No
     for c in columns:
         bad = set(pd.unique(df[c])) - {0, 1}
         if bad:
-            raise ContractError(f"{name}: column '{c}' must be 0/1, found {sorted(bad)[:5]}.")
+            raise ContractError(
+                f"{name}: column '{c}' must be 0/1, found {sorted(bad)[:5]}."
+            )
 
 
 def check_hillstrom(df: pd.DataFrame) -> None:
     """Raise ContractError if the Hillstrom frame does not match the expected schema."""
     _require_columns(df, HILLSTROM_COLUMNS, "hillstrom")
     _require_no_nulls(df, HILLSTROM_COLUMNS, "hillstrom")
-    _require_binary(df, ("visit", "conversion", "mens", "womens", "newbie"), "hillstrom")
+    _require_binary(
+        df, ("visit", "conversion", "mens", "womens", "newbie"), "hillstrom"
+    )
     for column, allowed in (
         ("segment", HILLSTROM_SEGMENTS),
         ("history_segment", HILLSTROM_HISTORY_SEGMENTS),
@@ -54,7 +73,9 @@ def check_hillstrom(df: pd.DataFrame) -> None:
     ):
         bad = set(df[column].unique()) - set(allowed)
         if bad:
-            raise ContractError(f"hillstrom: unexpected value(s) in '{column}': {sorted(bad)}.")
+            raise ContractError(
+                f"hillstrom: unexpected value(s) in '{column}': {sorted(bad)}."
+            )
     if (df["spend"] < 0).any():
         raise ContractError("hillstrom: negative spend.")
 
@@ -65,4 +86,6 @@ def check_criteo(df: pd.DataFrame) -> None:
     _require_no_nulls(df, CRITEO_COLUMNS, "criteo")
     _require_binary(df, ("treatment", "conversion", "visit", "exposure"), "criteo")
     if bool(((df["treatment"] == 0) & (df["exposure"] == 1)).any()):
-        raise ContractError("criteo: exposed control rows found; one-sided non-compliance broken.")
+        raise ContractError(
+            "criteo: exposed control rows found; one-sided non-compliance broken."
+        )
