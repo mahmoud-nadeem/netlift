@@ -58,10 +58,34 @@ def _require_binary(df: pd.DataFrame, columns: tuple[str, ...], name: str) -> No
             )
 
 
+def _require_numeric(df: pd.DataFrame, columns: tuple[str, ...], name: str) -> None:
+    bad = [
+        f"{c} ({df[c].dtype})"
+        for c in columns
+        if getattr(df[c].dtype, "kind", "O") not in "biuf"
+    ]
+    if bad:
+        raise ContractError(f"{name}: non-numeric column(s) {bad}.")
+
+
 def check_hillstrom(df: pd.DataFrame) -> None:
     """Raise ContractError if the Hillstrom frame does not match the expected schema."""
     _require_columns(df, HILLSTROM_COLUMNS, "hillstrom")
     _require_no_nulls(df, HILLSTROM_COLUMNS, "hillstrom")
+    _require_numeric(
+        df,
+        (
+            "recency",
+            "history",
+            "mens",
+            "womens",
+            "newbie",
+            "visit",
+            "conversion",
+            "spend",
+        ),
+        "hillstrom",
+    )
     _require_binary(
         df, ("visit", "conversion", "mens", "womens", "newbie"), "hillstrom"
     )
@@ -84,6 +108,7 @@ def check_criteo(df: pd.DataFrame) -> None:
     """Raise ContractError if the Criteo frame does not match the expected schema."""
     _require_columns(df, CRITEO_COLUMNS, "criteo")
     _require_no_nulls(df, CRITEO_COLUMNS, "criteo")
+    _require_numeric(df, CRITEO_COLUMNS, "criteo")
     _require_binary(df, ("treatment", "conversion", "visit", "exposure"), "criteo")
     if bool(((df["treatment"] == 0) & (df["exposure"] == 1)).any()):
         raise ContractError(

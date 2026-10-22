@@ -161,3 +161,41 @@ def test_min_control_events_fails_when_too_high():
             treatment=HILLSTROM_MENS_VS_CONTROL,
             cfg={**CFG, "min_control_events": 10_000},
         )
+
+
+def test_womens_arm_drops_mens_rows():
+    from netlift.data.contracts import HILLSTROM_WOMENS_VS_CONTROL
+
+    raw = fake_hillstrom()
+    p = prepare_hillstrom(raw, HILLSTROM_WOMENS_VS_CONTROL)
+    kept = raw.loc[p.row_id]
+    assert "Mens E-Mail" not in set(kept["segment"])
+    assert np.array_equal(
+        p.t, (kept["segment"] == "Womens E-Mail").to_numpy().astype(int)
+    )
+
+
+def test_test_split_stays_locked_after_build():
+    p = prepare_hillstrom(fake_hillstrom(), HILLSTROM_MENS_VS_CONTROL)
+    s = build_splits(
+        p,
+        dataset="hillstrom",
+        target="conversion",
+        treatment=HILLSTROM_MENS_VS_CONTROL,
+        cfg=CFG,
+    )
+    assert s.test.is_open is False
+
+
+def test_missing_parquet_raises_clear_error(tmp_path):
+    from netlift.data.loaders import load_criteo
+
+    with pytest.raises(FileNotFoundError, match="criteo_to_parquet"):
+        load_criteo(path=tmp_path / "nope.parquet")
+
+
+def test_schema_rejects_non_numeric_feature():
+    bad = fake_criteo()
+    bad["f0"] = bad["f0"].astype(str)
+    with pytest.raises(ContractError):
+        check_criteo(bad)

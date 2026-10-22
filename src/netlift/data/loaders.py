@@ -41,9 +41,22 @@ class Prepared:
     ]  # position in the raw file, recorded before any row is dropped
 
 
+def log_duplicates(raw: pd.DataFrame, name: str) -> int:
+    """Count exact duplicate rows and log them. Nothing is removed (T17 policy)."""
+    n = int(raw.duplicated().sum())
+    logger.info(
+        "%s: %d exact duplicate rows (%.2f%%), documented and kept",
+        name,
+        n,
+        100 * n / len(raw),
+    )
+    return n
+
+
 def prepare_hillstrom(raw: pd.DataFrame, treatment: TreatmentDefinition) -> Prepared:
     """Check the schema, drop the other e-mail arm, encode features."""
     check_hillstrom(raw)
+    log_duplicates(raw, "hillstrom")
     row_id = np.arange(len(raw), dtype=np.int64)  # BEFORE dropping anything
     keep = ~raw["segment"].isin(treatment.excluded_values).to_numpy()
     df = raw.loc[keep].reset_index(drop=True)
@@ -79,6 +92,7 @@ def prepare_criteo(
 ) -> Prepared:
     """Check the schema; optionally take a subsample stratified on (treatment, conversion)."""
     check_criteo(raw)
+    log_duplicates(raw, "criteo")
     row_id = np.arange(len(raw), dtype=np.int64)
     if subsample_frac is not None:
         key = joint_key(raw["treatment"], raw["conversion"])
