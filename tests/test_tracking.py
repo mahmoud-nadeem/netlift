@@ -72,12 +72,63 @@ def test_reversed_interval_is_rejected() -> None:
         run.log_kpi("K2", value=0.1, ci_low=0.5, ci_high=0.0)
 
 
-def test_value_outside_its_interval_is_rejected() -> None:
-    with (
-        start_run("outside", seed=1) as run,
-        pytest.raises(TrackingError, match="outside"),
-    ):
+def test_value_outside_its_interval_warns_and_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A percentile bootstrap can put the estimate outside its interval."""
+    import mlflow
+
+    with caplog.at_level("WARNING"), start_run("outside", seed=1) as run:
         run.log_kpi("K2", value=0.9, ci_low=0.0, ci_high=0.2)
+
+    assert "outside its interval" in caplog.text
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    runs = mlflow.search_runs([experiment.experiment_id], max_results=1)
+    assert runs.iloc[0]["metrics.K2"] == pytest.approx(0.9)
+    assert runs.iloc[0]["tags.K2_value_outside_interval"] == "true"
+
+
+def test_value_inside_its_interval_is_not_tagged() -> None:
+    import mlflow
+
+    with start_run("inside", seed=1) as run:
+        run.log_kpi("K2", value=0.1, ci_low=0.0, ci_high=0.2)
+
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    runs = mlflow.search_runs([experiment.experiment_id], max_results=1)
+    assert "tags.K2_value_outside_interval" not in runs.columns
+
+
+def test_two_metrics_under_one_kpi_share_a_run() -> None:
+    """K2 covers Qini and AUUC; each gets its own key and interval."""
+    import mlflow
+
+    with start_run("two metrics", seed=1) as run:
+        qini_key = run.log_kpi(
+            "K2", value=0.08, ci_low=0.06, ci_high=0.11, metric="qini_coefficient"
+        )
+        auuc_key = run.log_kpi(
+            "K2", value=0.03, ci_low=0.02, ci_high=0.05, metric="auuc"
+        )
+
+    assert (qini_key, auuc_key) == ("K2_qini_coefficient", "K2_auuc")
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    row = mlflow.search_runs([experiment.experiment_id], max_results=1).iloc[0]
+    assert row["metrics.K2_qini_coefficient"] == pytest.approx(0.08)
+    assert row["metrics.K2_qini_coefficient_ci_high"] == pytest.approx(0.11)
+    assert row["metrics.K2_auuc"] == pytest.approx(0.03)
+    assert row["metrics.K2_auuc_ci_low"] == pytest.approx(0.02)
+
+
+def test_unknown_kpi_is_rejected_even_with_a_metric_name() -> None:
+    with (
+        start_run("unknown with metric", seed=1) as run,
+        pytest.raises(TrackingError, match="K99"),
+    ):
+        run.log_kpi("K99", value=0.1, ci_low=0.0, ci_high=0.2, metric="auuc")
 
 
 def test_directory_tracking_store_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
