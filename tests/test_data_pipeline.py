@@ -199,3 +199,20 @@ def test_schema_rejects_non_numeric_feature():
     bad["f0"] = bad["f0"].astype(str)
     with pytest.raises(ContractError):
         check_criteo(bad)
+
+
+def test_rare_cell_missing_from_a_part_is_caught():
+    """A part with no control events must fail even when the share gap is tiny."""
+    import numpy as np
+    import pytest
+
+    from netlift.data.split import assert_cells_balanced
+    from netlift.utils.errors import ContractError
+
+    t = np.tile([0, 1], 5000)
+    y = np.zeros(10_000, dtype=int)
+    events = np.flatnonzero(t == 0)[:40]
+    y[events] = 1
+    part = np.setdiff1d(np.arange(10_000), events)[:5000]
+    with pytest.raises(ContractError, match="rows from its expected count"):
+        assert_cells_balanced(t, y, {"bad": part}, tol=0.02)

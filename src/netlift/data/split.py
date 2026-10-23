@@ -58,10 +58,13 @@ def assert_cells_balanced(
     parts: dict[str, npt.NDArray[np.intp]],
     *,
     tol: float,
+    max_gap_rows: float = 3.0,
 ) -> dict[str, list[int]]:
     """Raise if any part's (t, y) cell shares differ from the overall shares by more than tol.
 
     The four cells cover the arm proportions and the outcome rate inside each arm.
+    A share gap cannot see a rare cell (control-arm conversions are about 0.3% of
+    rows), so each cell count must also be within max_gap_rows of its expected count.
     Returns the four cell counts per part so the caller can log them.
     """
     key = joint_key(t, y)
@@ -80,5 +83,11 @@ def assert_cells_balanced(
         if worst > tol:
             raise ContractError(
                 f"{name}: (t, y) cell shares differ from overall by {worst:.5f} > {tol}."
+            )
+        gap_rows = float(np.abs(c - overall * len(idx)).max())
+        if gap_rows > max_gap_rows:
+            raise ContractError(
+                f"{name}: a (t, y) cell count is {gap_rows:.1f} rows from its "
+                f"expected count (limit {max_gap_rows}); cell counts {c.tolist()}."
             )
     return counts

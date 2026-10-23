@@ -50,7 +50,13 @@ def build_splits(
     )
     parts = {"train": train, "validation": val, "test": test}
     parts.update({f"train_fold{f}": train[fold[train] == f] for f in range(n_folds)})
-    assert_cells_balanced(p.t, p.y_conversion, parts, tol=float(cfg["tolerance"]))
+    assert_cells_balanced(
+        p.t,
+        p.y_conversion,
+        parts,
+        tol=float(cfg["tolerance"]),
+        max_gap_rows=float(cfg.get("max_cell_gap_rows", 3)),
+    )
 
     y = p.y_conversion if target == "conversion" else p.y_visit
 
