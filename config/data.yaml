@@ -1,0 +1,7 @@
+# Settings for the data pipeline (T37).
+seed: 42
+n_folds: 5
+shares: [0.6, 0.2, 0.2]       # train / validation / locked test
+tolerance: 0.005              # max gap between a part's (t, y) cell share and the overall share
+min_control_events: 10        # per fold; the specification gives no number
+max_cell_gap_rows: 3          # per part and train fold: each (t, y) cell count within this many rows of expected

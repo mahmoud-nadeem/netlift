@@ -194,12 +194,17 @@ class Run:
         ci_low: float,
         ci_high: float,
         confidence: float = 0.95,
-    ) -> None:
+        metric: str | None = None,
+    ) -> str:
         """Log a headline result against a KPI defined in config/kpis.yaml.
 
         The confidence interval is required, not optional. Every headline number
         in this project is reported with one, and a rule that depends on five
         people remembering it will be broken at least once.
+
+        One KPI can cover several metrics (K2 is both the Qini coefficient and
+        AUUC). Pass ``metric`` to log each under its own key, ``<kpi_id>_<metric>``,
+        so both fit in one run. Returns the key used.
         """
         if kpi_id not in self._kpi_ids:
             known = ", ".join(sorted(self._kpi_ids))
@@ -207,24 +212,36 @@ class Run:
                 f"'{kpi_id}' is not a KPI defined in config/kpis.yaml. Known ids: {known}. "
                 "Add the KPI to that file before reporting against it."
             )
+        if metric is not None and not metric.strip():
+            raise TrackingError(f"{kpi_id}: metric name is empty.")
+        key = kpi_id if metric is None else f"{kpi_id}_{metric}"
         if ci_low > ci_high:
             raise TrackingError(
-                f"{kpi_id}: ci_low ({ci_low}) is above ci_high ({ci_high}). "
+                f"{key}: ci_low ({ci_low}) is above ci_high ({ci_high}). "
                 "The bounds are the wrong way round."
             )
         if not ci_low <= value <= ci_high:
-            raise TrackingError(
-                f"{kpi_id}: value {value} lies outside its interval "
-                f"[{ci_low}, {ci_high}]. One of the three is wrong."
+            # A percentile bootstrap does not guarantee the point estimate lies
+            # inside its own interval, so this is worth a look but is not an error.
+            # The tag makes it visible in the MLflow UI, not only in the console.
+            logger.warning(
+                "%s: value %s lies outside its interval [%s, %s]. Possible with a "
+                "percentile bootstrap on a skewed statistic; check it is not a bug.",
+                key,
+                value,
+                ci_low,
+                ci_high,
             )
+            mlflow.set_tag(f"{key}_value_outside_interval", "true")
         mlflow.log_metrics(
             {
-                kpi_id: value,
-                f"{kpi_id}_ci_low": ci_low,
-                f"{kpi_id}_ci_high": ci_high,
+                key: value,
+                f"{key}_ci_low": ci_low,
+                f"{key}_ci_high": ci_high,
             }
         )
-        mlflow.set_tag(f"{kpi_id}_confidence", str(confidence))
+        mlflow.set_tag(f"{key}_confidence", str(confidence))
+        return key
 
     def log_artifact(self, path: Path, artifact_path: str | None = None) -> None:
         """Attach a file to this run: a figure, a decile table, a model."""
