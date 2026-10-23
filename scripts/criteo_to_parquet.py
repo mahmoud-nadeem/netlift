@@ -20,7 +20,7 @@ DTYPES = {
 
 def main() -> None:
     DST.parent.mkdir(parents=True, exist_ok=True)
-    writer = None
+    writer: pq.ParquetWriter | None = None
     rows = 0
     for chunk in pd.read_csv(SRC, dtype=DTYPES, chunksize=1_000_000):
         table = pa.Table.from_pandas(chunk, preserve_index=False)
@@ -29,6 +29,8 @@ def main() -> None:
         writer.write_table(table)
         rows += len(chunk)
         print(f"{rows:,} rows", flush=True)
+    if writer is None:
+        raise SystemExit(f"{SRC} contained no rows")
     writer.close()
     print(f"done: {rows:,} rows -> {DST}")
 
