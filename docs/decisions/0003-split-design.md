@@ -45,13 +45,13 @@ interface 1 to confirm.
 | Hillstrom, mens vs control | train 25,567 / validation 8,523; worst cell-share gap 0.00012 |
 | Criteo, 10% subsample | 1,397,959 rows; worst gap 0.00000 |
 | Criteo, full data | 13,979,592 rows; train 8,387,755 / validation 2,795,918 |
-| Criteo, full data, cost | 38 s; peak memory footprint about 3.0 GB (max RSS about 3.76 GB) |
+| Criteo, full data, cost | 55 s; peak memory footprint about 4.3 GB (measured after exact-duplicate counting was added) |
 
 The test split stays locked after `load_splits`.
 
 ## Consequences
 
-- R08: the full run fits in about 3 GB on the development machine, so chunked
+- R08: the full run fits in about 4.3 GB on the development machine, so chunked
   preprocessing beyond the Parquet conversion is not needed for the split.
 - The Hillstrom control has only about 120 conversions in total, so interval
   widths on Hillstrom conversion will be large.
