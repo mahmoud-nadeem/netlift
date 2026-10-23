@@ -57,3 +57,4 @@ The test split stays locked after `load_splits`.
   widths on Hillstrom conversion will be large.
 - If an ID-bearing Criteo file becomes available, the split must be redone
   grouped on that ID (see `docs/unit-of-observation.md`).
+- The Criteo Parquet stores features as float32 (R08). Exact-duplicate counts taken from it (1,655,747 on the full file) are inflated relative to the float64 CSV count in `docs/unit-of-observation.md` (1,259,545). On the first 2,000,000 CSV rows the counts are 102,958 (float64) and 109,422 (float32). Duplicates are only documented, never removed, so the split is unaffected. Reports cite the T17 figure.

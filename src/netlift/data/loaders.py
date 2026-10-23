@@ -45,7 +45,8 @@ def log_duplicates(raw: pd.DataFrame, name: str) -> int:
     """Count exact duplicate rows and log them. Nothing is removed (T17 policy)."""
     n = int(raw.duplicated().sum())
     logger.info(
-        "%s: %d exact duplicate rows (%.2f%%), documented and kept",
+        "%s: %d exact duplicate rows (%.2f%%) on the loaded dtypes "
+        "(float32 inflates Criteo vs the float64 CSV), documented and kept",
         name,
         n,
         100 * n / len(raw),
