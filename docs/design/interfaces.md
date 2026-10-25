@@ -108,10 +108,11 @@ Checked when a `FeatureMatrix` is built:
 Checked on request, because it needs a configured value:
 
 - `check_control_events(matrix, min_control_events=N)` raises if any fold has fewer than `N`
-  control-arm rows with `y == 1`, and returns the count per fold for logging. The specification
-  (Uncertainty and Abstention) calls this "a configured minimum number of control-group outcome
-  events" but gives no number, so there is no default. The value goes in `config/` (see the
-  decisions below).
+  control-arm rows with `y == 1`, and returns the count per fold for logging. It is a sanity check
+  on the split, so there is no default; the value goes in `config/` (see the decisions below). It is
+  not the specification's abstention threshold (Uncertainty and Abstention, the
+  `insufficient_control_data` verdict): that one applies per scored segment, is logged with every
+  response, and belongs to the decision layer (Ali).
 
 Checked when `DatasetSplits` is built: the three splits are named correctly and share dataset,
 target, treatment definition, seed and feature columns, and **their row ids are pairwise
