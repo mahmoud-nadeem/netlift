@@ -93,6 +93,9 @@ Checked when a `FeatureMatrix` is built:
   and predict.
 - **Every column of `X` is numeric** (dtype kind bool, int, unsigned or float). `X` arrives after
   preprocessing, so a raw categorical such as Hillstrom's `Zip_Code` or `Channel` is rejected.
+- **Every value of `X` is present and finite.** NaN, pandas `NA` in a nullable column, `+inf`
+  and `-inf` are rejected, with the column named. Imputation is preprocessing, so it happens
+  before `X` reaches the contract.
 - `X`, `t`, `y`, `fold` and `row_id` have the same length, and there is at least one row.
 - `t` and `y` are one-dimensional, have no missing values, and contain only 0 and 1.
 - `t` contains both arms.
@@ -122,6 +125,12 @@ conversion", a conversion-test row could sit in the visit-train split, a leak th
 disjointness inside one `DatasetSplits` cannot catch. Which column the split is stratified on,
 together with treatment, is Aliaa's decision in T37; the invariant is only that it is the same for
 every target.
+
+**The split comes before any filter.** The split is built once per (dataset, seed) on the full
+raw file, before any arm filter or subsample. The treatment definition (for Hillstrom, dropping
+the other arm) is applied inside each split afterwards. So a control row sits in the same split for
+every comparison: a test row of the Mens-vs-control comparison can never be a train row of the
+Womens-vs-control comparison. A subsample, if one is used, is drawn inside a split too.
 
 `FeatureMatrix.cell_counts()` returns the four (t, y) cell counts per fold, which the Splitting
 Strategy section says to assert and log after every split.
@@ -391,12 +400,13 @@ The specification's own example round-trips through JSON unchanged (tested):
 **Aliaa (interface 1)**
 
 1. The minimum number of control-arm outcome events per fold, and where it lives in `config/`.
-   The specification gives no number, so the code has no default.
+   The specification gives no number, so the code has no default. Aliaa owns the number and its
+   place in `config/` in T37, and reports it on #92.
 2. Hillstrom is analysed one arm at a time against the shared control, the other arm dropped.
    Which arm comes first, or both?
 3. Validation and test are single folds (id 0); cross-validation folds exist only inside train.
-4. `X` arrives preprocessed: `validate_features` now rejects any non-numeric column. Missing
-   values in `X` are still not checked.
+4. `X` arrives preprocessed: `validate_features` rejects any non-numeric column, and any NaN,
+   pandas `NA` or infinite value.
 5. The locked test split as a wrapper with a logged, once-only `open(reason)`; the persistent
    marker is T70's (#82).
 6. `row_id` on every matrix: the row's 0-based position in the raw file as loaded, unique within
@@ -405,7 +415,9 @@ The specification's own example round-trips through JSON unchanged (tested):
    raw file.
 7. **The stratification key of the split.** The split must not depend on the target (it is
    built once per dataset and seed); which outcome it is stratified on together with treatment
-   is your call in T37. The synthetic fixture uses (treatment, conversion).
+   is your call in T37. The synthetic fixture uses (treatment, conversion). The split is built on
+   the full raw file before the arm filter, which is applied inside each split; T37 adds the test
+   that a control row's split is the same under both Hillstrom treatment definitions.
 
 **Ali (interfaces 2 and 3)**
 

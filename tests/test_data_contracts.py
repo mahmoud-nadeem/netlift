@@ -345,3 +345,41 @@ def test_bool_int_unsigned_and_float_columns_are_accepted() -> None:
         }
     )
     validate_features(frame)
+
+
+def test_nan_in_x_is_rejected() -> None:
+    frame = pd.DataFrame({"f0": [0.1, np.nan], "f1": [1.0, 2.0]})
+    with pytest.raises(ContractError, match=r"Missing value.*\['f0'\]"):
+        validate_features(frame)
+
+
+@pytest.mark.parametrize("value", [np.inf, -np.inf])
+def test_infinite_value_in_x_is_rejected(value: float) -> None:
+    frame = pd.DataFrame({"f0": [0.1, value], "f1": [1.0, 2.0]})
+    with pytest.raises(ContractError, match=r"Infinite value.*\['f0'\]"):
+        validate_features(frame)
+
+
+@pytest.mark.parametrize("dtype", ["Int64", "Float64", "boolean"])
+def test_pandas_na_in_a_nullable_column_is_rejected(dtype: str) -> None:
+    values = [True, None] if dtype == "boolean" else [1, None]
+    frame = pd.DataFrame({"f0": pd.array(values, dtype=dtype)})
+    with pytest.raises(ContractError, match="Missing value"):
+        validate_features(frame)
+
+
+def test_nullable_columns_without_missing_values_are_accepted() -> None:
+    frame = pd.DataFrame(
+        {
+            "i": pd.array([1, 2], dtype="Int64"),
+            "f": pd.array([0.1, 0.2], dtype="Float64"),
+            "b": pd.array([True, False], dtype="boolean"),
+        }
+    )
+    validate_features(frame)
+
+
+def test_infinity_in_a_nullable_float_column_is_rejected() -> None:
+    frame = pd.DataFrame({"f0": pd.array([0.1, np.inf], dtype="Float64")})
+    with pytest.raises(ContractError, match="Infinite value"):
+        validate_features(frame)

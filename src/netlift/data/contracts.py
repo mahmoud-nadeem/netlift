@@ -189,7 +189,7 @@ class FeatureMatrix:
 
 
 def validate_features(X: pd.DataFrame) -> None:
-    """Raise if ``X`` holds a forbidden column or a column that is not numeric."""
+    """Raise if ``X`` holds a forbidden column, a non-numeric column, or a missing or infinite value."""
     if not isinstance(X, pd.DataFrame):
         raise ContractError(f"X must be a pandas DataFrame, got {type(X).__name__}.")
     found = sorted(
@@ -211,6 +211,23 @@ def validate_features(X: pd.DataFrame) -> None:
             f"Non-numeric column(s) in the feature matrix: {non_numeric}. X arrives "
             "after preprocessing, so every column is bool, int, unsigned or float; "
             "encode categoricals such as Zip_Code and Channel first."
+        )
+    missing = sorted(str(column) for column in X.columns if X[column].isna().any())
+    if missing:
+        raise ContractError(
+            f"Missing value(s) (NaN or NA) in feature column(s) {missing}. X arrives "
+            "after preprocessing, so impute or drop them first."
+        )
+    infinite = sorted(
+        str(column)
+        for column in X.columns
+        if X[column].dtype.kind == "f"
+        and np.isinf(X[column].to_numpy(dtype=np.float64)).any()
+    )
+    if infinite:
+        raise ContractError(
+            f"Infinite value(s) in feature column(s) {infinite}. X arrives after "
+            "preprocessing, so every value is finite."
         )
 
 
