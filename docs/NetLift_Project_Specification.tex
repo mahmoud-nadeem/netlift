@@ -129,10 +129,10 @@ nothing now and keeps a door open.
 \end{keybox}
 
 \begin{keybox}
-\textbf{On curriculum coverage --- read this before the proposal is submitted.} This project
-uses no computer vision and no NLP, and Section~\ref{sec:curriculum} says so plainly instead of
-inventing a use for them. Everything else in the track is used because the problem requires it.
-Raise this with the instructor at the Week~7 review.
+\textbf{On curriculum coverage.} This project uses no computer vision and no NLP, and
+Section~\ref{sec:curriculum} says so plainly instead of inventing a use for them. Everything else
+in the track is used because the problem requires it. The instructor has confirmed that computer
+vision and NLP are not required for this project (\texttt{docs/lecturer-review.md}).
 \end{keybox}
 
 \vfill
@@ -247,8 +247,8 @@ Marketing manager & Compares candidate policies (uplift vs.\ response model vs.\
 blanket contact) on one screen before committing spend. \\
 Data science team & Consumes the scoring API directly, inspects the Qini curves and drift
 monitors, retrains on a schedule. \\
-Finance / campaign audit & Reads the incremental-profit report and the size of the randomized
-holdout that produced it. \\
+Finance / campaign audit & Reads the incremental-profit report and the size of the control group
+that produced it. \\
 \bottomrule
 \end{tabularx}
 
@@ -380,9 +380,10 @@ to argue against.
 \begin{keybox}
 NetLift's MVP is \textbf{single-treatment, binary-outcome uplift modeling on randomized
 experimental data, with a budget-constrained decision layer and a deployed scoring service}.
-Multi-treatment optimisation, revenue (continuous-outcome) uplift, and deep causal architectures
-are Advanced tier. Observational (non-randomized) causal inference is explicitly out of scope for
-the semester, for the reason given in Section~\ref{sec:assumptions}.
+The uplift forest and a deep causal architecture are Advanced tier. Multi-treatment modelling,
+revenue (continuous-outcome) uplift and the causal forest were cut on 13 October 2026 for the
+shorter schedule and are future work. Observational (non-randomized) causal inference is
+explicitly out of scope for the semester, for the reason given in Section~\ref{sec:assumptions}.
 \end{keybox}
 
 \subsection{MVP --- must be complete and evaluated before anything else starts}
@@ -405,15 +406,18 @@ explicit ``insufficient evidence'' outcome.
 \begin{itemize}
 \item Uplift Random Forest with KL / Euclidean / $\chi^2$ split criteria as a model-class challenger.
 \item A shared-representation neural estimator (TARNet / Dragonnet family) as the deep-learning
-component (Section~\ref{sec:deep}).
-\item Multi-treatment uplift on Hillstrom's two email arms.
-\item Revenue uplift on Hillstrom's continuous \texttt{spend} outcome.
-\item Azure ML managed endpoint deployment and drift monitoring.
+component (Section~\ref{sec:deep}), time-boxed to one week (21--27 November) and the first item
+cut if implementation slips.
+\item Container deployment on Azure and drift monitoring. An Azure ML managed endpoint only if
+implementation is ahead of schedule.
 \end{itemize}
 
 \subsection{Future product --- roadmap, not this semester}
 
 \begin{itemize}
+\item Cut on 13 October 2026 for the shorter schedule; future work: multi-treatment uplift
+modelling on Hillstrom's two email arms, revenue uplift on Hillstrom's continuous \texttt{spend}
+outcome, and the causal forest.
 \item Observational uplift with propensity modelling and sensitivity analysis for unmeasured
 confounding.
 \item Continuous / dose-response treatment (how large a discount, not whether to discount).
@@ -464,7 +468,7 @@ confounding.
               |
               v
   [11] SIMULATED CAMPAIGN REPLAY          -- decide on a held-out slice without
-       over the held-out test split           reading outcomes, then reveal and
+       over a held-out split                  reading outcomes, then reveal and
                                               measure what the decision produced (S 14)
 \end{verbatim}}
 
@@ -784,7 +788,8 @@ the same one. \\
 Causal forest &
 Recursive partitioning with honest estimation, producing valid confidence intervals for the effect. &
 Heavier; the honest-splitting sample cost bites on smaller data. &
-Advanced tier; valuable precisely because of the interval estimates. \\
+Cut on 13 October 2026 for the shorter schedule; future work. Valuable precisely because of the
+interval estimates. \\
 \bottomrule
 \end{longtable}
 
@@ -828,8 +833,9 @@ quietly using the correct version.
 \begin{enumerate}
 \item \textbf{Baselines (mandatory, first):} random targeting; blanket targeting; response model.
 \item \textbf{MVP estimators:} T-learner and X-learner, both over LightGBM or XGBoost base learners.
-\item \textbf{Advanced challengers:} Uplift Random Forest; a shared-representation neural model;
-optionally causal forest for interval estimates.
+\item \textbf{Advanced challengers:} Uplift Random Forest; a shared-representation neural model,
+time-boxed to one week (21--27 November). The causal forest was cut on 13 October 2026 for the
+shorter schedule and is future work.
 \item \textbf{Champion selection:} by Qini coefficient on the \emph{validation} split with bootstrap
 intervals, confirmed once on the locked test split, and reported with the interval, never as a bare
 point estimate.
@@ -861,6 +867,10 @@ a rigged comparison where the neural model wins because the baseline was undertr
 deliverable here is the comparison, not a particular winner.
 \end{keybox}
 
+\textbf{Time-box.} The neural estimator is the project's deep-learning component. It is NICE TO
+HAVE (Section~\ref{sec:scope}): scheduled for one week, 21--27 November 2026 (task T63 in
+\texttt{docs/project-plan.md}), and the first item cut if implementation slips.
+
 \section{Baselines That Must Exist Before Any Uplift Model}
 \label{sec:baselines}
 
@@ -882,11 +892,11 @@ rather than conversion, for the same reason as the response model. \\
 \end{tabularx}
 
 \begin{alertbox}
-\textbf{Run the uplift-versus-response-model comparison by the analysis and design milestone
-(Week~12), not at the end.} It is the experiment that tests the project's core hypothesis. If it
-comes out negative in Week~19 there is no time left to investigate why, and the team is left
-presenting a system whose premise it cannot support. If it comes out negative in Week~12, the
-investigation \emph{becomes} the project's most interesting section.
+\textbf{Run the uplift-versus-response-model comparison by the end of the analysis and design
+milestone (Friday 6 November 2026), not at the end.} It is the experiment that tests the project's
+core hypothesis. If it comes out negative on 1 December there is no time left to investigate why,
+and the team is left presenting a system whose premise it cannot support. If it comes out negative
+on 6 November, the investigation \emph{becomes} the project's most interesting section.
 \end{alertbox}
 
 \section{Uplift Score to Decision: The Targeting Policy}
@@ -1058,7 +1068,8 @@ that will close while the team waits. Every outcome in both datasets was recorde
 already in the file.
 
 What this project builds is therefore a \textbf{simulated campaign replay}: a slice of the
-held-out test split is treated as ``next month's campaign'', the system makes its decisions on it
+held-out split (validation for the M4 development run; locked test only at T70) is treated as
+``next month's campaign'', the system makes its decisions on it
 without looking at the outcomes, and the outcomes are then revealed and compared against what was
 predicted. That is a real and measurable exercise --- it is simply not a live campaign, and this
 document does not claim it is. Section~\ref{sec:deployment-gap} states separately what a genuine
@@ -1077,7 +1088,9 @@ so the comparison can be made immediately instead of after a waiting period.
 {\footnotesize
 \begin{verbatim}
   [1] DEFINE THE SCENARIO   offer cost per contact, margin, budget, and the slice of
-            |               the held-out test split that stands in for the audience
+            |               the held-out split that stands in for the audience
+            |               (validation for the M4 development run; locked test
+            |               only at T70)
             v
   [2] SCORE                 champion model scores that slice -> uplift + interval
             |               (outcomes are NOT read at this stage)
@@ -1085,20 +1098,33 @@ so the comparison can be made immediately instead of after a waiting period.
   [3] ALLOCATE              decision layer selects targets under the budget;
             |               suppresses confidently negative uplift; abstains where thin
             v
-  [4] HOLD OUT              a randomized slice of the SELECTED targets is marked
-            |               as not-contacted -- this is what makes step [6] possible
+  [4] SPLIT BY ARM          split the selected targets by their recorded arm; those
+            |               in the original control arm are the holdout
             v
-  [5] REVEAL OUTCOMES       the recorded outcomes for that slice are now read
+  [5] REVEAL OUTCOMES       the recorded outcomes of the selected targets are read
             |
             v
-  [6] MEASURE               measured incremental effect = treated rate - holdout rate,
-            |               with a bootstrap confidence interval
+  [6] MEASURE               measured incremental effect = treated rate - control rate
+            |               within the selected targets, with a bootstrap interval
+            |               resampled within arms
             v
   [7] COMPARE               predicted incremental conversions vs measured, plus the
             |               same comparison for the response-model and random policies
             v
   [8] RECORD                calibration record; the whole run is logged to MLflow
 \end{verbatim}}
+
+\textbf{Why step [4] does not draw a random holdout.} In a replay over recorded data nobody can be
+held out: every outcome was recorded under the arm the customer actually received in the original
+experiment. The original randomization already did the holding out, so the selected targets who
+were in the control arm are the holdout. Drawing a fresh random slice and calling it
+``not contacted'' would compare customers who were in fact contacted. A permanent randomized
+holdout is a deployment requirement only (Section~\ref{sec:deployment-gap}).
+
+\textbf{For K1, both policies contact the same number of customers.} The uplift policy and the
+response-model policy each contact exactly the same $k$ customers, each ranked by its own score,
+with suppression not applied, so the comparison is at an identical contact count. Suppression of
+confidently negative uplift is evaluated on its own, not inside K1.
 
 \begin{keybox}
 \textbf{The one discipline that makes the replay honest:} steps [1]--[4] must not touch the outcome
@@ -1122,8 +1148,8 @@ already has to exist.
 
 \subsection{Where this shows up in the workload}
 
-The replay adds: scenario and assignment records in the database and the ERD; holdout-selection
-logic; the outcome-reveal boundary and the test that enforces it; the measurement job; and the
+The replay adds: scenario and assignment records in the database and the ERD; the split of the
+selected targets by recorded arm; the outcome-reveal boundary and the test that enforces it; the measurement job; and the
 scenario state machine (\texttt{defined} $\to$ \texttt{scored} $\to$ \texttt{allocated} $\to$
 \texttt{revealed} $\to$ \texttt{measured}), which is also the state diagram the DEPI documentation
 asks for (Section~\ref{sec:depi-docs}).
@@ -1175,7 +1201,7 @@ it.''
 Every figure in this section is taken from the dataset's own published documentation and is cited
 where it appears. Nothing here is recalled from memory. Figures that are arithmetic consequences of
 the published ones are labelled \emph{derived} and should be re-checked by the team against the
-downloaded files in Week~9--10, because a specification is not a substitute for opening the data.
+downloaded files before any modelling starts, because a specification is not a substitute for opening the data.
 \end{keybox}
 
 \subsection{Criteo-UPLIFT --- the primary dataset}
@@ -1235,15 +1261,17 @@ MineThatData E-Mail Analytics and Data Mining Challenge announcement
 (\texttt{blog.minethatdata.com}, March 2008), cross-checked against the \texttt{scikit-uplift}
 \texttt{fetch\_hillstrom} documentation.}
 
-\textbf{Its three distinct jobs in this project:}
+\textbf{Its three distinct jobs in this project} (the third was cut on 13 October 2026 for the
+shorter schedule and is future work):
 \begin{enumerate}
 \item \textbf{Pipeline sanity check.} It is small and its features are human-readable, so every
 component --- the balance check, the split, the Qini harness, the simulator --- can be developed
 and debugged here in seconds rather than minutes, before being pointed at 14M rows.
 \item \textbf{Multi-treatment.} It has \emph{two} distinct treatments. Pooling them into a single
 ``emailed'' group estimates the average effect of two different interventions, which is a real
-methodological error with a clean demonstration (Section~\ref{sec:multiarm}).
-\item \textbf{Revenue uplift.} \texttt{Spend} gives a continuous outcome, so the Advanced tier can
+methodological error with a clean demonstration (Section~\ref{sec:multiarm}). The project
+analyses one email arm at a time against the shared control.
+\item \textbf{Revenue uplift (cut; future work).} \texttt{Spend} gives a continuous outcome, so a later version could
 estimate uplift in currency rather than in probability --- which is what a business ultimately
 wants and what makes the simulator's profit figure directly estimable rather than derived through
 an assumed margin.
@@ -1260,7 +1288,7 @@ Arms & 1 treatment, 1 control & 2 treatments, 1 control \\
 Balance & 85\% treated & Equal thirds \\
 Feature meaning & Anonymised & Interpretable \\
 Continuous outcome & No & Yes (\texttt{Spend}) \\
-Role & Primary result & Development, multi-arm, revenue uplift \\
+Role & Primary result & Development; one email arm at a time against the shared control \\
 \bottomrule
 \end{tabularx}
 
@@ -1408,11 +1436,15 @@ into a single ``emailed'' group and comparing against control estimates the aver
 different interventions on a mixed population --- a quantity that corresponds to no decision anyone
 can take. The correct options are: (a) analyse one arm at a time against the shared control, which
 is the MVP approach; or (b) model the arms jointly and select, per customer, the arm with the
-highest estimated uplift, which is the Advanced-tier approach and is the more interesting of the two.
+highest estimated uplift, which is the more interesting of the two.
 \end{alertbox}
 
-Option (b) is a genuine extension: it turns ``should we contact?'' into ``which offer should this
-customer receive?'', which is the form the question takes in every real marketing system.
+\textbf{The project uses option (a).} A Hillstrom feature matrix is built for one email arm against
+the shared control, and the other arm's rows are dropped, never pooled
+(\texttt{docs/design/interfaces.md}, interface 1). Option (b), multi-treatment modelling, was cut on
+13 October 2026 for the shorter schedule and is future work. It is a genuine extension: it turns
+``should we contact?'' into ``which offer should this customer receive?'', which is the form the
+question takes in every real marketing system.
 
 \section{Choosing the Outcome Variable}
 \label{sec:outcome}
@@ -1441,8 +1473,8 @@ the raw one and say which is which. \\
 by ten percent among customers who each contribute very little, and produce almost no additional
 revenue. This is why the decision layer optimises $m\,\hat\tau(x) - c$ rather than $\hat\tau(x)$
 alone (Section~\ref{sec:decision}), and why revenue uplift on Hillstrom's \texttt{spend} column is
-worth reaching in the Advanced tier: it removes the assumed margin from the calculation and
-estimates the money directly. Ranking by uplift and ranking by incremental profit are different
+the most valuable piece of future work (cut on 13 October 2026 for the shorter schedule): it
+removes the assumed margin from the calculation and estimates the money directly. Ranking by uplift and ranking by incremental profit are different
 orderings, and the second one is the product.
 \end{alertbox}
 
@@ -1710,8 +1742,9 @@ none this quarter with no change in the customer base at all.
 Feature drift & Population Stability Index or KS statistic per feature, scored batch against
 training reference; alert thresholds set in config. \\
 Score drift & Distribution of predicted uplift over time; a collapsing spread is an early warning. \\
-\textbf{Effect drift} & The one that matters: measured uplift in the production holdout, tracked
-over time with its interval. \\
+\textbf{Effect drift} & The one that matters in deployment: measured uplift in a production
+holdout, tracked over time with its interval. Designed, not built: this project has no production
+holdout (see the delayed-feedback subsection below). \\
 Data quality & Null rates, range violations, schema changes, blocking the scoring run on failure. \\
 Retraining trigger & Documented rule combining a drift threshold with a scheduled cadence; every
 retrain logged as a new registered model version with its evaluation attached. \\
@@ -1831,12 +1864,13 @@ and that person will answer the defence question about it fluently.
 Service & FastAPI with Pydantic request/response models, auto-generated OpenAPI documentation. \\
 Model loading & Pulled from the MLflow Model Registry by version at startup; version returned in
 every response. \\
-Batch path & The primary production mode --- campaign lists are scored in bulk on a schedule, not
-one customer at a time. \\
+Batch path & The primary mode --- a customer base is scored in bulk, the way a campaign would
+use it, not one customer at a time. \\
 Real-time path & Retained for the demo and for on-the-fly decisions in a servicing channel. \\
 Container & Docker, with a pinned base image and a slim runtime layer. \\
-Cloud & Azure: Blob Storage for datasets and artefacts, Azure ML for the managed endpoint and
-registry integration, Container Registry for images, Application Insights for logs and latency. \\
+Cloud & Azure: a container deployment of the scoring service, Blob Storage for datasets and
+artefacts, Container Registry for images, Application Insights for logs and latency. An Azure ML
+managed endpoint only if implementation is ahead of schedule. \\
 Frontend & Streamlit for the dashboard and simulator. \\
 CI/CD & GitHub Actions: test, build image, push, deploy. \\
 \bottomrule
@@ -1853,8 +1887,8 @@ Designing it this way costs nothing today; retrofitting it later costs a rewrite
 \textbf{Azure cost discipline.} Compute instances continue to bill while idle. Shut them down after
 every session, set a budget alert well below the available credit, and train locally --- the
 project's models are gradient-boosted trees on tabular data and do not need cloud GPUs. Use the
-credit for the parts of the curriculum that require it: the managed endpoint, storage, monitoring
-and the registry.
+credit for the parts of the curriculum that require it: the container deployment, storage,
+monitoring and the registry.
 \end{alertbox}
 
 \section{Technology Stack}
@@ -1880,9 +1914,11 @@ Viz & Matplotlib, Plotly & Static report figures and interactive dashboard chart
 API & FastAPI, Uvicorn, Pydantic & Typed contracts and free OpenAPI docs. \\
 Frontend & Streamlit & The audience is analytical; a React frontend would add build complexity
 without adding evidence of ML skill. \\
-Storage & PostgreSQL, Azure Blob & Scoring logs and campaign metadata; datasets and artefacts. \\
+Storage & PostgreSQL, Azure Blob & Scoring logs and replay-scenario metadata; datasets and
+artefacts. \\
 Container & Docker & Reproducible runtime. \\
-Cloud & Azure ML, ACR, App Insights & Track alignment and a real deployment story. \\
+Cloud & Azure container deployment, ACR, App Insights (Azure ML managed endpoint only if
+implementation is ahead) & Track alignment and a real deployment story. \\
 CI/CD & GitHub Actions & Free for the repository and enough for this pipeline. \\
 Docs & MkDocs or Sphinx & Module-level documentation as required by the project standards. \\
 \bottomrule
@@ -1965,25 +2001,26 @@ Machine learning & Yes & Meta-learners over gradient boosting; uplift forests. \
 Deep learning & Yes & Shared-representation treatment-effect network (Section~\ref{sec:deep}). \\
 NLP & \textbf{No} & No text exists in either dataset. Not simulated. \\
 Computer vision & \textbf{No} & No images exist. Not simulated. \\
-Azure AI & Yes & ML endpoint, Blob, ACR, Application Insights. \\
+Azure AI & Yes & Container deployment, Blob, ACR, Application Insights; an ML managed endpoint
+only if implementation is ahead of schedule. \\
 MLOps / MLflow & Yes & Tracking, registry, champion--challenger, drift monitors, retraining rule. \\
 Hugging Face & Partial & Model/artefact hosting for the public demo; no transformer is warranted
 by the data and none is used. \\
-Deployment & Yes & FastAPI, Docker, Azure endpoint, CI/CD. \\
+Deployment & Yes & FastAPI, Docker, Azure container deployment, CI/CD. \\
 Git \& GitHub & Yes & Branching strategy, reviewed pull requests, Actions. \\
 Documentation & Yes & This specification, per-milestone documents, module docs, README, dataset cards. \\
 Testing & Yes & Unit, data, model-behaviour, integration, API, CI. \\
 \bottomrule
 \end{tabularx}
 
-\begin{alertbox}
-\textbf{Two gaps, declared rather than disguised.} There is no computer vision and no NLP in this
-project, because neither dataset contains images or text and manufacturing a use for them would
-make the system worse and the story weaker. If the evaluation criteria make coverage of those two
-components mandatory rather than desirable, that is a reason to reconsider the project choice
-\emph{now}, in the proposal window --- not a reason to attach an unrelated image classifier in
-Week~18. Raise it with the instructor at the Week~7 review and get an answer on the record.
-\end{alertbox}
+\begin{goodbox}
+\textbf{Two gaps, declared rather than disguised --- and confirmed as acceptable.} There is no
+computer vision and no NLP in this project, because neither dataset contains images or text and
+manufacturing a use for them would make the system worse and the story weaker. The question of
+whether the evaluation makes those two components mandatory was put to the instructor, who
+confirmed that they are not required for this project (\texttt{docs/lecturer-review.md}). The
+answer is on the record.
+\end{goodbox}
 % ============================ PART V ============================
 \part{Product and Demonstration}
 
@@ -2080,7 +2117,7 @@ Five members, five roles, defined so that no two people are blocked on the same 
 time and every member owns something they can describe end-to-end in an interview.
 
 \begin{keybox}
-\textbf{The critical path is Aliaa (M1) then Ali (M4).} Nothing anyone else produces is trustworthy
+\textbf{The critical path is Aliaa then Ali.} Nothing anyone else produces is trustworthy
 until the data and the split are valid, and no model can be compared with another until the metric
 harness with confidence intervals exists.
 \end{keybox}
@@ -2090,22 +2127,26 @@ harness with confidence intervals exists.
 \textbf{Member} & \textbf{Responsibilities and technologies} & \textbf{Deliverables} \\
 \midrule
 \endhead
-\textbf{Aliaa Gomaa} \newline \emph{Data Engineering \& Experiment Validity (M1)} &
+\textbf{Aliaa Gomaa} \newline \emph{Data Engineering \& Experiment Validity} &
 Ingestion and versioning of both datasets, schema contract, duplicate and null policy, the
 randomization integrity report, the leakage audit and its automated check, the joint stratified
-split, the preprocessing artefacts, the feature store layout and the ERD.
+split, the preprocessing artefacts, the feature store layout and the ERD, and the PostgreSQL
+scoring log that implements it.
 \newline \emph{Depends on: nothing. Can start on day one, and everyone depends on this.} &
 Reproducible dataset build, the balance report, the split module with its assertions, dataset
-cards, data dictionary. \\
+cards, data dictionary, the scoring log. \\
 \addlinespace
-\textbf{Mohammed Sherif} \newline \emph{Uplift Modeling Core (M2)} &
+\textbf{Mohammed Sherif} \newline \emph{Uplift Modeling Core \& Dashboard} &
 The baselines (random, blanket, response model), the S/T/X-learners over LightGBM and XGBoost,
-the class-transformation demonstration including the unbalanced-design trap, model interfaces.
-\newline \emph{Depends on: Aliaa's split; Ali's metric harness to judge anything.} &
+the class-transformation demonstration including the unbalanced-design trap, model interfaces;
+the wireframes for the four dashboard tabs and the Streamlit dashboard built from them; the user
+manual and the recorded demo video.
+\newline \emph{Depends on: Aliaa's split; Ali's metric harness to judge anything; Mazen's API for
+the dashboard.} &
 Trained baseline and meta-learner models with their configurations, the champion--challenger
-table entries. \\
+table entries, the dashboard, the user manual and the demo video. \\
 \addlinespace
-\textbf{Mahmoud Nadeem} \newline \emph{Team Leader; Advanced Models \& Experiment Tracking (M3)} &
+\textbf{Mahmoud Nadeem} \newline \emph{Team Leader; Advanced Models \& Experiment Tracking} &
 Uplift Random Forest (KL / Euclidean / $\chi^2$), the shared-representation neural estimator in
 PyTorch, Optuna search under a Qini objective, the full MLflow tracking and registry setup, and
 reproducibility discipline.
@@ -2113,7 +2154,7 @@ reproducibility discipline.
 Advanced model results, the tuning study, the MLflow project with every run logged, the registered
 champion. \\
 \addlinespace
-\textbf{Ali Alaa} \newline \emph{Evaluation, Statistics \& Decision Layer (M4)} &
+\textbf{Ali Alaa} \newline \emph{Evaluation, Statistics \& Decision Layer} &
 The metric harness (Qini, AUUC, uplift@$k$, cumulative gain), bootstrap intervals, the model
 comparison procedure, the negative control, the behavioural test suite, the decision layer and
 policy modes, the abstention logic, SHAP, error analysis and the campaign simulator.
@@ -2122,20 +2163,20 @@ can claim any result.} &
 Evaluation library with tests, the significance protocol, the decision engine, the simulator,
 the error-analysis report. \\
 \addlinespace
-\textbf{Mazen Mahmoud} \newline \emph{MLOps, Backend \& Product (M5)} &
-FastAPI service and contracts, Docker, Azure deployment and Blob storage, PostgreSQL scoring log,
-the Streamlit dashboard, drift monitors, CI/CD, integration testing and the repository standards.
+\textbf{Mazen Mahmoud} \newline \emph{MLOps, Backend \& Deployment} &
+FastAPI service and contracts, Docker, Azure container deployment and Blob storage, drift
+monitors, CI/CD, integration testing and the repository standards.
 \newline \emph{Depends on: Ali's decision layer for the policy endpoint; Mahmoud's registry
 for the model.} &
-Deployed and documented service, dashboard, monitoring, CI pipeline, README and deployment guide. \\
+Deployed and documented service, monitoring, CI pipeline, README and deployment guide. \\
 \bottomrule
 \end{longtable}
 
 \begin{alertbox}
-\textbf{The critical path is Aliaa (M1) and Ali (M4), in that order --- not the modelling.} Until the split
+\textbf{The critical path is Aliaa and Ali, in that order --- not the modelling.} Until the split
 is valid, every model is untrustworthy; until the metric harness with intervals exists, no model can
-be compared to another. A schedule that starts modelling in Week~9 while the harness is still being
-written produces four weeks of results that have to be recomputed. Both of these must be finished
+be compared to another. A schedule that starts modelling while the harness is still being written
+produces weeks of results that have to be recomputed. Both of these must be finished
 and tested before the analysis-and-design milestone ends.
 \end{alertbox}
 
@@ -2150,11 +2191,12 @@ design goal of this table, not an accident of it.
 \end{keybox}
 
 \begin{goodbox}
-\textbf{The campaign lifecycle is what makes five roles real.} If the project were only ``fit an
+\textbf{The simulated replay is what makes five roles real.} If the project were only ``fit an
 uplift model and plot a Qini curve'', two people could do it and three would be decorative --- and
-that is the standard failure of tabular ML capstones. The closed loop of Section~\ref{sec:lifecycle}
-adds campaign and assignment entities, holdout management, an export path, outcome ingestion, a
-measurement job and a state machine, on top of an evaluation workstream that is a genuine
+that is the standard failure of tabular ML capstones. The simulated replay of
+Section~\ref{sec:lifecycle} adds scenario and assignment records, the split of the selected
+targets by recorded arm, the outcome-reveal boundary and the test that enforces it, a measurement job and a state
+machine, on top of an evaluation workstream that is a genuine
 statistics project in its own right and a serving surface that is a genuine backend project. Those
 are not tasks invented to fill a team; they are what the difference between a model and a system
 actually consists of.
@@ -2164,22 +2206,25 @@ actually consists of.
 
 {\footnotesize
 \begin{verbatim}
-  ALIAA    (M1) --> versioned dataset + valid split + preprocessing artefacts
-       |             (contract: feature matrix X, treatment t, outcome y, fold id)
+  ALIAA     --> versioned dataset + valid split + preprocessing artefacts
+       |        (contract: feature matrix X, treatment t, outcome y, fold id)
        v
-  ALI      (M4) --> evaluation harness + decision layer
-       |             (contract: metric(y, uplift, t) -> value + CI)
+  ALI       --> evaluation harness + decision layer
+       |        (contract: metric(y, uplift, t) -> value + CI)
        v
-  MOHAMMED (M2) --> baselines + meta-learners  ]  both scored by
-  MAHMOUD  (M3) --> advanced models + MLflow   ]  Ali's harness, in parallel
+  MOHAMMED  --> baselines + meta-learners  ]  both scored by
+  MAHMOUD   --> advanced models + MLflow   ]  Ali's harness, in parallel
        |
        v
-  MAHMOUD  (M3) --> champion registered in MLflow Model Registry
-       |             (contract: model URI + version + input schema)
+  MAHMOUD   --> champion registered in MLflow Model Registry
+       |        (contract: model URI + version + input schema)
        v
-  MAZEN    (M5) --> FastAPI service + dashboard + monitoring + CI/CD
-       |          + campaign lifecycle: assignment log, holdout, export,
-       |            outcome ingestion, realised-effect measurement (S 14)
+  MAZEN     --> FastAPI service + monitoring + CI/CD
+       |        + simulated replay (S 14): scenario definition, scoring
+       |          without reading outcomes, allocation, outcome reveal,
+       |          measurement
+       v
+  MOHAMMED  --> Streamlit dashboard against the API
        v
   ALL --> integration -> testing -> deployment -> demo
 \end{verbatim}}
@@ -2216,12 +2261,14 @@ Software architecture & Layered service architecture: data layer, training pipel
 registry, scoring service, decision layer, presentation. Described in Section~\ref{sec:deployment}
 and drawn in Section~\ref{sec:final-arch}. \\
 ER diagram & Real entities: \texttt{customer\_snapshot} (features as of a date),
-\texttt{replay\_scenario}, \texttt{treatment\_assignment}, \texttt{holdout\_membership},
+\texttt{replay\_scenario}, \texttt{treatment\_assignment},
 \texttt{scoring\_run}, \texttt{score} (one row per customer per run), \texttt{model\_version},
 \texttt{outcome\_observation}, \texttt{drift\_report}. Note that
-\texttt{treatment\_assignment} and \texttt{holdout\_membership} are what make the causal claim
-auditable --- they are the database's record of the experiment. \\
-Logical / physical schema & Tables, keys, indexes on \texttt{(campaign\_id, customer\_id)} and
+\texttt{treatment\_assignment}, the arm each customer was recorded in, is what makes the causal
+claim auditable --- it is the database's record of the experiment, and in the replay it is also
+what separates the selected targets into treated and control. There is no separate holdout table:
+the replay's holdout is the control arm. \\
+Logical / physical schema & Tables, keys, indexes on \texttt{(scenario\_id, customer\_id)} and
 \texttt{(scoring\_run\_id)}, and a stated retention policy. \\
 DFD (context and level 1) & Context: dataset store, analyst, NetLift (and, dashed,
 a campaign execution system that exists only in the deployment view). Level 1: ingest, validate,
@@ -2244,7 +2291,8 @@ UI/UX guidelines & Colour and typography rules, and specifically the requirement
 abstention verdicts are visually distinct from a confident recommendation. \\
 Component diagram & Services and their dependencies: training pipeline, registry, scoring API,
 dashboard, monitoring, database, blob storage. \\
-Deployment diagram & Azure topology: container registry, managed endpoint, blob storage,
+Deployment diagram & Azure topology: container registry, the container deployment (a managed
+endpoint only if implementation is ahead of schedule), blob storage,
 PostgreSQL, Application Insights, and the CI/CD path from GitHub. \\
 API documentation & Auto-generated OpenAPI from FastAPI, plus a written guide with examples for
 each endpoint including both abstention responses. \\
@@ -2284,19 +2332,26 @@ never a number pulled from nowhere.
 \midrule
 \endhead
 \textbf{K1 --- Incremental conversions versus the response model} \newline \emph{(the primary KPI)} &
-Simulated replay (Section~\ref{sec:lifecycle}) on the locked test split: both policies select the
-same number of customers under the same budget; incremental conversions measured against the
-withheld slice & \emph{Measured.} The 95\% bootstrap interval of the \emph{difference} excludes
+Simulated replay (Section~\ref{sec:lifecycle}) on the validation split for the M4 report;
+confirmed once on the locked test split at T70. Both policies contact exactly the same $k$
+customers under the same budget, each ranked by its own score, with suppression not applied;
+incremental conversions measured as the treated rate minus the control rate within each policy's
+selected customers, by their recorded arm &
+\emph{Measured.} The 95\% bootstrap interval of the \emph{difference} excludes
 zero in favour of the uplift policy. An interval containing zero is a reportable finding, not a
-failed project & M4 (W12--13) & Ali \\
+failed project & M4 (6 Nov, validation); confirmed M6 (1 Dec, locked) & Ali \\
 \addlinespace
-\textbf{K2 --- Qini coefficient and AUUC} & Evaluation harness, on the locked test split, with 1000+
-bootstrap resamples within treatment arms; library and settings named in the report & \emph{Measured.}
-Interval excludes zero, i.e.\ demonstrably better than random targeting & M4 (W12--13) & Ali \\
+\textbf{K2 --- Qini coefficient and AUUC} & Evaluation harness, on the validation split for the M4
+report; confirmed once on the locked test split at T70. 1000+ bootstrap resamples within treatment
+arms; library and settings named in the report & \emph{Measured.}
+The 95\% interval lies entirely above zero, i.e.\ demonstrably better than random targeting. An
+interval entirely below zero would mean worse than random, so ``excludes zero'' alone is not
+enough & M4 (6 Nov, validation); confirmed M6 (1 Dec, locked) & Ali \\
 \addlinespace
 \textbf{K3 --- Incremental profit per unit of spend} & Replay output converted with the stated
-per-contact cost and margin & \emph{Measured.} Reported with an interval and with the cost and margin
-assumptions named on the same line & M4 (W12--13) & Ali \\
+per-contact cost and margin, on the same split as K1 & \emph{Measured.} Reported with an interval
+and with the cost and margin assumptions named on the same line & M4 (6 Nov, validation); confirmed
+M6 (1 Dec, locked) & Ali \\
 \addlinespace
 \textbf{K4 --- Negative control} & Full pipeline re-run on a randomly permuted treatment indicator &
 \textbf{Pass/fail.} The 95\% interval of the measured uplift contains zero & M4, re-run at M6 & Ali \\
@@ -2309,7 +2364,7 @@ direction & M5 & Ali \\
 ROC--AUC of a classifier trying to predict treatment from covariates alone &
 \textbf{Pass/fail.} Every $|\mathrm{SMD}| < 0.1$ (the conventional threshold, fixed in config before
 the test is run) and treatment-predictability AUC near 0.5. Any breach documented rather than
-smoothed over & M3 (W9--10) & Aliaa \\
+smoothed over & M4 (30 Oct) & Aliaa \\
 \addlinespace
 \textbf{K7 --- Leakage control} & Automated forbidden-column check in CI, plus K4 & \textbf{Pass/fail.}
 The check fails the build when a post-treatment column reaches the model matrix, and a unit test
@@ -2329,7 +2384,7 @@ pull request & M5--M6 & Mazen \\
 \addlinespace
 \textbf{K11 --- Documentation completeness} & Checklist of the DEPI-required artefacts
 (Section~\ref{sec:depi-docs}) & \textbf{Pass/fail.} Every required artefact exists and is current &
-M7 & Team leader \\
+M6 & Team leader \\
 \bottomrule
 \end{longtable}
 
@@ -2345,19 +2400,40 @@ Milestone 4 and not at the end.
 \label{sec:milestones}
 
 \begin{keybox}
-The seven milestones below follow the official DEPI project plan: Team Formation and Planning
-(Week~5), Instructor Review (Week~7), Requirements Gathering (Weeks~9--10), Analysis and Design
-(from Week~12), Implementation, Testing, and Release and Final Presentation (Week~21).
-\srcnote{DEPI Project Documentation Guidelines and the trainee project instructions, R5 revision.}
+The six milestones below follow the six phases and fixed deadlines published by DEPI. The
+committed plan, with the Gantt chart, the task list and the owner of every task, is
+\texttt{docs/project-plan.md}. It is the version of record: where this section disagrees with it,
+the plan wins.
+\srcnote{\texttt{docs/project-plan.md}, revised 13 October 2026.}
+
+\smallskip
+\begin{tabularx}{\linewidth}{@{}L{5.6cm}X@{}}
+\toprule
+\textbf{Milestone (DEPI phase)} & \textbf{Dates} \\
+\midrule
+M1 Project Planning and Management & due Friday 16 October 2026 \\
+M2 Literature Review & instructor feedback session, Friday 16 October 2026 \\
+M3 Requirements Gathering & due Friday 16 October 2026 \\
+M4 System Analysis and Design & Saturday 17 October -- Friday 6 November 2026 \\
+M5 Implementation & Saturday 7 -- Monday 30 November 2026; feature freeze Friday 27 November \\
+M6 Testing, Final Presentation and Reports & Tuesday 1 -- Friday 4 December 2026 (final
+submission) \\
+\bottomrule
+\end{tabularx}
+\smallskip
+
+Two dates are protected: the randomization integrity report on Friday 30 October and the
+uplift-versus-response-model comparison on Friday 6 November (Section~\ref{sec:timeline}).
+
 Each milestone below is written in the same fixed structure --- objective, entry criteria, work
 breakdown by member, deliverables, definition of done, risks --- so that any one of them can be
-lifted out into its own standalone document without rewriting, which is the next document the team
-needs after this one. Week numbers are \emph{programme} weeks; map them to calendar dates from the
-official training schedule.
+lifted out into its own standalone document without rewriting. The work breakdowns follow the
+owners and dates in the task tables of \texttt{docs/project-plan.md}; where the two ever differ,
+the plan wins.
 \end{keybox}
 
 % ---------------- M1 ----------------
-\subsection{Milestone 1 --- Team Formation and Planning (Week 5)}
+\subsection{Milestone 1 --- Project Planning and Management (due Friday 16 October 2026)}
 
 \textbf{Objective.} Lock the team, the roles, and the project definition, and produce the Project
 Proposal that goes to the instructor.
@@ -2396,18 +2472,18 @@ role and the project's core question in one sentence each.
 (Aliaa's data-validity role and Ali's evaluation role) with the least experienced members.
 
 % ---------------- M2 ----------------
-\subsection{Milestone 2 --- Instructor Review (Week 7)}
+\subsection{Milestone 2 --- Literature Review: instructor feedback session (Friday 16 October 2026)}
 
 \textbf{Objective.} Obtain approval and, more importantly, obtain answers to the questions that are
-expensive to get wrong later. Team membership must be final by the end of this week.
+expensive to get wrong later. Team membership must be final by the end of this milestone.
 
 \textbf{Entry criteria.} Proposal submitted; datasets downloaded and opened.
 
 \textbf{Questions to put to the instructor explicitly and record the answers to.}
 \begin{enumerate}
 \item Are computer vision and NLP \emph{required} components of the evaluation, or desirable ones?
-Section~\ref{sec:curriculum} states that this project has neither. This is the last week in which
-that answer can change the project cheaply.
+Section~\ref{sec:curriculum} states that this project has neither. \textbf{Answered:} they are not
+required. The instructor's answer is recorded in \texttt{docs/lecturer-review.md}.
 \item Is a public benchmark dataset acceptable as the primary data source, or is locally collected
 data expected?
 \item Is the project graded per team, and is there anything in the grading that depends on other
@@ -2420,10 +2496,10 @@ teams? (Relevant because the mega-project option was declined.)
 \item \textbf{Mahmoud (team leader):} present, capture feedback in writing, circulate the same day.
 \item \textbf{Aliaa:} first pass of the randomization integrity check on Hillstrom, so the review
 has real evidence in it rather than only a plan.
-\item \textbf{Ali:} a first Qini curve on Hillstrom, however rough --- a plot in Week~7 changes
+\item \textbf{Ali:} a first Qini curve on Hillstrom, however rough --- a plot at the review changes
 the tone of the review.
 \item \textbf{Mohammed, Mahmoud and Mazen:} environment set up and running on all machines; the ``it works on my
-laptop only'' problem solved now rather than in Week~15.
+laptop only'' problem solved now rather than during implementation.
 \end{itemize}
 
 \textbf{Deliverables.} Instructor feedback document with suggested improvements and the grading
@@ -2436,31 +2512,31 @@ updated plan.
 specifically, and write down what was said.
 
 % ---------------- M3 ----------------
-\subsection{Milestone 3 --- Requirements Gathering (Weeks 9--10)}
+\subsection{Milestone 3 --- Requirements Gathering (due Friday 16 October 2026)}
 
 \textbf{Objective.} Convert the project into a specified system: stakeholders, use cases,
 functional and non-functional requirements. DEPI additionally requires that the task split across
-members be presented to the instructor by the end of Week~9.
+members be presented to the instructor.
 
 \textbf{Entry criteria.} Approved proposal; both datasets loading reproducibly.
 
 \textbf{Work breakdown.}
 \begin{itemize}
-\item \textbf{Mahmoud (team leader):} stakeholder analysis (marketing analyst, data scientist, campaign
-operations, finance/audit) and the confirmed task-split submission.
-\item \textbf{Ali:} user stories and use cases; the non-functional requirement that no
-recommendation is returned without a verdict field, written as a requirement rather than as an
-implementation detail.
-\item \textbf{Aliaa:} \textbf{the randomization integrity report on both datasets, completed.}
-This is the milestone's most important technical output. If it fails, the project's assumptions
-change and the team needs to know in Week~10, not Week~18.
-\item \textbf{Mohammed:} the response-model baseline running end-to-end on Hillstrom.
-\item \textbf{Mahmoud:} MLflow tracking server running and logging its first real runs.
-\item \textbf{Mazen:} API contract drafted from the use cases; wireframes for the four tabs.
+\item \textbf{Mohammed:} stakeholder analysis (marketing analyst, data scientist, campaign
+operations, finance/audit, the customers whose data is scored, the DEPI evaluators) (T31).
+\item \textbf{Ali:} user stories and use cases (T32); the requirement that no recommendation is
+returned without a verdict field, written as a requirement rather than as an implementation detail.
+\item \textbf{Mazen:} functional requirements, each traceable to a use case (T33).
+\item \textbf{Aliaa:} non-functional requirements, each with a stated way of measuring it (T34).
+\item \textbf{Mahmoud (team leader):} the requirements index and traceability table (T30) and the
+confirmed task-split submission.
 \end{itemize}
 
+The randomization integrity report, the response-model baseline, the MLflow tracking server and the
+API contract, which an earlier plan placed here, are scheduled in Milestone 4 with the plan's dates.
+
 \textbf{Deliverables.} Stakeholder analysis; user stories and use cases; functional requirements
-list; non-functional requirements; the randomization integrity report; the confirmed task split.
+list; non-functional requirements; the confirmed task split.
 
 \textbf{Definition of done.} Every functional requirement maps to a planned endpoint or dashboard
 element, and every non-functional requirement has a stated way of being measured.
@@ -2469,31 +2545,43 @@ element, and every non-functional requirement has a stated way of being measured
 requiring each requirement to carry an identifier that later appears in a test name.
 
 % ---------------- M4 ----------------
-\subsection{Milestone 4 --- Analysis and Design (from Week 12)}
+\subsection{Milestone 4 --- System Analysis and Design (Saturday 17 October -- Friday 6 November 2026)}
 
 \textbf{Objective.} Produce the full design set, and --- the part that matters most --- run the
 experiment that tests the project's central hypothesis while there is still time to react to it.
 
-\textbf{Entry criteria.} Requirements approved; valid split implemented and asserted.
+\textbf{Entry criteria.} Requirements approved.
 
-\textbf{Work breakdown.}
+\textbf{Work breakdown.} Task numbers and due dates are those of \texttt{docs/project-plan.md}.
 \begin{itemize}
-\item \textbf{Aliaa:} final split module with its assertions and tests; preprocessing artefacts
-versioned; ERD and physical schema.
-\item \textbf{Ali:} \textbf{evaluation harness complete}, including bootstrap intervals and the
-permuted-treatment negative control, with unit tests against a hand-computed fixture. Nothing
-downstream is trustworthy before this exists.
-\item \textbf{Mohammed:} T-learner and X-learner running on Criteo; \textbf{the uplift-versus-response-model
-comparison executed and reported} (Section~\ref{sec:baselines}).
-\item \textbf{Mahmoud:} class, sequence, activity and state diagrams; tuning framework running.
-\item \textbf{Mazen:} component and deployment diagrams; API skeleton with mocked responses so
-that the dashboard can be built in parallel.
+\item \textbf{Aliaa:} data pipeline and joint stratified split, asserted and tested, both datasets
+(T37, Tue 27 Oct); \textbf{the randomization integrity report on both datasets} (T40, protected
+date Fri 30 Oct) --- if it fails, the project's assumptions change and the team needs to know
+before modelling, not after; ERD with logical and physical schema (T48, Wed 4 Nov); the
+profile-grouped sensitivity check (\#29, Fri 6 Nov).
+\item \textbf{Ali:} \textbf{evaluation harness complete}, including bootstrap intervals, with unit
+tests against a hand-computed fixture (T39, Fri 30 Oct) --- nothing downstream is trustworthy
+before this exists; the permuted-treatment negative control (T43, Wed 4 Nov); \textbf{the
+uplift-versus-response-model comparison executed and reported} (T44, protected date Fri 6 Nov;
+Section~\ref{sec:baselines}); the use case diagram and descriptions (T46, Fri 30 Oct).
+\item \textbf{Mohammed:} the baselines on Hillstrom --- random, blanket and the response model
+(T38, Fri 23 Oct); T-learner and X-learner, Hillstrom then Criteo (T42, Tue 3 Nov); DFD, wireframes
+for the four dashboard tabs and UI/UX guidelines (T49, Wed 4 Nov).
+\item \textbf{Mahmoud:} the three frozen interfaces (T36, Tue 20 Oct); the MLflow tracking server
+logging runs from the harness (T41, Fri 30 Oct); problem statement and objectives; class,
+sequence, activity and state diagrams (T50, Wed 4 Nov); assembling the design document (T53,
+Fri 6 Nov).
+\item \textbf{Mazen:} API contract (OpenAPI) and FastAPI skeleton with mocked responses, so that the
+dashboard can be built in parallel (T45, Fri 30 Oct); architecture, technology stack, component
+and deployment diagrams (T47, Wed 4 Nov); the test plan (T51, Wed 4 Nov).
+\item \textbf{All:} the written literature review, one part each (T25--T29, Wed 4 Nov).
 \end{itemize}
 
 \textbf{Deliverables.} Problem statement and objectives; use case diagram; software architecture;
 ERD with logical and physical schema; DFD context and level~1; sequence, activity, state and class
-diagrams; wireframes and UI/UX guidelines; technology stack; deployment and component diagrams; and
-the \textbf{first end-to-end result with a confidence interval}.
+diagrams; wireframes and UI/UX guidelines; technology stack; deployment and component diagrams; the
+test plan; the randomization integrity report; \textbf{the written literature review} (T25--T29,
+due Wednesday 4 November); and the \textbf{first end-to-end result with a confidence interval}.
 
 \textbf{Definition of done.} The central comparison has been run and its result --- positive,
 negative or inconclusive --- is written down with an interval. A negative result at this point is a
@@ -2504,24 +2592,34 @@ stronger report than a positive result nobody interrogated.
 Sequence the hypothesis test first inside the milestone, not last.
 
 % ---------------- M5 ----------------
-\subsection{Milestone 5 --- Implementation}
+\subsection{Milestone 5 --- Implementation (Saturday 7 -- Monday 30 November 2026)}
 
-\textbf{Objective.} Build the full system to production standards.
+\textbf{Objective.} Build the full system to production standards. Feature freeze is Friday
+27 November; 28--30 November is for fixes and documentation only.
 
 \textbf{Entry criteria.} Design set complete; central comparison result known.
 
-\textbf{Work breakdown.}
+\textbf{Work breakdown.} Tests are written with the code they test, in this milestone, and every
+pull request keeps CI green.
 \begin{itemize}
 \item \textbf{Aliaa:} full pipeline productionised as modules with logging, exception handling
-and configuration; the automated leakage check enforced in CI.
-\item \textbf{Mohammed:} all meta-learners finalised on Criteo; the class-transformation trap
-demonstration produced as a figure.
-\item \textbf{Mahmoud:} uplift forest and the neural estimator; the Optuna study; champion
-registered in MLflow with its evaluation attached.
-\item \textbf{Ali:} decision layer with all four policy modes; abstention logic; SHAP; the
-campaign simulator; the error-analysis report.
-\item \textbf{Mazen:} FastAPI service against the real model; Docker; Azure deployment;
-PostgreSQL scoring log; the four dashboard tabs; drift monitors; CI/CD complete.
+and configuration, and the automated leakage check enforced in CI (T58, Fri 20 Nov); the
+PostgreSQL scoring log implementing the M4 schema (T60, Fri 20 Nov); data validation tests,
+dataset cards and the data dictionary (T66, Fri 27 Nov).
+\item \textbf{Mohammed:} all meta-learners finalised on Criteo and the class-transformation trap
+demonstration produced as a figure (T56, Fri 13 Nov); the Streamlit dashboard, four tabs against
+the API (T62, Fri 27 Nov).
+\item \textbf{Mahmoud:} uplift forest and the Optuna study, champion registered in MLflow with its
+evaluation attached (T57, Fri 20 Nov); the neural estimator, time-boxed to 21--27 November and
+the first item cut if this milestone slips (T63); the weekly end-to-end integration run (T68).
+\item \textbf{Ali:} decision layer with all four policy modes and the abstention logic (T55,
+Fri 13 Nov); the campaign simulator and SHAP (T61, Fri 20 Nov); the error analysis report and the
+behavioural and invariance tests (T65, Fri 27 Nov).
+\item \textbf{Mazen:} FastAPI service against the registered model and Docker (T59, Fri 20 Nov),
+with API contract tests covering both abstention verdicts and malformed input and the load test
+of the batch endpoint (K9); Azure container
+deployment, drift monitors and CI/CD complete (T64, Fri 27 Nov); README, API documentation and
+the one command that reproduces the headline result (T67, Mon 30 Nov).
 \end{itemize}
 
 \textbf{Deliverables.} Structured, commented, type-hinted, modular source code; coding standards
@@ -2536,28 +2634,31 @@ result; the deployed endpoint answers a real request; the dashboard runs against
 Section~\ref{sec:scope} exists for this milestone specifically.
 
 % ---------------- M6 ----------------
-\subsection{Milestone 6 --- Testing and Quality Assurance}
+\subsection{Milestone 6 --- Testing, Final Presentation and Reports (Tuesday 1 -- Friday 4 December 2026)}
 
-\textbf{Objective.} Establish that the system is correct, and specifically that its central claim
-is not an artefact.
+DEPI's final phase covers both the testing and the release work of the earlier plan. The two parts
+are kept apart below because they have different objectives and different definitions of done.
 
-\textbf{Entry criteria.} System implemented and deployed.
+\subsubsection*{Testing and quality assurance}
+
+\textbf{Objective.} Establish that the central claim is not an artefact, on data the system has
+never seen, and record what testing found. The tests themselves were written with the code in
+Milestone 5; this part does not start testing, it reports it.
+
+\textbf{Entry criteria.} System implemented and deployed; the test suite green in CI.
 
 \textbf{Work breakdown.}
 \begin{itemize}
-\item \textbf{Ali:} the full behavioural and invariance suite; the negative control re-run and
-recorded; bootstrap comparison of champion against every challenger; the locked test split opened
-\emph{once} for champion confirmation.
-\item \textbf{Aliaa:} data validation tests; reproducibility test from a clean environment.
-\item \textbf{Mohammed and Mahmoud:} model regression tests pinning expected metric ranges.
-\item \textbf{Mazen:} API contract tests including both abstention verdicts and malformed input;
-load test of the batch endpoint; integration test end to end.
-\item \textbf{All:} a written test-case document --- scenario, input, expected outcome, actual
-outcome --- and a bug log with resolutions.
+\item \textbf{Ali:} the opening procedure written down first, then the locked test split opened
+\emph{once} for champion confirmation (T70, Tue 1 Dec); the negative control re-run and recorded;
+bootstrap comparison of champion against every challenger; the final result, with its interval,
+recorded and not revisited.
+\item \textbf{Mazen, with all members:} the test report --- a test-case document (scenario, input,
+expected outcome, actual outcome) --- and the bug log with resolutions (T71, Wed 2 Dec).
 \end{itemize}
 
-\textbf{Deliverables.} Test plan and test cases; automated test scripts; bug reports and
-resolutions; the final metric table with confidence intervals; the champion--challenger comparison.
+\textbf{Deliverables.} Test report with the test cases; bug log with resolutions; the final metric
+table with confidence intervals; the champion--challenger comparison.
 
 \textbf{Definition of done.} CI green; negative control passes; the locked test result is recorded
 and is not revisited afterwards.
@@ -2566,8 +2667,7 @@ and is not revisited afterwards.
 Write down, before opening it, that it is opened once --- and hold to it. This is the discipline
 that makes the final number mean anything.
 
-% ---------------- M7 ----------------
-\subsection{Milestone 7 --- Release and Final Presentation (Week 21)}
+\subsubsection*{Release and final presentation (final submission Friday 4 December 2026)}
 
 \textbf{Objective.} Deliver, document, and defend.
 
@@ -2580,8 +2680,10 @@ with the network involved.
 \item \textbf{Mahmoud (team leader):} final upload of all project files to the assigned repository; the
 presentation; the per-member contribution slide the final evaluation explicitly requires.
 \item \textbf{Ali:} the results section of the final report, with intervals on every number.
-\item \textbf{Mazen:} user manual; deployment guide; recorded demo video as a fallback in case
-live infrastructure fails on the day.
+\item \textbf{Mohammed:} user manual; recorded demo video as a fallback in case live infrastructure
+fails on the day (T72, Wed 2 Dec).
+\item \textbf{Mazen:} technical documentation covering architecture, schema and API, and the
+deployment guide (T73, Thu 3 Dec).
 \item \textbf{Aliaa, Mohammed, Mahmoud:} technical documentation for their components.
 \end{itemize}
 
@@ -2597,44 +2699,43 @@ in it, so this is a graded requirement, not a courtesy.
 fallback mode that runs without the cloud endpoint.
 
 \section{Project Timeline}
+\label{sec:timeline}
 
-Programme weeks, aligned to the DEPI milestone plan.
+The six DEPI phases and their fixed deadlines. The day-by-day Gantt chart is in
+\texttt{docs/project-plan.md}, which is the version of record.
 
-\begin{tabularx}{\textwidth}{@{}L{2.2cm}L{3.2cm}X@{}}
+\begin{tabularx}{\textwidth}{@{}L{3.0cm}L{3.0cm}X@{}}
 \toprule
-\textbf{Weeks} & \textbf{Milestone} & \textbf{Work} \\
+\textbf{Dates} & \textbf{Milestone} & \textbf{Work} \\
 \midrule
-5 & M1 Planning & Team and roles locked; proposal; repository and CI skeleton; datasets downloaded
-and their published figures verified against the files. \\
-6 & --- & Environment working on every machine; Hillstrom loading; first exploratory analysis. \\
-7 & M2 Instructor review & Present; get the four questions answered in writing; team membership
-final; first rough Qini curve on Hillstrom. \\
-8 & --- & Split module drafted; response-model baseline on Hillstrom. \\
-9--10 & M3 Requirements & Requirements set; \textbf{randomization integrity report on both
-datasets}; task split submitted; API contract and wireframes. \\
-11 & --- & Criteo loading at full scale; memory and format decisions settled. \\
-12--13 & M4 Analysis \& design & Full design and diagram set; \textbf{evaluation harness with
-bootstrap intervals and negative control}; \textbf{uplift versus response model, first result with
-an interval}. \\
-14--15 & M5 Implementation & Meta-learners finalised on Criteo; decision layer and policy modes;
-FastAPI service against the real model. \\
-16--17 & M5 Implementation & Advanced tier: uplift forest, neural estimator, Optuna study;
-simulator; dashboard tabs 1--3; Azure deployment. \\
-18 & M5 Implementation & Multi-treatment and revenue uplift on Hillstrom if on schedule; drift
-monitors; dashboard tab 4; CI/CD complete. \\
-19--20 & M6 Testing & Full test suite; behavioural and invariance tests; champion confirmed once on
-the locked split; error analysis; bug log. \\
-21 & M7 Release & Final report, user manual, technical documentation, presentation, rehearsed demo,
-repository upload. \\
+to Fri 16 Oct & M1 Planning and management & Project plan with Gantt chart; risk register
+update; working agreement; M1 retrospective. \\
+Fri 16 Oct & M2 Literature review & Instructor feedback session; the feedback recorded with the
+team's response to each point. \\
+to Fri 16 Oct & M3 Requirements & Stakeholder analysis; user stories and use cases; functional and
+non-functional requirements. \\
+Sat 17 Oct -- Fri 6 Nov & M4 Analysis \& design & Frozen interfaces; data pipeline and joint
+stratified split; baselines on Hillstrom; \textbf{evaluation harness with bootstrap intervals};
+\textbf{randomization integrity report (Fri 30 Oct)}; T- and X-learner, Hillstrom then Criteo;
+negative control; \textbf{uplift versus response model, with an interval (Fri 6 Nov)}; full design
+and diagram set; written literature review (Wed 4 Nov). \\
+Sat 7 -- Mon 30 Nov & M5 Implementation & Decision layer; final meta-learners and the
+class-transformation trap figure; uplift forest, Optuna and the champion; FastAPI, Docker and the
+scoring log; production pipeline and leakage audit; simulator and SHAP; Streamlit dashboard; neural
+estimator (time-boxed, 21--27 Nov); Azure container deployment, drift monitors and CI/CD. \textbf{Feature freeze Fri 27 Nov}; 28--30
+Nov fixes, README and API documentation only. \\
+Tue 1 -- Fri 4 Dec & M6 Testing, final presentation and reports & Locked test split opened once;
+test cases, bug log, user manual and demo video; presentation, infographic and rehearsals;
+\textbf{final upload Fri 4 Dec}. \\
 \bottomrule
 \end{tabularx}
 
 \begin{alertbox}
-\textbf{The two dates to protect above all others.} The randomization integrity report by the end of
-Week~10, and the uplift-versus-response-model comparison by the end of Week~13. Everything else in
-this timeline can slip by a week without damage. If either of those two slips, the project loses
-the ability to react to what it finds, and a project that cannot react to its own findings is
-reduced to reporting whatever it happens to get.
+\textbf{The two dates to protect above all others.} The randomization integrity report on both
+datasets by Friday 30 October 2026, and the uplift-versus-response-model comparison by Friday
+6 November 2026. Everything else in this timeline can slip by a few days without damage. If either
+of those two slips, the project loses the ability to react to what it finds, and a project that
+cannot react to its own findings is reduced to reporting whatever it happens to get.
 \end{alertbox}
 \section{Scope Control}
 \label{sec:scope}
@@ -2660,26 +2761,31 @@ reduced to reporting whatever it happens to get.
 \item Uplift Random Forest as a model-class challenger
 \item Optuna tuning under a Qini objective, with trial counts reported
 \item SHAP explainability and the persuadable-segment profile
-\item Azure ML managed endpoint (rather than a container alone)
+\item Container deployment of the scoring service on Azure
 \item Drift monitors and a documented retraining rule
 \end{itemize}
 
 \subsection{NICE TO HAVE}
 \begin{itemize}
-\item Shared-representation neural estimator
-\item Multi-treatment uplift on Hillstrom's two arms
+\item Shared-representation neural estimator, the project's deep-learning component: scheduled
+21--27 November 2026 (T63), first to cut
+\item Azure ML managed endpoint, only if implementation is ahead of schedule
+\item The biased-versus-corrected class-transformation figure
+\end{itemize}
+
+\subsection{CUT on 13 October 2026 for the shorter schedule; future work}
+\begin{itemize}
+\item Multi-treatment uplift modelling on Hillstrom's two arms (the one-arm-at-a-time MVP approach
+of Section~\ref{sec:multiarm} is kept)
 \item Revenue (continuous-outcome) uplift on \texttt{spend}
 \item Causal forest with interval estimates
-\item The biased-versus-corrected class-transformation figure
 \end{itemize}
 
 \subsection{REMOVE IF BEHIND SCHEDULE, in this order}
 \begin{enumerate}
-\item Causal forest
-\item Multi-treatment and revenue uplift
-\item The neural estimator --- cut without hesitation; it is a challenger, not the project
+\item The neural estimator --- the first item cut if implementation slips; it is a challenger, not
+the project
 \item Uplift Random Forest
-\item Azure managed endpoint, falling back to a container with a documented deployment path
 \end{enumerate}
 
 \begin{alertbox}
@@ -2798,9 +2904,10 @@ become discriminatory even though no such feature was consciously used. \textbf{
 deliverable:} report targeting rates across available demographic-adjacent segments, and state
 that the check was performed --- on Criteo the features are anonymised and this can only be done
 structurally, which should also be stated.
-\item \textbf{The holdout has an ethical dimension too.} Withholding an offer from a control group
-is standard practice and is what makes measurement possible; it should still be named and justified
-rather than passed over silently.
+\item \textbf{The holdout has an ethical dimension too.} In a real deployment, withholding an offer
+from a control group is standard practice and is what makes measurement possible; it should still
+be named and justified rather than passed over silently. This project withholds nothing from anyone:
+its control groups are already in the historical data.
 \item \textbf{Transparency of the abstention path.} A system that says ``we do not know'' is more
 honest than one that always answers, and the interface must not hide that state to look more
 decisive.
@@ -2815,7 +2922,7 @@ decisive.
 \midrule
 \endhead
 \textbf{The central hypothesis does not hold} --- uplift targeting does not beat the response model
-on this data & High & Run the comparison by Week~13, not Week~19. If it holds, it is the headline.
+on this data & High & Run the comparison by Friday 6 November, not in December. If it holds, it is the headline.
 If it does not, the project becomes an investigation of \emph{why}, which is a legitimate and
 frequently stronger result. Neither outcome is a failed project; only discovering it too late is. \\
 \addlinespace
@@ -2823,8 +2930,9 @@ frequently stronger result. Neither outcome is a failed project; only discoverin
 (rate 0.046992) as well as \texttt{conversion} (0.00292); report both; use the abstention path
 rather than reporting an inconclusive number as a finding. \\
 \addlinespace
-\textbf{Curriculum gap: no CV, no NLP} & Medium--High & Raise it explicitly at the Week~7 review and
-get the answer in writing. This risk is cheap to resolve in Week~7 and expensive in Week~18. \\
+\textbf{Curriculum gap: no CV, no NLP} & Resolved & The instructor confirmed that computer vision
+and NLP are not required for this project (\texttt{docs/lecturer-review.md}). Kept in the table as
+a record of how it was closed. \\
 \addlinespace
 \textbf{Uneven team workload} --- a tabular ML project can leave two members working and three
 watching & Medium--High & This is a real and well-known failure mode for exactly this class of
@@ -2859,12 +2967,12 @@ alert set well below the limit. \\
 investigate.
 \item Confidence intervals on the headline result straddling zero, leaving the project with no
 statement it can defend.
-\item The curriculum gap on computer vision and NLP turning into an evaluation penalty that was
-foreseeable in Week~7.
+\item \emph{Resolved:} the curriculum gap on computer vision and NLP turning into an evaluation
+penalty. The instructor confirmed that neither is required (\texttt{docs/lecturer-review.md}).
 \end{enumerate}
 
-All three are mitigated by the same discipline: \emph{find out early}. Every one of them is cheap
-in Week~10 and expensive in Week~19.
+All three were mitigated by the same discipline: \emph{find out early}. The third has been closed
+that way; the first two are cheap in October and expensive in December.
 
 \section{Anticipated Defence Questions}
 \label{sec:defence}
@@ -2933,7 +3041,7 @@ control, behavioural tests
 \item Streamlit dashboard, four tabs
 \item Drift monitoring and a documented retraining rule
 \item Full test suite and CI pipeline
-\item Documentation set: this specification, the seven per-milestone documents, requirements and
+\item Documentation set: this specification, the per-milestone documents, requirements and
 design documents with the full diagram set, dataset cards, data dictionary, README, user manual,
 technical documentation, test plan and test cases, bug log
 \item Final report, presentation, and demo with a recorded backup
@@ -2971,8 +3079,8 @@ technical documentation, test plan and test cases, bug log
           |                +------------------------+                       |
           v                                                                 |
  +=========================================================================+ |
- |  PERSISTENCE   PostgreSQL: campaign, treatment_assignment,              | |
- |                holdout_membership, scoring_run, score, outcome          | |
+ |  PERSISTENCE   PostgreSQL: replay_scenario, treatment_assignment,       | |
+ |                scoring_run, score, outcome_observation                  | |
  |                Azure Blob: datasets, artefacts, reports                 | |
  +=========================================================================+ |
                                                                             |
@@ -3015,8 +3123,9 @@ Deep learning & 6/10 & Present and problem-motivated, but a challenger rather th
 honestly scored as such. \\
 Data engineering & 7/10 & Strong pipeline discipline at 14M rows, but the data is pre-collected;
 there is no collection operation as in earlier projects considered. \\
-MLOps / production & 9/10 & Registry, versioned scoring, drift monitoring, retraining rule, CI/CD,
-and a permanent production holdout --- a genuinely complete lifecycle story. \\
+MLOps / production & 9/10 & Registry, versioned scoring, drift monitoring, retraining rule and
+CI/CD, with the permanent production holdout designed for deployment but not built --- a complete
+lifecycle story, honestly bounded. \\
 Business value & 9/10 & Directly monetary, directly measurable, in the language a finance function
 uses. \\
 Employer signal & 9/10 & Retention and campaign targeting are live problems in exactly the banking,
@@ -3062,12 +3171,11 @@ argument can be pushed.
 \subsection{Do I recommend building it?}
 
 \begin{goodbox}
-Yes --- with one condition attached. The project is well-scoped, the data risk is essentially zero,
-the commercial framing matches the guidance the team was given, and the technical core is a real
-problem with real depth rather than a classification task in costume. The condition is
-Section~\ref{sec:risks}: get an answer on the computer-vision and NLP question at the Week~7 review.
-That is the only issue in this document that could still change the project's viability, and it is
-answerable in one conversation.
+Yes. The project is well-scoped, the data risk is essentially zero, the commercial framing matches
+the guidance the team was given, and the technical core is a real problem with real depth rather
+than a classification task in costume. The one condition this recommendation used to carry --- an
+answer on the computer-vision and NLP question --- has been met: the instructor confirmed that
+neither is required (\texttt{docs/lecturer-review.md}).
 \end{goodbox}
 
 \subsection{Is the scope realistic for five students?}
@@ -3080,9 +3188,11 @@ product surface are what make five roles real rather than nominal.
 
 \subsection{What to remove if the project becomes too large}
 
-In the order given in Section~\ref{sec:scope}: causal forest, then multi-treatment and revenue
-uplift, then the neural estimator, then the uplift forest, then the managed cloud endpoint. Never
-the intervals, the negative control, the locked split, or the response-model baseline.
+The causal forest, multi-treatment modelling and revenue uplift were already cut on 13 October 2026
+for the shorter schedule and are future work. After that, in the order given in
+Section~\ref{sec:scope}: the neural estimator first, then the uplift forest. The managed cloud
+endpoint is attempted only if implementation is ahead. Never the intervals, the negative control,
+the locked split, or the response-model baseline.
 
 \section{Final Recommended Version}
 
@@ -3100,29 +3210,36 @@ suppression and two abstention verdicts, a campaign policy simulator reporting i
 and a deployed scoring service with a dashboard.
 \item \textbf{Architecture:} validated experimental data $\to$ randomization and leakage gates $\to$
 joint stratified split $\to$ baselines $\to$ meta-learner uplift estimators $\to$ evaluation with
-intervals $\to$ decision layer $\to$ FastAPI service and Streamlit dashboard $\to$ drift monitoring
-against a permanent randomized holdout.
+intervals $\to$ decision layer $\to$ FastAPI service and Streamlit dashboard $\to$ feature and
+score drift monitoring. The permanent randomized holdout that effect-drift monitoring needs is
+designed for deployment, not built (Section~\ref{sec:deployment-gap}).
 \item \textbf{What makes it a system rather than a model:} the simulated campaign replay of
-Section~\ref{sec:lifecycle} --- define a scenario, score, allocate under budget, hold out, reveal
-the recorded outcomes, measure what the decision produced, compare against the baseline policies.
+Section~\ref{sec:lifecycle} --- define a scenario, score, allocate under budget, split the selected
+targets by their recorded arm, reveal the recorded outcomes, measure what the decision produced,
+compare against the baseline policies.
 It measures the decision rather than the ranking, and it is what makes five roles necessary rather
 than nominal. What a live deployment would additionally need is stated separately in
 Section~\ref{sec:deployment-gap} and is not claimed as project work.
 \item \textbf{Data:} Criteo-UPLIFT as the primary result (13{,}979{,}592 rows, 12 features,
-treatment ratio 0.85); Hillstrom MineThatData for development, multi-treatment and revenue uplift
-(64{,}000 customers, three equal arms).
+treatment ratio 0.85); Hillstrom MineThatData for development, one email arm at a time against
+the shared control (64{,}000 customers, three equal arms). Multi-treatment modelling and revenue
+uplift were cut on 13 October 2026 for the shorter schedule and are future work.
 \item \textbf{Models:} response-model baseline, T-learner and X-learner over gradient boosting as
 the MVP, with the X-learner favoured because of the 85/15 treatment imbalance; uplift forest and a
-shared-representation neural estimator as challengers.
+shared-representation neural estimator (time-boxed to one week) as challengers.
 \item \textbf{Technology:} Python, pandas, LightGBM/XGBoost, scikit-uplift, CausalML, PyTorch,
-SHAP, Optuna, MLflow, FastAPI, Docker, PostgreSQL, Azure ML, Streamlit, GitHub Actions.
+SHAP, Optuna, MLflow, FastAPI, Docker, PostgreSQL, Azure (container deployment), Streamlit, GitHub
+Actions.
 \item \textbf{Team:} Aliaa Gomaa (Data Engineering and Experiment Validity) / Mohammed Sherif
-(Uplift Modeling Core) / Mahmoud Nadeem (Team Leader; Advanced Models and Tracking) / Ali Alaa
-(Evaluation, Statistics and Decision Layer) / Mazen Mahmoud (MLOps, Backend and Product).
-\item \textbf{Timeline:} DEPI programme weeks 5 to 21, with the randomization report due by Week~10
-and the central hypothesis test by Week~13.
+(Uplift Modeling Core and Dashboard) / Mahmoud Nadeem (Team Leader; Advanced Models and
+Tracking) / Ali Alaa (Evaluation, Statistics and Decision Layer) / Mazen Mahmoud (MLOps, Backend
+and Deployment).
+\item \textbf{Timeline:} the six DEPI phases, ending with the final submission on Friday 4 December
+2026 (\texttt{docs/project-plan.md}), with the randomization report due by Friday 30 October and
+the central hypothesis test by Friday 6 November.
 \item \textbf{Main risks:} a null result on the central comparison; intervals that straddle zero;
-the computer-vision and NLP curriculum gap; and uneven workload if the lifecycle work is dropped.
+and uneven workload if the replay work is dropped. (The computer-vision and NLP curriculum gap is
+resolved: the instructor confirmed neither is required.)
 \item \textbf{Explicitly not in scope this semester:} observational (non-randomized) causal
 inference; continuous-dose treatment; online policy learning; cross-campaign budget allocation.
 \item \textbf{Why this balance is the right one:} it is the only direction considered in this
