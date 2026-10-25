@@ -148,6 +148,11 @@ implementation, Mazen carries the API, Docker, Azure, monitoring and CI/CD, and 
 modelling work finishes in the second week of M5. Mohammed also draws the wireframes in M4, so the
 person who designs the screens builds them.
 
+**Less paperwork (decided 16 October).** A document is written only if DEPI requires it or it
+prevents a real error. Nothing already written is deleted. As a result T29 is out of scope, T27
+and T28 are shortened, and T54 is a discussion rather than a document (section 5). The working
+agreement carries the rule (section 3).
+
 ---
 
 ## 4. Milestones
@@ -171,7 +176,8 @@ owner becomes unavailable. Task numbers continue from Milestone 1 (T1–T22).
 
 ### M1 – M3 (due Friday 16 October)
 
-The literature tasks T25–T29 were moved to M4 on 13 October (see section 1).
+The literature tasks T25–T29 were moved to M4 on 13 October (see section 1). On 16 October T29
+was taken out of scope and T27 and T28 were shortened (section 3).
 
 | ID | Task | Owner | Partner | Due | Output |
 |---|---|---|---|---|---|
@@ -208,12 +214,12 @@ The literature tasks T25–T29 were moved to M4 on 13 October (see section 1).
 | T51 | Test plan: unit, integration and acceptance, keyed to requirement IDs | Mazen | Ali | Wed 4 Nov | `docs/design/test-plan.md` |
 | T25 | Literature: randomized experiments, non-compliance and the two datasets | Aliaa | Mazen | Wed 4 Nov | `docs/literature-review/01-experiments-and-data.md` |
 | T26 | Literature: meta-learners and class transformation | Mohammed | Aliaa | Wed 4 Nov | `docs/literature-review/02-meta-learners.md` |
-| T27 | Literature: uplift trees, causal forests and neural estimators | Mahmoud | Ali | Wed 4 Nov | `docs/literature-review/03-trees-and-neural.md` |
-| T28 | Literature: evaluating uplift models | Ali | Mohammed | Wed 4 Nov | `docs/literature-review/04-evaluation.md` |
-| T29 | Literature: machine-learning systems in production | Mazen | Mahmoud | Wed 4 Nov | `docs/literature-review/05-ml-systems.md` |
+| T27 | Literature: uplift trees, causal forests and neural estimators. Two sources, about 400 words; every source states what it changes in our code | Mahmoud | Ali | Wed 4 Nov | `docs/literature-review/03-trees-and-neural.md` |
+| T28 | Literature: evaluating uplift models. Two sources, about 400 words; every source states what it changes in our code | Ali | Mohammed | Wed 4 Nov | `docs/literature-review/04-evaluation.md` |
+| T29 | Literature: machine-learning systems in production. **Out of scope (16 Oct):** DEPI does not require a written literature review, and Mazen's M5 load (API, Docker, Azure, monitoring and CI/CD; 34 h, the joint highest in M5, section 6) leaves no room for it | Mazen | Mahmoud | — | none |
 | T52 | Align the specification's milestone and timeline sections with this plan | Mahmoud | Ali | Wed 4 Nov | specification `.tex` and PDF |
 | T53 | Assemble and submit the System Analysis and Design document; upload | Mahmoud | all | Fri 6 Nov | `docs/design/README.md`, company repository |
-| T54 | Milestone 4 retrospective and refinement of the M5 tasks | Mahmoud | all | Sat 7 Nov | `docs/retrospective-m4.md` |
+| T54 | Milestone 4 retrospective and refinement of the M5 tasks: a 30-minute discussion in the 7 Nov meeting, no document; the outcome goes straight into the M5 issues | Mahmoud | all | Sat 7 Nov | the M5 issues |
 
 Diagram conventions, so nothing is drawn three times in three styles: Mermaid inside the Markdown
 file wherever Mermaid has the diagram type (class, sequence, state, ER, flowcharts for DFD and
