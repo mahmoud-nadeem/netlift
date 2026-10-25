@@ -15,7 +15,9 @@ import pytest
 from netlift.utils.tracking import (
     KPI_CONFIG,
     TrackingError,
+    experiment_name,
     load_kpi_ids,
+    run_name,
     start_run,
 )
 
@@ -58,7 +60,7 @@ def test_missing_kpi_config_is_an_error(tmp_path: Path) -> None:
 def test_unknown_kpi_is_rejected() -> None:
     """A metric name that is not a defined KPI cannot be logged as a result."""
     with (
-        start_run("unknown kpi", seed=1) as run,
+        start_run("unknown kpi", task="T41", seed=1) as run,
         pytest.raises(TrackingError, match="K99"),
     ):
         run.log_kpi("K99", value=0.1, ci_low=0.0, ci_high=0.2)
@@ -66,24 +68,78 @@ def test_unknown_kpi_is_rejected() -> None:
 
 def test_reversed_interval_is_rejected() -> None:
     with (
-        start_run("reversed", seed=1) as run,
+        start_run("reversed", task="T41", seed=1) as run,
         pytest.raises(TrackingError, match="wrong way"),
     ):
         run.log_kpi("K2", value=0.1, ci_low=0.5, ci_high=0.0)
 
 
-def test_value_outside_its_interval_is_rejected() -> None:
-    with (
-        start_run("outside", seed=1) as run,
-        pytest.raises(TrackingError, match="outside"),
-    ):
+def test_value_outside_its_interval_warns_and_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A percentile bootstrap can put the estimate outside its interval."""
+    import mlflow
+
+    with caplog.at_level("WARNING"), start_run("outside", task="T41", seed=1) as run:
         run.log_kpi("K2", value=0.9, ci_low=0.0, ci_high=0.2)
+
+    assert "outside its interval" in caplog.text
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    runs = mlflow.search_runs([experiment.experiment_id], max_results=1)
+    assert runs.iloc[0]["metrics.K2"] == pytest.approx(0.9)
+    assert runs.iloc[0]["tags.K2_value_outside_interval"] == "true"
+
+
+def test_value_inside_its_interval_is_not_tagged() -> None:
+    import mlflow
+
+    with start_run("inside", task="T41", seed=1) as run:
+        run.log_kpi("K2", value=0.1, ci_low=0.0, ci_high=0.2)
+
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    runs = mlflow.search_runs([experiment.experiment_id], max_results=1)
+    assert "tags.K2_value_outside_interval" not in runs.columns
+
+
+def test_two_metrics_under_one_kpi_share_a_run() -> None:
+    """K2 covers Qini and AUUC; each gets its own key and interval."""
+    import mlflow
+
+    with start_run("two metrics", task="T41", seed=1) as run:
+        qini_key = run.log_kpi(
+            "K2", value=0.08, ci_low=0.06, ci_high=0.11, metric="qini_coefficient"
+        )
+        auuc_key = run.log_kpi(
+            "K2", value=0.03, ci_low=0.02, ci_high=0.05, metric="auuc"
+        )
+
+    assert (qini_key, auuc_key) == ("K2_qini_coefficient", "K2_auuc")
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    row = mlflow.search_runs([experiment.experiment_id], max_results=1).iloc[0]
+    assert row["metrics.K2_qini_coefficient"] == pytest.approx(0.08)
+    assert row["metrics.K2_qini_coefficient_ci_high"] == pytest.approx(0.11)
+    assert row["metrics.K2_auuc"] == pytest.approx(0.03)
+    assert row["metrics.K2_auuc_ci_low"] == pytest.approx(0.02)
+
+
+def test_unknown_kpi_is_rejected_even_with_a_metric_name() -> None:
+    with (
+        start_run("unknown with metric", task="T41", seed=1) as run,
+        pytest.raises(TrackingError, match="K99"),
+    ):
+        run.log_kpi("K99", value=0.1, ci_low=0.0, ci_high=0.2, metric="auuc")
 
 
 def test_directory_tracking_store_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     """MLflow 3.x rejects the ./mlruns store. Fail early, with the reason."""
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "./mlruns")
-    with pytest.raises(TrackingError, match="directory store"), start_run("nope"):
+    with (
+        pytest.raises(TrackingError, match="directory store"),
+        start_run("nope", task="T41"),
+    ):
         pass
 
 
@@ -99,9 +155,9 @@ def test_seed_is_applied_not_merely_recorded() -> None:
     claim rather than a fact, and every run would be unreproducible while
     appearing otherwise.
     """
-    with start_run("seed a", seed=123):
+    with start_run("seed a", task="T41", seed=123):
         first = (random.random(), float(np.random.rand()))
-    with start_run("seed b", seed=123):
+    with start_run("seed b", task="T41", seed=123):
         second = (random.random(), float(np.random.rand()))
     assert first == second
 
@@ -113,7 +169,7 @@ def test_provenance_tags_are_recorded(tmp_path: Path) -> None:
     dataset = tmp_path / "tiny.csv"
     dataset.write_text("a,b\n1,2\n", encoding="utf-8")
 
-    with start_run("provenance", dataset=dataset, seed=7) as run:
+    with start_run("provenance", task="T41", dataset=dataset, seed=7) as run:
         run.log_metrics({"rows": 1})
 
     experiment = mlflow.get_experiment_by_name("test")
@@ -135,7 +191,7 @@ def test_provenance_tags_are_recorded(tmp_path: Path) -> None:
 def test_kpi_logs_value_and_both_bounds(tmp_path: Path) -> None:
     import mlflow
 
-    with start_run("kpi", seed=1) as run:
+    with start_run("kpi", task="T41", seed=1) as run:
         run.log_kpi("K2", value=0.0847, ci_low=0.0612, ci_high=0.1103)
 
     experiment = mlflow.get_experiment_by_name("test")
@@ -146,3 +202,65 @@ def test_kpi_logs_value_and_both_bounds(tmp_path: Path) -> None:
     assert row["metrics.K2"] == pytest.approx(0.0847)
     assert row["metrics.K2_ci_low"] == pytest.approx(0.0612)
     assert row["metrics.K2_ci_high"] == pytest.approx(0.1103)
+
+
+# --------------------------------------------------------------------------- #
+# naming and the task tag (T41)
+# --------------------------------------------------------------------------- #
+
+
+def test_experiment_and_run_names_follow_the_convention() -> None:
+    assert experiment_name("hillstrom", "visit") == "netlift-hillstrom-visit"
+    assert run_name("T38", "response-model") == "T38-response-model"
+
+
+@pytest.mark.parametrize(
+    ("dataset", "target"), [("Hillstrom", "visit"), ("criteo", "spend")]
+)
+def test_experiment_name_rejects_unknown_parts(dataset: str, target: str) -> None:
+    with pytest.raises(TrackingError, match="Unknown"):
+        experiment_name(dataset, target)
+
+
+@pytest.mark.parametrize(("task", "model"), [("38", "x"), ("T38", "Response Model")])
+def test_run_name_rejects_bad_parts(task: str, model: str) -> None:
+    with pytest.raises(TrackingError):
+        run_name(task, model)
+
+
+def test_run_without_a_task_is_rejected() -> None:
+    with pytest.raises(TrackingError, match="needs a task tag"), start_run("no task"):
+        pass
+
+
+@pytest.mark.parametrize("task", ["t38", "T", "38", ""])
+def test_malformed_task_is_rejected(task: str) -> None:
+    with (
+        pytest.raises(TrackingError, match="plan task id"),
+        start_run("bad", task=task),
+    ):
+        pass
+
+
+def test_task_and_tags_must_agree() -> None:
+    with (
+        pytest.raises(TrackingError, match="disagrees"),
+        start_run("both", task="T38", tags={"task": "T39"}),
+    ):
+        pass
+
+
+@pytest.mark.parametrize(
+    "arguments", [{"task": "T38"}, {"tags": {"task": "T38", "purpose": "smoke"}}]
+)
+def test_task_tag_is_recorded(arguments: dict[str, object]) -> None:
+    import mlflow
+
+    with start_run("T38-response-model", seed=1, **arguments):  # type: ignore[arg-type]
+        pass
+
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    row = mlflow.search_runs([experiment.experiment_id], max_results=1).iloc[0]
+    assert row["tags.task"] == "T38"
+    assert row["tags.mlflow.runName"] == "T38-response-model"

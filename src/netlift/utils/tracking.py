@@ -23,10 +23,12 @@ than true if the caller remembered.
 Usage::
 
     from pathlib import Path
-    from netlift.utils.tracking import start_run
+    from netlift.utils.tracking import experiment_name, run_name, start_run
 
     with start_run(
-        "x-learner, lightgbm base",
+        run_name("T38", "x-learner"),
+        task="T38",
+        experiment=experiment_name("hillstrom", "visit"),
         dataset=Path("data/raw/hillstrom.csv"),
         seed=42,
     ) as run:
@@ -45,14 +47,17 @@ import hashlib
 import logging
 import os
 import random
+import re
 import subprocess
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import mlflow
 import yaml
+
+from netlift.data.contracts import DatasetName, TargetOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +66,12 @@ KPI_CONFIG = REPO_ROOT / "config" / "kpis.yaml"
 
 DEFAULT_TRACKING_URI = "sqlite:///mlflow.db"
 DEFAULT_EXPERIMENT = "netlift"
+
+# Naming (T41): experiment "netlift-<dataset>-<target>", run "<task>-<model>", and a
+# required "task" tag, so the UI can be filtered by the plan task a run belongs to.
+TASK_TAG = "task"
+TASK_PATTERN = re.compile(r"^T\d+$")
+MODEL_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 # MLflow 3.x no longer accepts a plain directory as the tracking backend. Rather
 # than guessing which strings are directories, only these are allowed through.
@@ -140,6 +151,44 @@ def seed_everything(seed: int) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# naming
+# --------------------------------------------------------------------------- #
+
+
+def experiment_name(dataset: str, target: str) -> str:
+    """The experiment for a dataset and target outcome, e.g. 'netlift-hillstrom-visit'."""
+    if dataset not in get_args(DatasetName):
+        raise TrackingError(
+            f"Unknown dataset {dataset!r}; expected one of {get_args(DatasetName)}."
+        )
+    if target not in get_args(TargetOutcome):
+        raise TrackingError(
+            f"Unknown target {target!r}; expected one of {get_args(TargetOutcome)}."
+        )
+    return f"netlift-{dataset}-{target}"
+
+
+def run_name(task: str, model: str) -> str:
+    """The run name for a task and model, e.g. 'T38-response-model'."""
+    _require_task(task)
+    if not MODEL_PATTERN.match(model):
+        raise TrackingError(
+            f"Model name {model!r} must be lowercase words joined by dashes, "
+            "for example 'response-model' or 'x-learner'."
+        )
+    return f"{task}-{model}"
+
+
+def _require_task(task: object) -> str:
+    """Return ``task`` if it is a plan task id such as 'T38', else raise."""
+    if not isinstance(task, str) or not TASK_PATTERN.match(task):
+        raise TrackingError(
+            f"The task tag must be a plan task id such as 'T38', got {task!r}."
+        )
+    return task
+
+
+# --------------------------------------------------------------------------- #
 # KPI definitions
 # --------------------------------------------------------------------------- #
 
@@ -194,12 +243,17 @@ class Run:
         ci_low: float,
         ci_high: float,
         confidence: float = 0.95,
-    ) -> None:
+        metric: str | None = None,
+    ) -> str:
         """Log a headline result against a KPI defined in config/kpis.yaml.
 
         The confidence interval is required, not optional. Every headline number
         in this project is reported with one, and a rule that depends on five
         people remembering it will be broken at least once.
+
+        One KPI can cover several metrics (K2 is both the Qini coefficient and
+        AUUC). Pass ``metric`` to log each under its own key, ``<kpi_id>_<metric>``,
+        so both fit in one run. Returns the key used.
         """
         if kpi_id not in self._kpi_ids:
             known = ", ".join(sorted(self._kpi_ids))
@@ -207,24 +261,40 @@ class Run:
                 f"'{kpi_id}' is not a KPI defined in config/kpis.yaml. Known ids: {known}. "
                 "Add the KPI to that file before reporting against it."
             )
+        if metric is not None and not metric.strip():
+            raise TrackingError(f"{kpi_id}: metric name is empty.")
+        key = kpi_id if metric is None else f"{kpi_id}_{metric}"
         if ci_low > ci_high:
             raise TrackingError(
-                f"{kpi_id}: ci_low ({ci_low}) is above ci_high ({ci_high}). "
+                f"{key}: ci_low ({ci_low}) is above ci_high ({ci_high}). "
                 "The bounds are the wrong way round."
             )
         if not ci_low <= value <= ci_high:
-            raise TrackingError(
-                f"{kpi_id}: value {value} lies outside its interval "
-                f"[{ci_low}, {ci_high}]. One of the three is wrong."
+            # A percentile bootstrap does not guarantee the point estimate lies
+            # inside its own interval, so this is worth a look but is not an error.
+            # The tag makes it visible in the MLflow UI, not only in the console.
+            logger.warning(
+                "%s: value %s lies outside its interval [%s, %s]. Possible with a "
+                "percentile bootstrap on a skewed statistic; check it is not a bug.",
+                key,
+                value,
+                ci_low,
+                ci_high,
             )
+            mlflow.set_tag(f"{key}_value_outside_interval", "true")
         mlflow.log_metrics(
             {
-                kpi_id: value,
-                f"{kpi_id}_ci_low": ci_low,
-                f"{kpi_id}_ci_high": ci_high,
+                key: value,
+                f"{key}_ci_low": ci_low,
+                f"{key}_ci_high": ci_high,
             }
         )
-        mlflow.set_tag(f"{kpi_id}_confidence", str(confidence))
+        mlflow.set_tag(f"{key}_confidence", str(confidence))
+        return key
+
+    def log_dict(self, data: dict[str, Any], artifact_file: str) -> None:
+        """Attach a dictionary to this run as a JSON or YAML file, chosen by extension."""
+        mlflow.log_dict(data, artifact_file)
 
     def log_artifact(self, path: Path, artifact_path: str | None = None) -> None:
         """Attach a file to this run: a figure, a decile table, a model."""
@@ -258,6 +328,7 @@ def _resolve_tracking_uri() -> str:
 def start_run(
     run_name: str,
     *,
+    task: str | None = None,
     dataset: Path | None = None,
     seed: int = 42,
     experiment: str | None = None,
@@ -266,16 +337,29 @@ def start_run(
     """Start a tracked run, seeding randomness and recording provenance.
 
     Args:
-        run_name: A short description of what this run is, shown in the UI.
+        run_name: The run's name in the UI, ``<task>-<model>`` (see :func:`run_name`).
+        task: The plan task the run belongs to, such as 'T38'. Required, either here
+            or as ``tags["task"]``; it is recorded as the ``task`` tag.
         dataset: The data file this run used. Its SHA-256 is recorded, so the
             run names the exact bytes it was computed from.
         seed: Applied to ``random`` and NumPy, then recorded.
-        experiment: Overrides ``MLFLOW_EXPERIMENT_NAME``.
+        experiment: Overrides ``MLFLOW_EXPERIMENT_NAME``; build it with
+            :func:`experiment_name`.
         tags: Extra provenance tags.
 
     Yields:
         A :class:`Run` to log against.
     """
+    tagged = (tags or {}).get(TASK_TAG)
+    if task is not None and tagged is not None and task != tagged:
+        raise TrackingError(f"task={task!r} disagrees with tags['task']={tagged!r}.")
+    if task is None and tagged is None:
+        raise TrackingError(
+            "start_run needs a task tag: pass task='T38', the plan task this run "
+            "belongs to. Without it the run cannot be filtered by task in the UI."
+        )
+    resolved_task = _require_task(task if task is not None else tagged)
+
     seed_everything(seed)
 
     mlflow.set_tracking_uri(_resolve_tracking_uri())
@@ -293,6 +377,7 @@ def start_run(
         provenance["dataset_sha256"] = file_sha256(dataset)
     if tags:
         provenance.update(tags)
+    provenance[TASK_TAG] = resolved_task
 
     kpi_ids = load_kpi_ids()
 
