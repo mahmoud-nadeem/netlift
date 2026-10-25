@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +16,7 @@ from netlift.evaluation.contracts import (
     fingerprint_indices,
     log_metric_result,
     paired_difference,
+    resamples_artifact_file,
     within_arm_bootstrap_indices,
 )
 from netlift.utils.errors import ContractError
@@ -273,7 +275,7 @@ def _last_run() -> pd.Series:
 
 @pytest.mark.usefixtures("isolated_tracking")
 def test_result_is_logged_under_kpi_and_metric_key() -> None:
-    with start_run("metric result", seed=1) as run:
+    with start_run("metric result", task="T36", seed=1) as run:
         key = log_metric_result(run, "K2", _uplift_at_k(0.3))
 
     assert key == "K2_uplift_at_30pct_overall"
@@ -289,7 +291,7 @@ def test_result_is_logged_under_kpi_and_metric_key() -> None:
 @pytest.mark.usefixtures("isolated_tracking")
 def test_two_k_values_share_one_run() -> None:
     """The collision Ali found: k=0.1 and k=0.3 used to share one key."""
-    with start_run("two k", seed=1) as run:
+    with start_run("two k", task="T36", seed=1) as run:
         first = log_metric_result(run, "K2", _uplift_at_k(0.1))
         second = log_metric_result(run, "K2", _uplift_at_k(0.3))
 
@@ -308,7 +310,7 @@ def test_qini_and_auuc_share_one_run_under_k2() -> None:
     auuc = _result(
         name="auuc", value=0.031, ci_low=0.020, ci_high=0.045, n_resamples=2000, seed=8
     )
-    with start_run("two metrics", seed=1) as run:
+    with start_run("two metrics", task="T36", seed=1) as run:
         log_metric_result(run, "K2", qini)
         log_metric_result(run, "K2", auuc)
 
@@ -324,7 +326,7 @@ def test_qini_and_auuc_share_one_run_under_k2() -> None:
 
 @pytest.mark.usefixtures("isolated_tracking")
 def test_outside_interval_result_is_tagged() -> None:
-    with start_run("outside", seed=1) as run:
+    with start_run("outside", task="T36", seed=1) as run:
         log_metric_result(run, "K2", _result(name="auuc", value=0.2))
 
     row = _last_run()
@@ -335,7 +337,41 @@ def test_outside_interval_result_is_tagged() -> None:
 @pytest.mark.usefixtures("isolated_tracking")
 def test_too_few_resamples_cannot_be_reported() -> None:
     with (
-        start_run("few resamples", seed=1) as run,
+        start_run("few resamples", task="T36", seed=1) as run,
         pytest.raises(ContractError, match="at least 1000"),
     ):
         log_metric_result(run, "K2", _result(n_resamples=200))
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_full_result_is_attached_and_rebuilds_for_a_paired_comparison() -> None:
+    """T41: a champion and a challenger from different runs can still be paired."""
+    import mlflow
+
+    champion = _uplift_at_k(0.1)
+    challenger = _result(
+        name="uplift_at_k",
+        settings={"k": 0.1, "strategy": "overall"},
+        value=0.05,
+        resamples=tuple(0.05 + i / 1e5 for i in range(1000)),
+    )
+    run_ids = []
+    for label, result in (("champion", champion), ("challenger", challenger)):
+        with start_run(label, task="T36", seed=1) as run:
+            key = log_metric_result(run, "K1", result)
+            run_ids.append(mlflow.active_run().info.run_id)  # type: ignore[union-attr]
+
+    assert resamples_artifact_file(key) == "resamples/K1_uplift_at_10pct_overall.json"
+    rebuilt = []
+    for run_id in run_ids:
+        path = mlflow.artifacts.download_artifacts(
+            run_id=run_id, artifact_path=resamples_artifact_file(key)
+        )
+        document = json.loads(Path(path).read_text(encoding="utf-8"))
+        assert document["resample_fingerprint"] == FINGERPRINT
+        assert len(document["resamples"]) == document["n_resamples"] == 1000
+        rebuilt.append(MetricResult(**document))
+
+    assert rebuilt == [champion, challenger]
+    difference = paired_difference(rebuilt[0], rebuilt[1])
+    assert difference.value == pytest.approx(champion.value - challenger.value)

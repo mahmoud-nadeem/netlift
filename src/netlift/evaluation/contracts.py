@@ -32,7 +32,7 @@ import logging
 import math
 import re
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
@@ -55,6 +55,9 @@ MIN_REPORTED_RESAMPLES = 1000
 # Specification, Evaluation Metrics: the two uplift@k computation strategies.
 UPLIFT_AT_K = "uplift_at_k"
 UPLIFT_AT_K_STRATEGIES: frozenset[str] = frozenset({"overall", "by_group"})
+
+# T41: log_metric_result attaches each full result here, one JSON file per key.
+RESAMPLES_ARTIFACT_DIR = "resamples"
 
 _SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
@@ -277,6 +280,11 @@ def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str:
     Every parameter is prefixed with the full key, so two metrics under one KPI
     (Qini and AUUC under K2, or uplift@k at two values of k) can share a run:
     MLflow refuses to change a parameter's value within a run.
+
+    The whole result, per-resample values included, is also attached as
+    ``resamples/<key>.json``. ``MetricResult(**json.loads(...))`` rebuilds it, so
+    a champion and a challenger logged in different runs can still be compared
+    with :func:`paired_difference`.
     """
     if result.n_resamples < MIN_REPORTED_RESAMPLES:
         raise ContractError(
@@ -299,7 +307,13 @@ def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str:
     }
     params.update({f"{key}_{name}": value for name, value in result.settings.items()})
     run.log_params(params)
+    run.log_dict(asdict(result), resamples_artifact_file(key))
     return key
+
+
+def resamples_artifact_file(key: str) -> str:
+    """Where ``log_metric_result`` stores the full result for ``key`` in a run's artifacts."""
+    return f"{RESAMPLES_ARTIFACT_DIR}/{key}.json"
 
 
 def _require_finite(label: str, number: object) -> None:

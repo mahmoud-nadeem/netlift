@@ -17,10 +17,12 @@ nobody can reproduce is a claim, not a result.
 
 ```python
 from pathlib import Path
-from netlift.utils.tracking import start_run
+from netlift.utils.tracking import experiment_name, run_name, start_run
 
 with start_run(
-    "x-learner, lightgbm base",
+    run_name("T38", "x-learner"),  # "T38-x-learner"
+    task="T38",  # required
+    experiment=experiment_name("hillstrom", "visit"),  # "netlift-hillstrom-visit"
     dataset=Path("data/raw/hillstrom.csv"),
     seed=42,
 ) as run:
@@ -37,9 +39,24 @@ does not expose, add it to the module rather than reaching around it.
 
 ---
 
+## Naming
+
+| What | Rule | Example |
+|---|---|---|
+| Experiment | `netlift-<dataset>-<target>` | `netlift-hillstrom-visit` |
+| Run name | `<task>-<model>` | `T38-response-model` |
+| `task` tag | the plan task, required | `T38` |
+
+Build the names with `experiment_name(dataset, target)` and `run_name(task, model)`
+rather than by hand; both reject a typo such as `Hillstrom` or `Response Model`.
+`start_run` refuses to start without `task` (or `tags={"task": ...}`), so every run
+can be filtered by the task that produced it.
+
+---
+
 ## What is recorded without you asking
 
-Every run is tagged with four things:
+Every run is tagged with four things, plus the `task` you pass:
 
 | Tag | Why |
 |---|---|
@@ -128,19 +145,53 @@ parameter's value within a run.
 Diagnostics during development still go through `log_metrics`. `log_kpi` is for
 numbers that will be defended.
 
+**The resamples travel with the run.** `log_metric_result` also attaches the
+whole `MetricResult`, per-resample values included, as
+`resamples/<key>.json`. `MetricResult(**json.loads(...))` rebuilds it, so a
+champion and a challenger logged in different runs can still be compared with
+`paired_difference`, on the same resamples.
+
 ---
 
-## Opening the interface
+## The tracking server
+
+Start it from the repository root and leave it running in its own terminal:
 
 ```
-mlflow ui --backend-store-uri sqlite:///mlflow.db
+mlflow server --backend-store-uri sqlite:///mlflow.db --artifacts-destination ./mlartifacts --host 127.0.0.1 --port 5000
 ```
 
-Then <http://127.0.0.1:5000>.
+Point the client at it in `.env`, then open <http://127.0.0.1:5000>:
 
-`mlflow.db` and `mlartifacts/` are in `.gitignore`. Experiment results are
+```
+MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+```
+
+The server binds to `127.0.0.1` only, so nobody else on the network can reach it.
+`tests/test_tracking_server.py` starts the same server on a free port and checks
+that a run logged through the wrapper reads back complete.
+
+Without a server, `MLFLOW_TRACKING_URI=sqlite:///mlflow.db` (the default) still
+works, and `mlflow ui --backend-store-uri sqlite:///mlflow.db` shows the same
+database.
+
+**Comparing two runs.** In the UI, open the experiment (for example
+`netlift-hillstrom-visit`), type `tags.task = 'T38'` in the search box, tick two
+runs and press **Compare**. Parameters, metrics and intervals sit side by side.
+For a difference with an interval, use `paired_difference` on the two
+`resamples/<key>.json` files, not the two intervals.
+
+**Where the files live.** All are in `.gitignore`:
+
+| Path | Holds |
+|---|---|
+| `mlflow.db` | runs, parameters, metrics, tags |
+| `mlartifacts/` | artifacts logged through the server |
+| `mlruns/` | artifacts logged without a server |
+
+An experiment keeps the artifact location it was created with. Results are
 shared by committing the code and the configuration that produced them, never by
-committing the tracking database — a binary that every merge would conflict on.
+committing the tracking database, a binary that every merge would conflict on.
 
 ---
 
@@ -183,6 +234,8 @@ reproducible" without qualification would claim more.
 ## Rules
 
 - Do not call `mlflow` directly. Extend this module instead.
+- Every run has a `task` tag, a `<task>-<model>` name and a
+  `netlift-<dataset>-<target>` experiment.
 - Every run names its dataset, so the checksum is recorded.
 - Headline numbers go through `log_kpi`, with their interval.
 - A number destined for the report comes from a run tagged `git_dirty=false`.
