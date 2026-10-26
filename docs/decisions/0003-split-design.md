@@ -64,7 +64,7 @@ interface 1 to confirm.
 | Hillstrom, control rows in a different split between the two comparisons | 0 of 21,306 (4,280 in the first version) |
 | Hillstrom, control conversions per train fold (both comparisons) | 14, 14, 15, 15, 15; validation 24 |
 | Criteo, full data | 13,979,592 rows; train 8,387,755 / validation 2,795,918 |
-| Criteo, full data, cost | 55 s; peak memory footprint about 4.3 GB (measured after exact-duplicate counting was added) |
+| Criteo, full data, cost | 54 s; peak memory footprint about 4.4 GB (measured after exact-duplicate counting was added) |
 | Criteo, 10% subsample drawn inside each split | train 838,775 / validation 279,591 / test 279,591 (1,397,957 rows); worst gap 0.00000; 49 control conversions per train fold |
 The Criteo full-data split uses the treatment as the arm and drops no rows, so it
 is the same split as in the first version. Tests cover the two properties above:
@@ -75,7 +75,7 @@ The test split stays locked after `load_splits`.
 
 ## Consequences
 
-- R08: the full run fits in about 4.3 GB on the development machine, so chunked
+- R08: the full run fits in about 4.4 GB on the development machine, so chunked
   preprocessing beyond the Parquet conversion is not needed for the split.
 - The cell-balance assertions run on the full split (6 cells for Hillstrom). The
   control-event check runs on the rows left after the comparison filter.
