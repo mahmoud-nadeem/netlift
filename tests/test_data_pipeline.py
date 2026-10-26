@@ -35,7 +35,7 @@ CFG = {
     "n_folds": 5,
     "shares": [0.6, 0.2, 0.2],
     "tolerance": 0.02,
-    "min_control_events": 5,
+    "min_control_events_per_fold": 5,
 }
 
 
@@ -208,7 +208,7 @@ def test_min_control_events_fails_when_too_high() -> None:
             dataset="hillstrom",
             target="conversion",
             treatment=HILLSTROM_MENS_VS_CONTROL,
-            cfg={**CFG, "min_control_events": 10_000},
+            cfg={**CFG, "min_control_events_per_fold": 10_000},
         )
 
 

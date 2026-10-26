@@ -121,7 +121,7 @@ def build_splits(
     tr, va, te = matrix(train, "train"), matrix(val, "validation"), matrix(test, "test")
     for m in (tr, va):
         counts = check_control_events(
-            m, min_control_events=int(cfg["min_control_events"])
+            m, min_control_events=int(cfg["min_control_events_per_fold"])
         )
         logger.info("%s control events per fold: %s", m.meta.split_name, counts)
         logger.info("%s cell counts:\n%s", m.meta.split_name, m.cell_counts())
