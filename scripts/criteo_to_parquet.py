@@ -1,10 +1,13 @@
 """One-off: convert the Criteo CSV.gz to a typed Parquet file (risk R08)."""
 
+import logging
 from pathlib import Path
 
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+
+logger = logging.getLogger(__name__)
 
 SRC = Path("data/raw/criteo-research-uplift-v2.1.csv.gz")
 DST = Path("data/interim/criteo.parquet")
@@ -19,6 +22,7 @@ DTYPES = {
 
 
 def main() -> None:
+    """Read the CSV.gz in chunks and write one typed Parquet file."""
     DST.parent.mkdir(parents=True, exist_ok=True)
     writer: pq.ParquetWriter | None = None
     rows = 0
@@ -28,12 +32,13 @@ def main() -> None:
             writer = pq.ParquetWriter(DST, table.schema, compression="zstd")
         writer.write_table(table)
         rows += len(chunk)
-        print(f"{rows:,} rows", flush=True)
+        logger.info("%s rows", f"{rows:,}")
     if writer is None:
         raise SystemExit(f"{SRC} contained no rows")
     writer.close()
-    print(f"done: {rows:,} rows -> {DST}")
+    logger.info("done: %s rows -> %s", f"{rows:,}", DST)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     main()
