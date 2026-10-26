@@ -65,7 +65,7 @@ interface 1 to confirm.
 | Hillstrom, control conversions per train fold (both comparisons) | 14, 14, 15, 15, 15; validation 24 |
 | Criteo, full data | 13,979,592 rows; train 8,387,755 / validation 2,795,918 |
 | Criteo, full data, cost | 55 s; peak memory footprint about 4.3 GB (measured after exact-duplicate counting was added) |
-
+| Criteo, 10% subsample drawn inside each split | train 838,775 / validation 279,591 / test 279,591 (1,397,957 rows); worst gap 0.00000; 49 control conversions per train fold |
 The Criteo full-data split uses the treatment as the arm and drops no rows, so it
 is the same split as in the first version. Tests cover the two properties above:
 every control row keeps its split across the two Hillstrom comparisons, and every
