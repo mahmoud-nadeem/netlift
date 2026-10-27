@@ -55,6 +55,11 @@ def plan_split(
     subsample inside each split; (3) keep only the rows of the chosen comparison.
     Steps 2 and 3 only remove rows, so every result is a subset of the full-data split.
     """
+    if subsample_frac is not None and not 0.0 < subsample_frac < 1.0:
+        raise ContractError(
+            f"subsample_frac must be strictly between 0 and 1, got {subsample_frac!r}."
+        )
+
     seed, n_folds = int(cfg["seed"]), int(cfg["n_folds"])
     tol = float(cfg["tolerance"])
     max_gap = float(cfg.get("max_cell_gap_rows", 3))

@@ -295,3 +295,11 @@ def test_subsample_splits_are_subsets_of_the_full_data_splits() -> None:
     for f, s in zip(full[:3], sub[:3], strict=True):
         assert set(p.row_id[s]) <= set(p.row_id[f])
         assert len(s) < len(f)
+
+
+def test_subsample_frac_must_be_between_zero_and_one() -> None:
+    """A bad subsample fraction fails fast with a ContractError, before the split."""
+    p = fake_prepared()
+    for bad in (0.0, 1.0, -0.1, 1.5, float("nan")):
+        with pytest.raises(ContractError, match="subsample_frac"):
+            plan_split(p, CFG, subsample_frac=bad)
