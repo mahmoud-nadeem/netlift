@@ -10,9 +10,11 @@ import numpy.typing as npt
 import pandas as pd
 import pytest
 
+from netlift.data.synthetic import make_synthetic_splits
 from netlift.evaluation.contracts import (
     MetricResult,
     UpliftMetric,
+    fingerprint_evaluation_set,
     fingerprint_indices,
     log_metric_result,
     paired_difference,
@@ -23,6 +25,7 @@ from netlift.utils.errors import ContractError
 from netlift.utils.tracking import start_run
 
 FINGERPRINT = "ab" * 32
+EVALUATION_FINGERPRINT = "ef" * 32
 
 
 def _result(**overrides: object) -> MetricResult:
@@ -37,6 +40,8 @@ def _result(**overrides: object) -> MetricResult:
         "library": "scikit-uplift",
         "library_version": "0.5.1",
         "resample_fingerprint": FINGERPRINT,
+        "evaluation_fingerprint": EVALUATION_FINGERPRINT,
+        "split_name": "validation",
     }
     fields.update(overrides)
     if "resamples" not in fields:
@@ -167,7 +172,13 @@ def test_indices_stay_within_arms() -> None:
 
 
 def _mean_uplift(
-    uplift: npt.NDArray[np.float64], t: npt.NDArray[np.int64], *, n: int, seed: int
+    uplift: npt.NDArray[np.float64],
+    t: npt.NDArray[np.int64],
+    *,
+    n: int,
+    seed: int,
+    y: npt.NDArray[np.int64] | None = None,
+    split_name: str = "validation",
 ) -> MetricResult:
     """A toy metric built the way T39 is meant to build real ones."""
     values = tuple(
@@ -189,6 +200,10 @@ def _mean_uplift(
         resample_fingerprint=fingerprint_indices(
             within_arm_bootstrap_indices(t, n_resamples=n, seed=seed)
         ),
+        evaluation_fingerprint=fingerprint_evaluation_set(
+            np.zeros_like(t) if y is None else y, t
+        ),
+        split_name=split_name,  # type: ignore[arg-type]
     )
 
 
@@ -206,6 +221,8 @@ def test_same_t_and_seed_give_the_same_fingerprint_and_a_paired_difference() -> 
     assert difference.ci_low == pytest.approx(np.percentile(per_resample, 2.5))
     assert difference.ci_high == pytest.approx(np.percentile(per_resample, 97.5))
     assert difference.resample_fingerprint == champion.resample_fingerprint
+    assert difference.evaluation_fingerprint == champion.evaluation_fingerprint
+    assert difference.split_name == "validation"
 
 
 def test_a_different_seed_cannot_be_paired() -> None:
@@ -250,6 +267,59 @@ def test_different_settings_cannot_be_paired() -> None:
         paired_difference(_uplift_at_k(0.1), _uplift_at_k(0.3))
 
 
+def test_visit_and_conversion_on_the_same_t_cannot_be_paired() -> None:
+    """Ali's round-3 point: the two targets share t, so they share resamples."""
+    visit = make_synthetic_splits("visit", seed=4).validation
+    conversion = make_synthetic_splits("conversion", seed=4).validation
+    assert np.array_equal(visit.t, conversion.t)
+    uplift = np.random.default_rng(3).normal(0.05, 0.02, size=visit.n_rows)
+    a = _mean_uplift(uplift, visit.t, n=50, seed=1, y=visit.y)
+    b = _mean_uplift(uplift, conversion.t, n=50, seed=1, y=conversion.y)
+    assert a.resample_fingerprint == b.resample_fingerprint
+    with pytest.raises(ContractError, match="evaluation_fingerprint"):
+        paired_difference(a, b)
+
+
+def test_validation_and_test_cannot_be_paired() -> None:
+    with pytest.raises(ContractError, match="split_name"):
+        paired_difference(_result(split_name="validation"), _result(split_name="test"))
+
+
+@pytest.mark.parametrize("field", ["resample_fingerprint", "evaluation_fingerprint"])
+def test_a_fingerprint_only_mismatch_cannot_be_paired(field: str) -> None:
+    with pytest.raises(ContractError, match=rf"differ: \['{field}'\]"):
+        paired_difference(_result(), _result(**{field: "cd" * 32}))
+
+
+def test_an_n_resamples_only_mismatch_cannot_be_paired() -> None:
+    with pytest.raises(ContractError, match=r"differ: \['n_resamples'\]"):
+        paired_difference(_result(n_resamples=1000), _result(n_resamples=1001))
+
+
+@pytest.mark.parametrize("field", ["evaluation_fingerprint", "split_name"])
+def test_evaluation_set_fields_are_validated(field: str) -> None:
+    with pytest.raises(ContractError, match=field):
+        _result(**{field: "nope"})
+
+
+def test_evaluation_fingerprint_depends_on_y_and_t() -> None:
+    t = np.array([0, 1, 0, 1])
+    base = fingerprint_evaluation_set(np.array([0, 0, 1, 1]), t)
+    assert base == fingerprint_evaluation_set([0, 0, 1, 1], [0, 1, 0, 1])
+    assert base != fingerprint_evaluation_set(np.array([0, 1, 1, 1]), t)
+    assert base != fingerprint_evaluation_set(
+        np.array([0, 0, 1, 1]), np.array([1, 1, 0, 0])
+    )
+
+
+@pytest.mark.parametrize(
+    ("y", "t"), [([0, 1], [0, 1, 1]), ([0, 2], [0, 1]), ([], []), ([[0, 1]], [[0, 1]])]
+)
+def test_evaluation_fingerprint_rejects_bad_input(y: list[int], t: list[int]) -> None:
+    with pytest.raises(ContractError):
+        fingerprint_evaluation_set(y, t)
+
+
 # --------------------------------------------------------------------------- #
 # logging through the tracking wrapper
 # --------------------------------------------------------------------------- #
@@ -285,6 +355,11 @@ def test_result_is_logged_under_kpi_and_metric_key() -> None:
     assert row["params.K2_uplift_at_30pct_overall_library"] == "scikit-uplift==0.5.1"
     assert row["params.K2_uplift_at_30pct_overall_strategy"] == "overall"
     assert row["params.K2_uplift_at_30pct_overall_resample_fingerprint"] == FINGERPRINT
+    assert (
+        row["params.K2_uplift_at_30pct_overall_evaluation_fingerprint"]
+        == EVALUATION_FINGERPRINT
+    )
+    assert row["params.K2_uplift_at_30pct_overall_split_name"] == "validation"
     assert row["tags.K2_uplift_at_30pct_overall_confidence"] == "0.95"
 
 
