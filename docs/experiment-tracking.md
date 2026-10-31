@@ -259,6 +259,10 @@ reproducible" without qualification would claim more.
 - Every run names its dataset, so the checksum is recorded.
 - Headline numbers go through `log_metric_result`, with their interval;
   `log_kpi` is the low-level call it uses.
+- Before a run's numbers go into a report, `check_reportable_run(run_id)`
+  (`netlift.evaluation.contracts`) confirms that every KPI in it carries
+  `_n_resamples`, `_resample_fingerprint`, `_evaluation_fingerprint` and
+  `_split_name`, which only `log_metric_result` writes.
 - A number destined for the report comes from a run tagged `git_dirty=false`.
 - Exploratory runs are tagged `purpose=smoke` so they can be filtered out later
   and never mistaken for findings.

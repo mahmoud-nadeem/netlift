@@ -14,6 +14,7 @@ from netlift.data.synthetic import make_synthetic_splits
 from netlift.evaluation.contracts import (
     MetricResult,
     UpliftMetric,
+    check_reportable_run,
     fingerprint_evaluation_set,
     fingerprint_indices,
     log_metric_result,
@@ -450,3 +451,59 @@ def test_full_result_is_attached_and_rebuilds_for_a_paired_comparison() -> None:
     assert rebuilt == [champion, challenger]
     difference = paired_difference(rebuilt[0], rebuilt[1])
     assert difference.value == pytest.approx(champion.value - challenger.value)
+
+
+# --------------------------------------------------------------------------- #
+# report-time check (T41)
+# --------------------------------------------------------------------------- #
+
+
+def _active_run_id() -> str:
+    import mlflow
+
+    active = mlflow.active_run()
+    assert active is not None
+    return active.info.run_id
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_a_run_logged_through_log_metric_result_is_reportable() -> None:
+    with start_run("reportable", task="T41", seed=1) as run:
+        log_metric_result(run, "K2", _result())
+        log_metric_result(run, "K2", _uplift_at_k(0.1))
+        run.log_metrics({"train_rows": 10})
+        run_id = _active_run_id()
+
+    assert check_reportable_run(run_id) == [
+        "K2_qini_coefficient",
+        "K2_uplift_at_10pct_overall",
+    ]
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_a_kpi_logged_with_log_kpi_alone_is_not_reportable() -> None:
+    with start_run("not reportable", task="T41", seed=1) as run:
+        log_metric_result(run, "K2", _result())
+        run.log_kpi("K1", value=0.01, ci_low=0.0, ci_high=0.02)
+        run_id = _active_run_id()
+
+    with pytest.raises(ContractError, match="K1") as caught:
+        check_reportable_run(run_id)
+    message = str(caught.value)
+    for name in (
+        "n_resamples",
+        "resample_fingerprint",
+        "evaluation_fingerprint",
+        "split_name",
+    ):
+        assert name in message
+    assert "K2_qini_coefficient" not in message
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_a_run_without_kpis_has_nothing_to_check() -> None:
+    with start_run("diagnostics only", task="T41", seed=1) as run:
+        run.log_metrics({"K1x": 1.0, "train_rows": 10})
+        run_id = _active_run_id()
+
+    assert check_reportable_run(run_id) == []

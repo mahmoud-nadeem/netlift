@@ -305,6 +305,13 @@ class Run:
         mlflow.set_tags(tags)
 
 
+def get_run_data(run_id: str) -> tuple[dict[str, float], dict[str, str]]:
+    """The metrics and parameters of a logged run, read from the configured tracking store."""
+    client = mlflow.tracking.MlflowClient(tracking_uri=_resolve_tracking_uri())
+    data = client.get_run(run_id).data
+    return dict(data.metrics), dict(data.params)
+
+
 def _resolve_tracking_uri() -> str:
     """Read the tracking URI from the environment, rejecting directory stores.
 

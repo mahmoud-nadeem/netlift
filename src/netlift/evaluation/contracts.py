@@ -46,6 +46,7 @@ import numpy.typing as npt
 
 from netlift.data.contracts import SplitName
 from netlift.utils.errors import ContractError
+from netlift.utils.tracking import get_run_data, load_kpi_ids
 
 if TYPE_CHECKING:
     from netlift.utils.tracking import Run
@@ -65,6 +66,13 @@ UPLIFT_AT_K_STRATEGIES: frozenset[str] = frozenset({"overall", "by_group"})
 
 # T41: log_metric_result attaches each full result here, one JSON file per key.
 RESAMPLES_ARTIFACT_DIR = "resamples"
+# T41: the parameters every reported KPI key must carry (check_reportable_run).
+REQUIRED_KPI_PARAMS: tuple[str, ...] = (
+    "n_resamples",
+    "resample_fingerprint",
+    "evaluation_fingerprint",
+    "split_name",
+)
 
 _SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
@@ -369,6 +377,37 @@ def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str:
     run.log_params(params)
     run.log_dict(asdict(result), resamples_artifact_file(key))
     return key
+
+
+def check_reportable_run(run_id: str) -> list[str]:
+    """Raise unless every KPI logged in the run carries the parameters of a reported result.
+
+    A KPI logged through ``log_kpi`` directly skips the resample, library and
+    fingerprint rules. Before a number from a run goes into a report, this finds
+    every KPI key in the run and requires ``<key>_n_resamples``,
+    ``<key>_resample_fingerprint``, ``<key>_evaluation_fingerprint`` and
+    ``<key>_split_name``, the parameters ``log_metric_result`` writes. Returns the
+    KPI keys checked.
+    """
+    metrics, params = get_run_data(run_id)
+    kpi_ids = load_kpi_ids()
+    keys = sorted(
+        key
+        for key in metrics
+        if not key.endswith(("_ci_low", "_ci_high"))
+        and any(key == kpi or key.startswith(f"{kpi}_") for kpi in kpi_ids)
+    )
+    missing = {
+        key: [name for name in REQUIRED_KPI_PARAMS if f"{key}_{name}" not in params]
+        for key in keys
+    }
+    missing = {key: names for key, names in missing.items() if names}
+    if missing:
+        raise ContractError(
+            f"Run {run_id} is not reportable: KPI parameters missing {missing}. "
+            "Reported numbers are logged with log_metric_result, not log_kpi."
+        )
+    return keys
 
 
 def resamples_artifact_file(key: str) -> str:

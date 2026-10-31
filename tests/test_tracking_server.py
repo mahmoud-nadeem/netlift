@@ -25,6 +25,7 @@ from mlflow.tracking import MlflowClient
 
 from netlift.evaluation.contracts import (
     MetricResult,
+    check_reportable_run,
     log_metric_result,
     resamples_artifact_file,
 )
@@ -192,3 +193,4 @@ def test_wrapper_logs_a_run_to_a_real_server(
     assert MetricResult(**document) == result
     # The server, not the client, wrote the file into its artifact folder.
     assert list(artifacts.rglob(f"{key}.json"))
+    assert check_reportable_run(found.info.run_id) == [key]
