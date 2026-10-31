@@ -33,6 +33,7 @@ from netlift.utils.tracking import experiment_name, run_name, start_run
 STARTUP_TIMEOUT_S = 120.0
 SHUTDOWN_TIMEOUT_S = 15.0
 FINGERPRINT = "cd" * 32
+EVALUATION_FINGERPRINT = "ef" * 32
 
 
 def _free_port() -> int:
@@ -139,6 +140,8 @@ def _metric_result() -> MetricResult:
         library_version="0.5.1",
         resamples=tuple(0.0123 + (i % 7 - 3) / 1e4 for i in range(1000)),
         resample_fingerprint=FINGERPRINT,
+        evaluation_fingerprint=EVALUATION_FINGERPRINT,
+        split_name="validation",
         settings={"k": 0.1, "strategy": "overall"},
     )
 
@@ -173,6 +176,8 @@ def test_wrapper_logs_a_run_to_a_real_server(
     assert data.params[f"{key}_library"] == "scikit-uplift==0.5.1"
     assert data.params[f"{key}_seed"] == "42"
     assert data.params[f"{key}_resample_fingerprint"] == FINGERPRINT
+    assert data.params[f"{key}_evaluation_fingerprint"] == EVALUATION_FINGERPRINT
+    assert data.params[f"{key}_split_name"] == "validation"
     assert data.tags["task"] == "T41"
     assert data.tags["mlflow.runName"] == "T41-server-check"
 
