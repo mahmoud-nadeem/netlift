@@ -165,8 +165,8 @@ an offer will have on them, and refuses to spend budget on customers who would h
 anyway --- or who react badly to being contacted. \\
 \textbf{Positioning} & \emph{A decision system for incremental profit optimization built on causal
 machine learning} --- not ``an uplift model''. The distinction is not marketing. A model produces a
-score; this system closes a loop: it scores, allocates a budget, assigns treatment while holding
-back a control group, and then measures what that decision actually produced --- replayed over a
+score; this system closes a loop: it scores, allocates a budget, splits the selected targets by
+their recorded arm, and then measures what that decision actually produced --- replayed over a
 held-out slice of historical experimental data, because that is what the available datasets allow
 (Section~\ref{sec:lifecycle}). Describe it this way in the report, in the presentation and on a CV. \\
 \textbf{Domain} & Business analytics / marketing science, directly transferable to banking,
@@ -475,6 +475,10 @@ confounding.
 The order of blocks 2--5 is not stylistic. Each is a gate: a failure at block~2 invalidates
 everything downstream, and a model trained before block~5 exists has nothing to be compared
 against and therefore no defensible claim attached to it.
+
+The plan schedules the Hillstrom baselines (T38) before the final split (T37) and the
+randomization report (T40). Results produced before T37 and T40 are final are therefore
+provisional, and are re-run once the split and the randomization report are final.
 
 \section{Causal Framing and Assumptions}
 \label{sec:assumptions}
@@ -836,8 +840,9 @@ quietly using the correct version.
 \item \textbf{Advanced challengers:} Uplift Random Forest; a shared-representation neural model,
 time-boxed to one week (21--27 November). The causal forest was cut on 13 October 2026 for the
 shorter schedule and is future work.
-\item \textbf{Champion selection:} by Qini coefficient on the \emph{validation} split with bootstrap
-intervals, confirmed once on the locked test split, and reported with the interval, never as a bare
+\item \textbf{Champion selection:} by out-of-fold Qini coefficient inside the training split's
+cross-validation. The \emph{validation} split is for reporting only, with bootstrap intervals; the
+champion is confirmed once on the locked test split and reported with the interval, never as a bare
 point estimate.
 \end{enumerate}
 
@@ -1022,6 +1027,12 @@ cost, incremental conversions with a confidence interval, incremental profit, an
 per unit spent. The output is one table and one chart in which the uplift policy, the response
 model, blanket contact and random contact appear side by side.
 
+The simulator has two modes. In \emph{equal-$k$} mode, which K1 uses, the uplift, response-model
+and random policies each contact the same $k$ customers, ranked by their own score, with no
+suppression and no abstention; blanket contact cannot share $k$ and is shown as a reference at
+$k = N$. In \emph{product} mode, the uplift policy follows the decision layer's policy modes
+(Section~\ref{sec:decision}), with suppression and abstention.
+
 \begin{goodbox}
 This is the artefact to open the final presentation with, and the one to put at the top of the
 README. It converts a Qini coefficient --- which means nothing outside the field --- into a
@@ -1097,6 +1108,8 @@ so the comparison can be made immediately instead of after a waiting period.
             v
   [3] ALLOCATE              decision layer selects targets under the budget;
             |               suppresses confidently negative uplift; abstains where thin
+            |               (product mode; for K1, top-k by each policy's own score,
+            |               no suppression, no abstention)
             v
   [4] SPLIT BY ARM          split the selected targets by their recorded arm; those
             |               in the original control arm are the holdout
@@ -1123,7 +1136,8 @@ holdout is a deployment requirement only (Section~\ref{sec:deployment-gap}).
 
 \textbf{For K1, both policies contact the same number of customers.} The uplift policy and the
 response-model policy each contact exactly the same $k$ customers, each ranked by its own score,
-with suppression not applied, so the comparison is at an identical contact count. Suppression of
+with no suppression and no abstention, so the comparison is at an identical contact count. Random
+contact uses the same $k$; blanket contact is shown as a reference at $k = N$. K1 is computed on Criteo with \texttt{conversion} as the target (\texttt{visit} and Hillstrom as sensitivity analyses). The primary $k$ is fixed in configuration and recorded in \texttt{docs/decisions/} before the first run; other values of $k$ are reported as sensitivity. Both policies are evaluated on the same bootstrap resamples (paired). Suppression of
 confidently negative uplift is evaluated on its own, not inside K1.
 
 \begin{keybox}
@@ -1136,8 +1150,8 @@ the replay proves nothing.
 \subsection{What the replay produces}
 
 For each scenario, one table: predicted incremental conversions against measured incremental
-conversions, each with an interval, for the uplift policy, the response-model policy, blanket
-contact and random contact at an identical budget.
+conversions, each with an interval, for the uplift policy, the response-model policy and random
+contact at the same $k$, with blanket contact shown as a reference at $k = N$.
 
 \begin{goodbox}
 This is the strongest single artefact the project can put in front of an evaluator, and a Qini
@@ -1312,6 +1326,10 @@ Now divide the scored population into deciles. Each decile holds about 1.40M row
 210{,}000 are control. At the measured control rate that is about \textbf{406 control
 conversions} per decile if they spread evenly, and fewer in the deciles that matter most.
 
+Reported metrics are computed on the validation or the locked test split, each 20\% of the file:
+about 813 control conversions per split ($4{,}063 \times 0.2$), so about \textbf{81 control
+conversions per decile}. That is the number behind every reported decile interval.
+
 \begin{keybox}
 Every uplift number this project reports for a decile rests on a few hundred control-group events.
 That is why:
@@ -1360,7 +1378,8 @@ it discards the randomization the entire project depends on. \texttt{validate\_f
 this column by name. \\
 Preprocessing across the split & Scalers, encoders, imputers and target-encoded categoricals are
 fitted on the training fold only and applied to the others. \\
-Metric overfitting & Hyperparameters are selected on validation, never on the test split. The test
+Metric overfitting & Hyperparameters and the champion are selected on out-of-fold Qini inside the
+training split, never on validation (reporting only) or on the test split. The test
 split is written down as locked and is touched exactly once, at champion confirmation. \\
 Duplicate rows & Checked for and documented. Duplicates that straddle a split boundary inflate every
 metric. \\
@@ -1514,7 +1533,8 @@ orderings, and the second one is the product.
   evaluation harness (Qini, AUUC, uplift@k, bootstrap CIs)
         |
         v
-  champion selection on validation  ->  confirm ONCE on locked test
+  champion selection on out-of-fold Qini (training CV);
+  validation for reporting only  ->  confirm ONCE on locked test
         |
         v
   MLflow Model Registry  ->  scoring service
@@ -1567,8 +1587,10 @@ headline result is still reported on \texttt{conversion}, and both are reported 
 \item \textbf{Baselines before estimators.} Non-negotiable, per Section~\ref{sec:baselines}.
 \item \textbf{One configuration file per experiment.} No hyperparameter is ever typed into a
 notebook cell. Every run reproducible from \texttt{config/*.yaml} plus a git commit hash.
-\item \textbf{Sampling for iteration, full data for reporting.} A stratified 10\% subsample of
-Criteo for iteration; every reported number computed on the full data.
+\item \textbf{Sampling for iteration, full splits for reporting.} A stratified 10\% subsample of
+Criteo, drawn inside each split, for iteration; every reported number is computed on the full
+validation or locked test split (20\% of the file each, Section~\ref{sec:thin}), never on the
+subsample.
 \item \textbf{Class imbalance.} With a 0.29\% positive rate, resampling or class weights change the
 base-rate calibration of both arms --- which changes their difference. Any imbalance handling must
 be applied \emph{identically} to the treated and control models and its effect on the uplift
@@ -1588,7 +1610,8 @@ can produce better uplift estimates than two individually excellent ones.
 \textbf{The required approach:} the objective for hyperparameter search is the Qini coefficient
 computed on out-of-fold predictions inside the training split, using stratified $K$-fold on the
 joint (treatment, outcome) key. Search with Optuna or a comparable optimiser; log every trial to
-MLflow; select on validation; confirm once on the locked test split.
+MLflow; select on that out-of-fold Qini, never on validation, which is for reporting only; confirm
+once on the locked test split.
 
 \textbf{Report the tuning honestly:} include, in the final report, how many trials were run for each
 model family. A champion selected after 200 trials compared against a baseline given 5 is not a
@@ -2334,9 +2357,9 @@ never a number pulled from nowhere.
 \textbf{K1 --- Incremental conversions versus the response model} \newline \emph{(the primary KPI)} &
 Simulated replay (Section~\ref{sec:lifecycle}) on the validation split for the M4 report;
 confirmed once on the locked test split at T70. Both policies contact exactly the same $k$
-customers under the same budget, each ranked by its own score, with suppression not applied;
+customers under the same budget, each ranked by its own score, with no suppression or abstention;
 incremental conversions measured as the treated rate minus the control rate within each policy's
-selected customers, by their recorded arm &
+selected customers, by their recorded arm. K1 is computed on Criteo with \texttt{conversion} as the target (\texttt{visit} and Hillstrom as sensitivity analyses). The primary $k$ is fixed in configuration and recorded in \texttt{docs/decisions/} before the first run; other values of $k$ are reported as sensitivity. Both policies are evaluated on the same bootstrap resamples (paired). &
 \emph{Measured.} The 95\% bootstrap interval of the \emph{difference} excludes
 zero in favour of the uplift policy. An interval containing zero is a reportable finding, not a
 failed project & M4 (6 Nov, validation); confirmed M6 (1 Dec, locked) & Ali \\
@@ -2358,7 +2381,8 @@ M6 (1 Dec, locked) & Ali \\
 \addlinespace
 \textbf{K5 --- Calibration} & Predicted versus measured incremental conversions per decile in the
 replay & \emph{Measured.} Differences straddle zero across deciles rather than showing a systematic
-direction & M5 & Ali \\
+direction. Wide intervals are not evidence of calibration: on a 20\% split a decile holds about 81
+control conversions (Section~\ref{sec:thin}) & M5 & Ali \\
 \addlinespace
 \textbf{K6 --- Randomization integrity} & Standardized mean difference per covariate, plus the
 ROC--AUC of a classifier trying to predict treatment from covariates alone &
@@ -2951,7 +2975,8 @@ control, which catches what the check misses. \\
 implementation; write a test asserting fold membership; do not hand-roll. \\
 \addlinespace
 \textbf{Scale problems on 14M rows} & Low--Medium & Parquet with column subsets, chunked
-preprocessing, stratified subsample for iteration, full data only for reporting. \\
+preprocessing, stratified subsample (inside each split) for iteration, full splits only for
+reporting. \\
 \addlinespace
 \textbf{Azure credit exhausted} & Low & Train locally; shut down compute after every session; budget
 alert set well below the limit. \\
@@ -3014,8 +3039,8 @@ images or text. Stated in the specification rather than disguised
 maintained randomized holdout plus drift monitors and a documented retraining rule
 (Sections~\ref{sec:drift}, \ref{sec:deployment-gap}). We designed it; we did not exercise it,
 because historical data gives us the counterfactual directly. \\
-``Did you tune on your test set?'' & No. Selection on validation, one confirmation pass on a locked
-test split, and the rule written down before the split was opened
+``Did you tune on your test set?'' & No. Selection on out-of-fold Qini inside the training split,
+validation for reporting only, one confirmation pass on a locked test split, and the rule written down before the split was opened
 (Section~\ref{sec:leakage}). \\
 ``What if the model is wrong about a customer?'' & The system returns an explicit
 \texttt{insufficient\_evidence} or \texttt{insufficient\_control\_data} verdict instead of a
@@ -3097,7 +3122,7 @@ technical documentation, test plan and test cases, bug log
  |  LEAKAGE AUDIT -> joint stratified split -> preprocess (train only) ->  |
  |  baselines (random | blanket | response) -> uplift estimators ->        |
  |  evaluation (Qini/AUUC/uplift@k + bootstrap CI + negative control) ->   |
- |  champion selection on validation -> confirm ONCE on locked test ->     |
+ |  champion selection (out-of-fold Qini) -> confirm ONCE on locked test ->|
  |  MLflow Model Registry                                                  |
  +=========================================================================+
 \end{verbatim}}

@@ -25,10 +25,14 @@ kpis:
       Simulated campaign replay (Spec Section 14) on the validation split for
       the M4 report (6 Nov); confirmed once on the locked test split at T70
       (1 Dec). Both policies contact exactly the same k customers under the
-      same budget, each ranked by its own score, with suppression not applied;
-      suppression is evaluated on its own. Incremental conversions are measured
-      as the treated rate minus the control rate within each policy's selected
-      customers, by their recorded arm.
+      same budget, each ranked by its own score, with no suppression or
+      abstention; suppression is evaluated on its own. Incremental conversions
+      are measured as the treated rate minus the control rate within each
+      policy's selected customers, by their recorded arm. Computed on Criteo,
+      target = conversion (visit and Hillstrom as sensitivity). The primary k
+      is fixed in config and recorded in docs/decisions before the first run;
+      other k values are reported as sensitivity. Both policies are evaluated
+      on the same bootstrap resamples (paired).
     gate_type: measured_no_target
     success_condition: >
       The 95% bootstrap interval of the difference (uplift policy minus response
@@ -93,7 +97,9 @@ kpis:
     gate_type: measured_no_target
     success_condition: >
       Differences straddle zero across deciles rather than showing a systematic
-      direction (over- or under-prediction).
+      direction (over- or under-prediction). Wide intervals are not evidence
+      of calibration: on a 20% split a decile holds about 81 control
+      conversions (Spec Section 17).
     first_reported: M5
     owner: Ali
 
