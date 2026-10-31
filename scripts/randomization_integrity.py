@@ -40,8 +40,14 @@ DEFAULTS: dict[str, Any] = {
 }
 
 HILLSTROM_FEATURES = [
-    "recency", "history_segment", "history", "mens", "womens",
-    "zip_code", "newbie", "channel",
+    "recency",
+    "history_segment",
+    "history",
+    "mens",
+    "womens",
+    "zip_code",
+    "newbie",
+    "channel",
 ]
 HILLSTROM_CATEGORICAL = ["history_segment", "zip_code", "channel"]
 HILLSTROM_ARM = "segment"
@@ -77,17 +83,23 @@ def smd(x_t: np.ndarray, x_c: np.ndarray) -> float:
     return float((x_t.mean() - x_c.mean()) / np.sqrt(pooled_var))
 
 
-def cross_fit(X: pd.DataFrame, y: np.ndarray, groups: np.ndarray | None, seed: int) -> np.ndarray:
+def cross_fit(
+    X: pd.DataFrame, y: np.ndarray, groups: np.ndarray | None, seed: int
+) -> np.ndarray:
     """Out-of-fold treatment probabilities; group-aware if groups is given."""
     model = HistGradientBoostingClassifier(max_iter=100, random_state=seed)
     if groups is None:
         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
         return cross_val_predict(model, X, y, cv=cv, method="predict_proba")[:, 1]
     cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
-    return cross_val_predict(model, X, y, cv=cv, groups=groups, method="predict_proba")[:, 1]
+    return cross_val_predict(model, X, y, cv=cv, groups=groups, method="predict_proba")[
+        :, 1
+    ]
 
 
-def auc_with_ci(y: np.ndarray, p: np.ndarray, n_boot: int, seed: int) -> tuple[float, float, float]:
+def auc_with_ci(
+    y: np.ndarray, p: np.ndarray, n_boot: int, seed: int
+) -> tuple[float, float, float]:
     """AUC with a 95% percentile bootstrap CI."""
     auc = float(roc_auc_score(y, p))
     rng = np.random.default_rng(seed)
@@ -100,7 +112,9 @@ def auc_with_ci(y: np.ndarray, p: np.ndarray, n_boot: int, seed: int) -> tuple[f
     return auc, float(lo), float(hi)
 
 
-def run_comparison(name: str, X: pd.DataFrame, treated: np.ndarray, cfg: dict[str, Any]) -> dict[str, Any]:
+def run_comparison(
+    name: str, X: pd.DataFrame, treated: np.ndarray, cfg: dict[str, Any]
+) -> dict[str, Any]:
     """SMDs, treatment AUC (naive and group-aware) and overlap for one comparison."""
     if X.isna().any().any():
         raise ValueError(f"{name}: missing values in features")
@@ -109,16 +123,20 @@ def run_comparison(name: str, X: pd.DataFrame, treated: np.ndarray, cfg: dict[st
     if n_t == 0 or n_c == 0:
         raise ValueError(f"{name}: one arm is empty ({n_t} treated, {n_c} control)")
 
-    se = float(np.sqrt(1 / n_t + 1 / n_c))  # approx. sampling noise of an SMD under no imbalance
+    se = float(
+        np.sqrt(1 / n_t + 1 / n_c)
+    )  # approx. sampling noise of an SMD under no imbalance
     rows = []
     for col in X.columns:
         x = X[col].to_numpy(dtype=np.float64)
-        rows.append({
-            "feature": col,
-            "mean_treated": float(x[treated].mean()),
-            "mean_control": float(x[~treated].mean()),
-            "smd": smd(x[treated], x[~treated]),
-        })
+        rows.append(
+            {
+                "feature": col,
+                "mean_treated": float(x[treated].mean()),
+                "mean_control": float(x[~treated].mean()),
+                "smd": smd(x[treated], x[~treated]),
+            }
+        )
     smd_df = pd.DataFrame(rows)
     smd_df["abs_smd"] = smd_df["smd"].abs()
     smd_df["z"] = smd_df["smd"] / se
@@ -132,7 +150,9 @@ def run_comparison(name: str, X: pd.DataFrame, treated: np.ndarray, cfg: dict[st
     seed = int(cfg["seed"])
     Xs, ys = X, y
     if cfg["auc_sample"] and len(y) > cfg["auc_sample"]:
-        idx = np.random.default_rng(seed).choice(len(y), size=int(cfg["auc_sample"]), replace=False)
+        idx = np.random.default_rng(seed).choice(
+            len(y), size=int(cfg["auc_sample"]), replace=False
+        )
         Xs, ys = X.iloc[idx].reset_index(drop=True), y[idx]
     # Rows with identical feature profiles are kept together in the same CV fold, so the model
     # cannot gain AUC just by memorising duplicated profiles.
@@ -149,11 +169,17 @@ def run_comparison(name: str, X: pd.DataFrame, treated: np.ndarray, cfg: dict[st
 
     reasons = []
     if max_smd > cfg["smd_threshold"]:
-        reasons.append(f"{len(flagged)} covariate(s) with |SMD| > {cfg['smd_threshold']}: {', '.join(flagged[:5])}")
+        reasons.append(
+            f"{len(flagged)} covariate(s) with |SMD| > {cfg['smd_threshold']}: {', '.join(flagged[:5])}"
+        )
     if lo_g > cfg["auc_fail"]:
-        reasons.append(f"treatment predictable from covariates (AUC CI lower bound {lo_g:.4f} > {cfg['auc_fail']})")
+        reasons.append(
+            f"treatment predictable from covariates (AUC CI lower bound {lo_g:.4f} > {cfg['auc_fail']})"
+        )
     if not overlap_ok:
-        reasons.append(f"overlap violated ({outside:.2%} of rows have propensity outside [{eps}, {1 - eps}])")
+        reasons.append(
+            f"overlap violated ({outside:.2%} of rows have propensity outside [{eps}, {1 - eps}])"
+        )
     if reasons:
         status = "FAIL"
     elif lo_g > 0.5 or max(abs(z) for z in smd_df["z"]) > 5:
@@ -162,16 +188,39 @@ def run_comparison(name: str, X: pd.DataFrame, treated: np.ndarray, cfg: dict[st
         status = "PASS"
     log.info(
         "%s: max|SMD|=%.4f (%s) AUC naive=%.4f grouped=%.4f [%.4f, %.4f] outside=%.4f -> %s",
-        name, max_smd, top_feature, auc_n, auc_g, lo_g, hi_g, outside, status,
+        name,
+        max_smd,
+        top_feature,
+        auc_n,
+        auc_g,
+        lo_g,
+        hi_g,
+        outside,
+        status,
     )
     return {
-        "name": name, "n_treated": n_t, "n_control": n_c, "smd": smd_df, "se": se,
-        "max_smd": max_smd, "top_feature": top_feature, "flagged": flagged,
-        "auc_naive": auc_n, "auc_naive_lo": lo_n, "auc_naive_hi": hi_n,
-        "auc": auc_g, "auc_lo": lo_g, "auc_hi": hi_g, "n_auc": len(ys),
+        "name": name,
+        "n_treated": n_t,
+        "n_control": n_c,
+        "smd": smd_df,
+        "se": se,
+        "max_smd": max_smd,
+        "top_feature": top_feature,
+        "flagged": flagged,
+        "auc_naive": auc_n,
+        "auc_naive_lo": lo_n,
+        "auc_naive_hi": hi_n,
+        "auc": auc_g,
+        "auc_lo": lo_g,
+        "auc_hi": hi_g,
+        "n_auc": len(ys),
         "n_unique_profiles": len(np.unique(groups)),
-        "p_min": float(p_group.min()), "p_max": float(p_group.max()),
-        "outside": outside, "overlap_ok": overlap_ok, "reasons": reasons, "status": status,
+        "p_min": float(p_group.min()),
+        "p_max": float(p_group.max()),
+        "outside": outside,
+        "overlap_ok": overlap_ok,
+        "reasons": reasons,
+        "status": status,
     }
 
 
@@ -182,7 +231,9 @@ def hillstrom_comparisons(path: str, cfg: dict[str, Any]) -> list[dict[str, Any]
     unknown = set(arms.unique()) - HILLSTROM_ARM_VALUES
     if unknown:
         raise ValueError(f"Unexpected Hillstrom arm values: {unknown}")
-    X_all = pd.get_dummies(df[HILLSTROM_FEATURES], columns=HILLSTROM_CATEGORICAL, dtype=float).astype(float)
+    X_all = pd.get_dummies(
+        df[HILLSTROM_FEATURES], columns=HILLSTROM_CATEGORICAL, dtype=float
+    ).astype(float)
     pairs = [
         ("Hillstrom: Mens E-Mail vs No E-Mail", "Mens E-Mail", "No E-Mail"),
         ("Hillstrom: Womens E-Mail vs No E-Mail", "Womens E-Mail", "No E-Mail"),
@@ -191,11 +242,20 @@ def hillstrom_comparisons(path: str, cfg: dict[str, Any]) -> list[dict[str, Any]
     results = []
     for name, t, c in pairs:
         keep = arms.isin([t, c]).to_numpy()
-        results.append(run_comparison(name, X_all[keep].reset_index(drop=True), (arms[keep] == t).to_numpy(), cfg))
+        results.append(
+            run_comparison(
+                name,
+                X_all[keep].reset_index(drop=True),
+                (arms[keep] == t).to_numpy(),
+                cfg,
+            )
+        )
     return results
 
 
-def criteo_comparison(path: str, nrows: int | None, cfg: dict[str, Any]) -> dict[str, Any]:
+def criteo_comparison(
+    path: str, nrows: int | None, cfg: dict[str, Any]
+) -> dict[str, Any]:
     """Treatment vs control on Criteo (f0-f11 only; `exposure` excluded by design)."""
     df = read_table(path, CRITEO_FEATURES + ["treatment"])
     if nrows and nrows < len(df):
@@ -203,7 +263,12 @@ def criteo_comparison(path: str, nrows: int | None, cfg: dict[str, Any]) -> dict
         df = df.sample(n=nrows, random_state=int(cfg["seed"])).reset_index(drop=True)
     if not set(df["treatment"].unique()) <= {0, 1}:
         raise ValueError("Criteo treatment column is not 0/1")
-    return run_comparison("Criteo: treatment vs control", df[CRITEO_FEATURES], df["treatment"].to_numpy() == 1, cfg)
+    return run_comparison(
+        "Criteo: treatment vs control",
+        df[CRITEO_FEATURES],
+        df["treatment"].to_numpy() == 1,
+        cfg,
+    )
 
 
 def md_table(df: pd.DataFrame) -> str:
@@ -216,24 +281,43 @@ def md_table(df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def build_report(results: list[dict[str, Any]], cfg: dict[str, Any], argv: list[str]) -> str:
+def build_report(
+    results: list[dict[str, Any]], cfg: dict[str, Any], argv: list[str]
+) -> str:
     """Build the Markdown report."""
     failed = [r for r in results if r["status"] == "FAIL"]
     noted = [r for r in results if r["status"] == "NOTE"]
     out = [
-        "# Randomization Integrity Check", "",
-        f"Report date: {datetime.now(tz=UTC).date().isoformat()}. Generated by `scripts/randomization_integrity.py`.", "",
+        "# Randomization Integrity Check",
+        "",
+        f"Report date: {datetime.now(tz=UTC).date().isoformat()}. Generated by `scripts/randomization_integrity.py`.",
+        "",
     ]
     if failed:
-        out += ["## Verdict: RANDOMIZATION FAILED. STOP, DO NOT MODEL (spec Section 20)", ""]
+        out += [
+            "## Verdict: RANDOMIZATION FAILED. STOP, DO NOT MODEL (spec Section 20)",
+            "",
+        ]
         for r in failed:
             out.append(f"- **{r['name']}**: " + "; ".join(r["reasons"]) + ".")
-        out += ["", ("The team must be told now: effect estimates on these comparisons cannot be treated as causal "
-                "until this is explained."), ""]
+        out += [
+            "",
+            (
+                "The team must be told now: effect estimates on these comparisons cannot be treated as causal "
+                "until this is explained."
+            ),
+            "",
+        ]
     else:
-        out += ["## Verdict: PASS", "",
-                ("Every comparison satisfies the pre-registered criteria (SMD threshold, treatment-predictability "
-                "AUC, overlap). Modelling may proceed."), ""]
+        out += [
+            "## Verdict: PASS",
+            "",
+            (
+                "Every comparison satisfies the pre-registered criteria (SMD threshold, treatment-predictability "
+                "AUC, overlap). Modelling may proceed."
+            ),
+            "",
+        ]
         if noted:
             out += ["Notes (detectable but below the failure thresholds):", ""]
             for r in noted:
@@ -244,44 +328,78 @@ def build_report(results: list[dict[str, Any]], cfg: dict[str, Any], argv: list[
                     f"Small, but not zero. All SMDs stay under {cfg['smd_threshold']}."
                 )
             out.append("")
-    summary = pd.DataFrame([{
-        "comparison": r["name"], "n_treated": r["n_treated"], "n_control": r["n_control"],
-        "max_abs_smd": r["max_smd"], "auc_group_cv": r["auc"],
-        "auc_ci_95": f"[{r['auc_lo']:.4f}, {r['auc_hi']:.4f}]",
-        "rows_outside_overlap": r["outside"], "status": r["status"],
-    } for r in results])
+    summary = pd.DataFrame(
+        [
+            {
+                "comparison": r["name"],
+                "n_treated": r["n_treated"],
+                "n_control": r["n_control"],
+                "max_abs_smd": r["max_smd"],
+                "auc_group_cv": r["auc"],
+                "auc_ci_95": f"[{r['auc_lo']:.4f}, {r['auc_hi']:.4f}]",
+                "rows_outside_overlap": r["outside"],
+                "status": r["status"],
+            }
+            for r in results
+        ]
+    )
     out += ["## Summary", "", md_table(summary), ""]
     for r in results:
         out += [
-            f"## {r['name']}", "",
+            f"## {r['name']}",
+            "",
             f"- Status: **{r['status']}**",
             f"- Max |SMD|: {r['max_smd']:.4f} (`{r['top_feature']}`); expected sampling noise of one SMD: {r['se']:.4f}",
             f"- Covariates above the SMD threshold ({cfg['smd_threshold']}): {', '.join(r['flagged']) or 'none'}",
-            (f"- Treatment AUC, group-aware CV (used for the verdict): {r['auc']:.4f} "
-            f"(95% bootstrap CI {r['auc_lo']:.4f} to {r['auc_hi']:.4f}, n={r['n_auc']:,}, "
-            f"{r['n_unique_profiles']:,} distinct feature profiles)"),
-            (f"- Treatment AUC, plain CV (for comparison): {r['auc_naive']:.4f} "
-            f"(95% CI {r['auc_naive_lo']:.4f} to {r['auc_naive_hi']:.4f})"),
-            (f"- Overlap: cross-fitted propensity ranges from {r['p_min']:.4f} to {r['p_max']:.4f}; "
-            f"{r['outside']:.4%} of rows outside [{cfg['overlap_eps']}, {1 - cfg['overlap_eps']}] "
-            f"-> {'OK' if r['overlap_ok'] else 'VIOLATED'}"),
-            "", "SMD for every covariate, sorted by |SMD| (`z` = SMD / expected sampling noise):", "",
-            md_table(r["smd"][["feature", "mean_treated", "mean_control", "smd", "z"]]), "",
+            (
+                f"- Treatment AUC, group-aware CV (used for the verdict): {r['auc']:.4f} "
+                f"(95% bootstrap CI {r['auc_lo']:.4f} to {r['auc_hi']:.4f}, n={r['n_auc']:,}, "
+                f"{r['n_unique_profiles']:,} distinct feature profiles)"
+            ),
+            (
+                f"- Treatment AUC, plain CV (for comparison): {r['auc_naive']:.4f} "
+                f"(95% CI {r['auc_naive_lo']:.4f} to {r['auc_naive_hi']:.4f})"
+            ),
+            (
+                f"- Overlap: cross-fitted propensity ranges from {r['p_min']:.4f} to {r['p_max']:.4f}; "
+                f"{r['outside']:.4%} of rows outside [{cfg['overlap_eps']}, {1 - cfg['overlap_eps']}] "
+                f"-> {'OK' if r['overlap_ok'] else 'VIOLATED'}"
+            ),
+            "",
+            "SMD for every covariate, sorted by |SMD| (`z` = SMD / expected sampling noise):",
+            "",
+            md_table(r["smd"][["feature", "mean_treated", "mean_control", "smd", "z"]]),
+            "",
         ]
     out += [
-        "## Method and pre-registered thresholds", "",
-        (f"- SMD = (mean_treated - mean_control) / sqrt((var_treated + var_control) / 2). Categorical covariates are "
-        f"one-hot encoded, one SMD per level. Flag if |SMD| > {cfg['smd_threshold']} (spec: conventional 0.1, set in config)."),
-        (f"- Treatment AUC: 5-fold out-of-fold predictions from a gradient-boosted classifier using covariates only. "
-        f"Rows with identical covariate profiles are kept in the same fold (StratifiedGroupKFold) so duplicated profiles "
-        f"cannot inflate the AUC. FAIL if the lower bound of the 95% bootstrap CI exceeds {cfg['auc_fail']} "
-        f"(team choice: the spec says only 'materially above 0.5')."),
-        (f"- Overlap: out-of-fold propensity scores must lie inside [{cfg['overlap_eps']}, {1 - cfg['overlap_eps']}] for at "
-        f"least {1 - cfg['overlap_max_frac']:.0%} of rows."),
-        ("- Excluded: outcomes (visit, conversion, spend) and Criteo `exposure` (post-treatment, zero for every control row "
-        "by construction, per the spec)."),
-        f"- Seed {cfg['seed']}; AUC computed on at most {cfg['auc_sample']:,} random rows per comparison.", "",
-        "## Reproduce", "", "```bash", "python " + " ".join(argv), "```", "",
+        "## Method and pre-registered thresholds",
+        "",
+        (
+            f"- SMD = (mean_treated - mean_control) / sqrt((var_treated + var_control) / 2). Categorical covariates are "
+            f"one-hot encoded, one SMD per level. Flag if |SMD| > {cfg['smd_threshold']} (spec: conventional 0.1, set in config)."
+        ),
+        (
+            f"- Treatment AUC: 5-fold out-of-fold predictions from a gradient-boosted classifier using covariates only. "
+            f"Rows with identical covariate profiles are kept in the same fold (StratifiedGroupKFold) so duplicated profiles "
+            f"cannot inflate the AUC. FAIL if the lower bound of the 95% bootstrap CI exceeds {cfg['auc_fail']} "
+            f"(team choice: the spec says only 'materially above 0.5')."
+        ),
+        (
+            f"- Overlap: out-of-fold propensity scores must lie inside [{cfg['overlap_eps']}, {1 - cfg['overlap_eps']}] for at "
+            f"least {1 - cfg['overlap_max_frac']:.0%} of rows."
+        ),
+        (
+            "- Excluded: outcomes (visit, conversion, spend) and Criteo `exposure` (post-treatment, zero for every control row "
+            "by construction, per the spec)."
+        ),
+        f"- Seed {cfg['seed']}; AUC computed on at most {cfg['auc_sample']:,} random rows per comparison.",
+        "",
+        "## Reproduce",
+        "",
+        "```bash",
+        "python " + " ".join(argv),
+        "```",
+        "",
     ]
     return "\n".join(out)
 
@@ -291,7 +409,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--hillstrom", help="Path to Hillstrom CSV/Parquet")
     ap.add_argument("--criteo", help="Path to Criteo CSV/Parquet")
-    ap.add_argument("--criteo-nrows", type=int, default=None, help="Use a random sample of N Criteo rows (testing)")
+    ap.add_argument(
+        "--criteo-nrows",
+        type=int,
+        default=None,
+        help="Use a random sample of N Criteo rows (testing)",
+    )
     ap.add_argument("--config", default="config/randomization.yaml")
     ap.add_argument("--out", default="reports/randomization-integrity.md")
     args = ap.parse_args()
