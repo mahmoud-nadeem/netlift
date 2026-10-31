@@ -78,7 +78,9 @@ after.
    one in when it lands.
 2. **Reviews within 24 hours.** When a pull request asks for your review, review it within 24 hours.
    If you cannot, say so in the group inside that window, and another member reviews it instead.
-   Any member can approve; the partner is the first choice, not the only one.
+   Any member can approve; the partner is the first choice, not the only one. The reviewer checks
+   each number against its source, and re-runs the script when the result depends on one. A pull
+   request updated after review goes back to the reviewer the same day.
 3. **Stuck for an hour, ask.** Post in the group: the issue number, what you tried, what you need.
    **Stuck for a day**, the team leader decides the same day: unblock it, simplify it, or move it.
 4. **Make work visible early.** Open a draft pull request within 48 hours of starting a task, and

@@ -8,7 +8,8 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    # Pinned like Python and every dependency; moving to a newer image is a deliberate PR.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
