@@ -98,9 +98,32 @@ number without one. This project's rule is that every reported result carries an
 interval — and a rule that depends on five people remembering it will be broken
 at least once. Here it is enforced by the code instead.
 
-It **checks the three numbers are consistent**: bounds the right way round, and
-the value inside its own interval. Both of those have been typos in real
-projects, and both survive review because the numbers look plausible.
+It **checks the three numbers are consistent**. Bounds the wrong way round are
+rejected: that is always a typo, and it survives review because the numbers look
+plausible. A value outside its own interval is logged with a warning rather than
+rejected, because a percentile bootstrap does not guarantee the point estimate
+lies inside the interval (`docs/design/interfaces.md`, interface 2). The run also
+gets the tag `<key>_value_outside_interval = "true"`, so the case shows in the
+MLflow UI and not only in the console. The warning and the tag are the prompt to
+check it is not a typo.
+
+**One KPI, several metrics.** K2 covers both the Qini coefficient and AUUC. Pass
+`metric` to log each under its own key, `<KPI>_<metric name>`, with its own
+interval:
+
+```python
+run.log_kpi(
+    "K2", value=0.0847, ci_low=0.0612, ci_high=0.1103, metric="qini_coefficient"
+)
+run.log_kpi("K2", value=0.0310, ci_low=0.0200, ci_high=0.0450, metric="auuc")
+# metrics: K2_qini_coefficient, K2_qini_coefficient_ci_low, ..., K2_auuc, K2_auuc_ci_low, ...
+```
+
+`log_kpi` returns the key it used. Without `metric`, the key is the KPI id
+itself, as before. The evaluation harness logs through `log_metric_result`
+(`netlift.evaluation.contracts`), which always passes the metric name and
+prefixes every parameter with the full key, because MLflow refuses to change a
+parameter's value within a run.
 
 Diagnostics during development still go through `log_metrics`. `log_kpi` is for
 numbers that will be defended.
