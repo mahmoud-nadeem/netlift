@@ -13,6 +13,7 @@ numpy==2.4.6
 pandas==3.0.6
 scipy==1.17.1
 scikit-learn==1.9.1
+pyarrow==25.0.1
 
 # --- Uplift modelling and causal inference ---
 scikit-uplift==0.5.1
