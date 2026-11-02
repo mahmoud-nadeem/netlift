@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -9,18 +10,23 @@ import numpy.typing as npt
 import pandas as pd
 import pytest
 
+from netlift.data.synthetic import make_synthetic_splits
 from netlift.evaluation.contracts import (
     MetricResult,
     UpliftMetric,
+    check_reportable_run,
+    fingerprint_evaluation_set,
     fingerprint_indices,
     log_metric_result,
     paired_difference,
+    resamples_artifact_file,
     within_arm_bootstrap_indices,
 )
 from netlift.utils.errors import ContractError
 from netlift.utils.tracking import start_run
 
 FINGERPRINT = "ab" * 32
+EVALUATION_FINGERPRINT = "ef" * 32
 
 
 def _result(**overrides: object) -> MetricResult:
@@ -35,6 +41,8 @@ def _result(**overrides: object) -> MetricResult:
         "library": "scikit-uplift",
         "library_version": "0.5.1",
         "resample_fingerprint": FINGERPRINT,
+        "evaluation_fingerprint": EVALUATION_FINGERPRINT,
+        "split_name": "validation",
     }
     fields.update(overrides)
     if "resamples" not in fields:
@@ -165,7 +173,13 @@ def test_indices_stay_within_arms() -> None:
 
 
 def _mean_uplift(
-    uplift: npt.NDArray[np.float64], t: npt.NDArray[np.int64], *, n: int, seed: int
+    uplift: npt.NDArray[np.float64],
+    t: npt.NDArray[np.int64],
+    *,
+    n: int,
+    seed: int,
+    y: npt.NDArray[np.int64] | None = None,
+    split_name: str = "validation",
 ) -> MetricResult:
     """A toy metric built the way T39 is meant to build real ones."""
     values = tuple(
@@ -187,6 +201,10 @@ def _mean_uplift(
         resample_fingerprint=fingerprint_indices(
             within_arm_bootstrap_indices(t, n_resamples=n, seed=seed)
         ),
+        evaluation_fingerprint=fingerprint_evaluation_set(
+            np.zeros_like(t) if y is None else y, t
+        ),
+        split_name=split_name,  # type: ignore[arg-type]
     )
 
 
@@ -204,6 +222,8 @@ def test_same_t_and_seed_give_the_same_fingerprint_and_a_paired_difference() -> 
     assert difference.ci_low == pytest.approx(np.percentile(per_resample, 2.5))
     assert difference.ci_high == pytest.approx(np.percentile(per_resample, 97.5))
     assert difference.resample_fingerprint == champion.resample_fingerprint
+    assert difference.evaluation_fingerprint == champion.evaluation_fingerprint
+    assert difference.split_name == "validation"
 
 
 def test_a_different_seed_cannot_be_paired() -> None:
@@ -248,6 +268,59 @@ def test_different_settings_cannot_be_paired() -> None:
         paired_difference(_uplift_at_k(0.1), _uplift_at_k(0.3))
 
 
+def test_visit_and_conversion_on_the_same_t_cannot_be_paired() -> None:
+    """Ali's round-3 point: the two targets share t, so they share resamples."""
+    visit = make_synthetic_splits("visit", seed=4).validation
+    conversion = make_synthetic_splits("conversion", seed=4).validation
+    assert np.array_equal(visit.t, conversion.t)
+    uplift = np.random.default_rng(3).normal(0.05, 0.02, size=visit.n_rows)
+    a = _mean_uplift(uplift, visit.t, n=50, seed=1, y=visit.y)
+    b = _mean_uplift(uplift, conversion.t, n=50, seed=1, y=conversion.y)
+    assert a.resample_fingerprint == b.resample_fingerprint
+    with pytest.raises(ContractError, match="evaluation_fingerprint"):
+        paired_difference(a, b)
+
+
+def test_validation_and_test_cannot_be_paired() -> None:
+    with pytest.raises(ContractError, match="split_name"):
+        paired_difference(_result(split_name="validation"), _result(split_name="test"))
+
+
+@pytest.mark.parametrize("field", ["resample_fingerprint", "evaluation_fingerprint"])
+def test_a_fingerprint_only_mismatch_cannot_be_paired(field: str) -> None:
+    with pytest.raises(ContractError, match=rf"differ: \['{field}'\]"):
+        paired_difference(_result(), _result(**{field: "cd" * 32}))
+
+
+def test_an_n_resamples_only_mismatch_cannot_be_paired() -> None:
+    with pytest.raises(ContractError, match=r"differ: \['n_resamples'\]"):
+        paired_difference(_result(n_resamples=1000), _result(n_resamples=1001))
+
+
+@pytest.mark.parametrize("field", ["evaluation_fingerprint", "split_name"])
+def test_evaluation_set_fields_are_validated(field: str) -> None:
+    with pytest.raises(ContractError, match=field):
+        _result(**{field: "nope"})
+
+
+def test_evaluation_fingerprint_depends_on_y_and_t() -> None:
+    t = np.array([0, 1, 0, 1])
+    base = fingerprint_evaluation_set(np.array([0, 0, 1, 1]), t)
+    assert base == fingerprint_evaluation_set([0, 0, 1, 1], [0, 1, 0, 1])
+    assert base != fingerprint_evaluation_set(np.array([0, 1, 1, 1]), t)
+    assert base != fingerprint_evaluation_set(
+        np.array([0, 0, 1, 1]), np.array([1, 1, 0, 0])
+    )
+
+
+@pytest.mark.parametrize(
+    ("y", "t"), [([0, 1], [0, 1, 1]), ([0, 2], [0, 1]), ([], []), ([[0, 1]], [[0, 1]])]
+)
+def test_evaluation_fingerprint_rejects_bad_input(y: list[int], t: list[int]) -> None:
+    with pytest.raises(ContractError):
+        fingerprint_evaluation_set(y, t)
+
+
 # --------------------------------------------------------------------------- #
 # logging through the tracking wrapper
 # --------------------------------------------------------------------------- #
@@ -273,7 +346,7 @@ def _last_run() -> pd.Series:
 
 @pytest.mark.usefixtures("isolated_tracking")
 def test_result_is_logged_under_kpi_and_metric_key() -> None:
-    with start_run("metric result", seed=1) as run:
+    with start_run("metric result", task="T36", seed=1) as run:
         key = log_metric_result(run, "K2", _uplift_at_k(0.3))
 
     assert key == "K2_uplift_at_30pct_overall"
@@ -283,13 +356,18 @@ def test_result_is_logged_under_kpi_and_metric_key() -> None:
     assert row["params.K2_uplift_at_30pct_overall_library"] == "scikit-uplift==0.5.1"
     assert row["params.K2_uplift_at_30pct_overall_strategy"] == "overall"
     assert row["params.K2_uplift_at_30pct_overall_resample_fingerprint"] == FINGERPRINT
+    assert (
+        row["params.K2_uplift_at_30pct_overall_evaluation_fingerprint"]
+        == EVALUATION_FINGERPRINT
+    )
+    assert row["params.K2_uplift_at_30pct_overall_split_name"] == "validation"
     assert row["tags.K2_uplift_at_30pct_overall_confidence"] == "0.95"
 
 
 @pytest.mark.usefixtures("isolated_tracking")
 def test_two_k_values_share_one_run() -> None:
     """The collision Ali found: k=0.1 and k=0.3 used to share one key."""
-    with start_run("two k", seed=1) as run:
+    with start_run("two k", task="T36", seed=1) as run:
         first = log_metric_result(run, "K2", _uplift_at_k(0.1))
         second = log_metric_result(run, "K2", _uplift_at_k(0.3))
 
@@ -308,7 +386,7 @@ def test_qini_and_auuc_share_one_run_under_k2() -> None:
     auuc = _result(
         name="auuc", value=0.031, ci_low=0.020, ci_high=0.045, n_resamples=2000, seed=8
     )
-    with start_run("two metrics", seed=1) as run:
+    with start_run("two metrics", task="T36", seed=1) as run:
         log_metric_result(run, "K2", qini)
         log_metric_result(run, "K2", auuc)
 
@@ -324,7 +402,7 @@ def test_qini_and_auuc_share_one_run_under_k2() -> None:
 
 @pytest.mark.usefixtures("isolated_tracking")
 def test_outside_interval_result_is_tagged() -> None:
-    with start_run("outside", seed=1) as run:
+    with start_run("outside", task="T36", seed=1) as run:
         log_metric_result(run, "K2", _result(name="auuc", value=0.2))
 
     row = _last_run()
@@ -335,7 +413,97 @@ def test_outside_interval_result_is_tagged() -> None:
 @pytest.mark.usefixtures("isolated_tracking")
 def test_too_few_resamples_cannot_be_reported() -> None:
     with (
-        start_run("few resamples", seed=1) as run,
+        start_run("few resamples", task="T36", seed=1) as run,
         pytest.raises(ContractError, match="at least 1000"),
     ):
         log_metric_result(run, "K2", _result(n_resamples=200))
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_full_result_is_attached_and_rebuilds_for_a_paired_comparison() -> None:
+    """T41: a champion and a challenger from different runs can still be paired."""
+    import mlflow
+
+    champion = _uplift_at_k(0.1)
+    challenger = _result(
+        name="uplift_at_k",
+        settings={"k": 0.1, "strategy": "overall"},
+        value=0.05,
+        resamples=tuple(0.05 + i / 1e5 for i in range(1000)),
+    )
+    run_ids = []
+    for label, result in (("champion", champion), ("challenger", challenger)):
+        with start_run(label, task="T36", seed=1) as run:
+            key = log_metric_result(run, "K1", result)
+            run_ids.append(mlflow.active_run().info.run_id)  # type: ignore[union-attr]
+
+    assert resamples_artifact_file(key) == "resamples/K1_uplift_at_10pct_overall.json"
+    rebuilt = []
+    for run_id in run_ids:
+        path = mlflow.artifacts.download_artifacts(
+            run_id=run_id, artifact_path=resamples_artifact_file(key)
+        )
+        document = json.loads(Path(path).read_text(encoding="utf-8"))
+        assert document["resample_fingerprint"] == FINGERPRINT
+        assert len(document["resamples"]) == document["n_resamples"] == 1000
+        rebuilt.append(MetricResult(**document))
+
+    assert rebuilt == [champion, challenger]
+    difference = paired_difference(rebuilt[0], rebuilt[1])
+    assert difference.value == pytest.approx(champion.value - challenger.value)
+
+
+# --------------------------------------------------------------------------- #
+# report-time check (T41)
+# --------------------------------------------------------------------------- #
+
+
+def _active_run_id() -> str:
+    import mlflow
+
+    active = mlflow.active_run()
+    assert active is not None
+    return active.info.run_id
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_a_run_logged_through_log_metric_result_is_reportable() -> None:
+    with start_run("reportable", task="T41", seed=1) as run:
+        log_metric_result(run, "K2", _result())
+        log_metric_result(run, "K2", _uplift_at_k(0.1))
+        run.log_metrics({"train_rows": 10})
+        run_id = _active_run_id()
+
+    assert check_reportable_run(run_id) == [
+        "K2_qini_coefficient",
+        "K2_uplift_at_10pct_overall",
+    ]
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_a_kpi_logged_with_log_kpi_alone_is_not_reportable() -> None:
+    with start_run("not reportable", task="T41", seed=1) as run:
+        log_metric_result(run, "K2", _result())
+        run.log_kpi("K1", value=0.01, ci_low=0.0, ci_high=0.02)
+        run_id = _active_run_id()
+
+    with pytest.raises(ContractError, match="K1") as caught:
+        check_reportable_run(run_id)
+    message = str(caught.value)
+    for name in (
+        "n_resamples",
+        "resample_fingerprint",
+        "evaluation_fingerprint",
+        "split_name",
+    ):
+        assert name in message
+    assert "K2_qini_coefficient" not in message
+
+
+@pytest.mark.usefixtures("isolated_tracking")
+def test_a_run_without_kpis_has_nothing_to_check() -> None:
+    with start_run("diagnostics only", task="T41", seed=1) as run:
+        run.log_metrics({"K1x": 1.0, "train_rows": 10})
+        run_id = _active_run_id()
+
+    assert check_reportable_run(run_id) == []

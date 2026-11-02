@@ -17,6 +17,12 @@ challenger on the same bootstrap resamples"). ``within_arm_bootstrap_indices``
 draws them, ``fingerprint_indices`` hashes them, and ``paired_difference``
 refuses to compare two results whose fingerprints differ.
 
+The same resamples are not enough: since the split does not depend on the
+target, the visit and conversion matrices share ``t`` and therefore share
+resample fingerprints. Every result also records the evaluation set it was
+computed on (``fingerprint_evaluation_set`` over ``y`` and ``t``) and its split,
+and ``paired_difference`` requires both to match too.
+
 scikit-uplift is the single source of truth for every reported Qini, AUUC and
 uplift@k (``docs/decisions/0001-uplift-library.md``). A result with one of those
 names and any other library is rejected.
@@ -32,13 +38,15 @@ import logging
 import math
 import re
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Protocol
+from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING, Protocol, get_args
 
 import numpy as np
 import numpy.typing as npt
 
+from netlift.data.contracts import SplitName
 from netlift.utils.errors import ContractError
+from netlift.utils.tracking import get_run_data, load_kpi_ids
 
 if TYPE_CHECKING:
     from netlift.utils.tracking import Run
@@ -56,6 +64,16 @@ MIN_REPORTED_RESAMPLES = 1000
 UPLIFT_AT_K = "uplift_at_k"
 UPLIFT_AT_K_STRATEGIES: frozenset[str] = frozenset({"overall", "by_group"})
 
+# T41: log_metric_result attaches each full result here, one JSON file per key.
+RESAMPLES_ARTIFACT_DIR = "resamples"
+# T41: the parameters every reported KPI key must carry (check_reportable_run).
+REQUIRED_KPI_PARAMS: tuple[str, ...] = (
+    "n_resamples",
+    "resample_fingerprint",
+    "evaluation_fingerprint",
+    "split_name",
+)
+
 _SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
 SettingValue = str | int | float
@@ -67,7 +85,10 @@ class MetricResult:
 
     ``resamples`` holds the metric's value on each bootstrap resample, in order,
     and ``resample_fingerprint`` identifies the resample indices they were
-    computed on (see :func:`fingerprint_indices`).
+    computed on (see :func:`fingerprint_indices`). ``evaluation_fingerprint``
+    identifies the evaluation set's ``y`` and ``t`` (see
+    :func:`fingerprint_evaluation_set`), and ``split_name`` says which split it
+    came from: "train" means out-of-fold predictions on the training split.
     """
 
     name: str
@@ -81,6 +102,8 @@ class MetricResult:
     library_version: str
     resamples: tuple[float, ...]
     resample_fingerprint: str
+    evaluation_fingerprint: str
+    split_name: SplitName
     settings: dict[str, SettingValue] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -133,6 +156,18 @@ class MetricResult:
             raise ContractError(
                 f"{self.name}: resample_fingerprint must be a sha256 hex digest "
                 "from fingerprint_indices()."
+            )
+        if not isinstance(self.evaluation_fingerprint, str) or not _SHA256_HEX.match(
+            self.evaluation_fingerprint
+        ):
+            raise ContractError(
+                f"{self.name}: evaluation_fingerprint must be a sha256 hex digest "
+                "from fingerprint_evaluation_set()."
+            )
+        if self.split_name not in get_args(SplitName):
+            raise ContractError(
+                f"{self.name}: split_name must be one of {get_args(SplitName)}, "
+                f"got {self.split_name!r}."
             )
 
     @property
@@ -227,12 +262,38 @@ def fingerprint_indices(indices: Iterable[npt.ArrayLike]) -> str:
     return digest.hexdigest()
 
 
+def fingerprint_evaluation_set(y: npt.ArrayLike, t: npt.ArrayLike) -> str:
+    """SHA-256 over the evaluation set's outcome and treatment: the evaluation fingerprint.
+
+    Two results computed on different targets (visit and conversion share ``t``)
+    or on different rows get different fingerprints.
+    """
+    outcome = np.asarray(y)
+    arms = np.asarray(t)
+    if outcome.ndim != 1 or arms.ndim != 1 or outcome.size != arms.size:
+        raise ContractError(
+            f"y and t must be one-dimensional and the same length, got shapes "
+            f"{outcome.shape} and {arms.shape}."
+        )
+    if outcome.size == 0:
+        raise ContractError("Cannot fingerprint an empty evaluation set.")
+    for label, values in (("y", outcome), ("t", arms)):
+        if values.dtype.kind not in "biuf" or not np.isin(values, (0, 1)).all():
+            raise ContractError(f"{label} must be binary 0/1 to be fingerprinted.")
+    digest = hashlib.sha256()
+    digest.update(outcome.size.to_bytes(8, "little"))
+    digest.update(np.ascontiguousarray(outcome, dtype=np.int8).tobytes())
+    digest.update(np.ascontiguousarray(arms, dtype=np.int8).tobytes())
+    return digest.hexdigest()
+
+
 def paired_difference(a: MetricResult, b: MetricResult) -> MetricResult:
     """The difference a - b, with its interval from the per-resample differences.
 
-    Refuses unless both results were computed on the same resamples and the same
-    way: same name, settings, number of resamples, seed, resample fingerprint,
-    confidence level and library version.
+    Refuses unless both results were computed on the same resamples of the same
+    evaluation set and the same way: same name, settings, number of resamples,
+    seed, resample fingerprint, evaluation fingerprint, split, confidence level
+    and library version.
     """
     mismatched = [
         label
@@ -242,6 +303,12 @@ def paired_difference(a: MetricResult, b: MetricResult) -> MetricResult:
             ("n_resamples", a.n_resamples, b.n_resamples),
             ("seed", a.seed, b.seed),
             ("resample_fingerprint", a.resample_fingerprint, b.resample_fingerprint),
+            (
+                "evaluation_fingerprint",
+                a.evaluation_fingerprint,
+                b.evaluation_fingerprint,
+            ),
+            ("split_name", a.split_name, b.split_name),
             ("confidence_level", a.confidence_level, b.confidence_level),
             ("library_version", a.library_version, b.library_version),
         )
@@ -267,6 +334,8 @@ def paired_difference(a: MetricResult, b: MetricResult) -> MetricResult:
         library_version=a.library_version,
         resamples=tuple(float(v) for v in differences),
         resample_fingerprint=a.resample_fingerprint,
+        evaluation_fingerprint=a.evaluation_fingerprint,
+        split_name=a.split_name,
         settings=dict(a.settings),
     )
 
@@ -277,6 +346,11 @@ def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str:
     Every parameter is prefixed with the full key, so two metrics under one KPI
     (Qini and AUUC under K2, or uplift@k at two values of k) can share a run:
     MLflow refuses to change a parameter's value within a run.
+
+    The whole result, per-resample values included, is also attached as
+    ``resamples/<key>.json``. ``MetricResult(**json.loads(...))`` rebuilds it, so
+    a champion and a challenger logged in different runs can still be compared
+    with :func:`paired_difference`.
     """
     if result.n_resamples < MIN_REPORTED_RESAMPLES:
         raise ContractError(
@@ -296,10 +370,49 @@ def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str:
         f"{key}_n_resamples": result.n_resamples,
         f"{key}_seed": result.seed,
         f"{key}_resample_fingerprint": result.resample_fingerprint,
+        f"{key}_evaluation_fingerprint": result.evaluation_fingerprint,
+        f"{key}_split_name": result.split_name,
     }
     params.update({f"{key}_{name}": value for name, value in result.settings.items()})
     run.log_params(params)
+    run.log_dict(asdict(result), resamples_artifact_file(key))
     return key
+
+
+def check_reportable_run(run_id: str) -> list[str]:
+    """Raise unless every KPI logged in the run carries the parameters of a reported result.
+
+    A KPI logged through ``log_kpi`` directly skips the resample, library and
+    fingerprint rules. Before a number from a run goes into a report, this finds
+    every KPI key in the run and requires ``<key>_n_resamples``,
+    ``<key>_resample_fingerprint``, ``<key>_evaluation_fingerprint`` and
+    ``<key>_split_name``, the parameters ``log_metric_result`` writes. Returns the
+    KPI keys checked.
+    """
+    metrics, params = get_run_data(run_id)
+    kpi_ids = load_kpi_ids()
+    keys = sorted(
+        key
+        for key in metrics
+        if not key.endswith(("_ci_low", "_ci_high"))
+        and any(key == kpi or key.startswith(f"{kpi}_") for kpi in kpi_ids)
+    )
+    missing = {
+        key: [name for name in REQUIRED_KPI_PARAMS if f"{key}_{name}" not in params]
+        for key in keys
+    }
+    missing = {key: names for key, names in missing.items() if names}
+    if missing:
+        raise ContractError(
+            f"Run {run_id} is not reportable: KPI parameters missing {missing}. "
+            "Reported numbers are logged with log_metric_result, not log_kpi."
+        )
+    return keys
+
+
+def resamples_artifact_file(key: str) -> str:
+    """Where ``log_metric_result`` stores the full result for ``key`` in a run's artifacts."""
+    return f"{RESAMPLES_ARTIFACT_DIR}/{key}.json"
 
 
 def _require_finite(label: str, number: object) -> None:

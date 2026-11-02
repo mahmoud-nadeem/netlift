@@ -314,6 +314,7 @@ def test_split_does_not_depend_on_the_target() -> None:
     assert np.array_equal(visit.validation.row_id, conversion.validation.row_id)
     assert np.array_equal(visit.test.row_ids, conversion.test.row_ids)
     assert not np.array_equal(visit.train.y, conversion.train.y)
+    assert np.array_equal(visit.train.fold, conversion.train.fold)
 
 
 # --------------------------------------------------------------------------- #
