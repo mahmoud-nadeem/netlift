@@ -8,9 +8,9 @@ T36/T37/T40 work is not all merged, so re-run after finalization if it changes.
 - Data: original Hillstrom CSV, 64,000 rows, SHA-256 `0e5893329d8b93cefecc571777672028290ab69865718020c78c7284f291aece`.
 - Comparison: Mens E-Mail versus No E-Mail; no pooling.
 - Canonical full-file split from T37; 25,568 train / 8,522 validation rows in this comparison.
-- Code commit: 55a8ffe14cc570bb02ab6f5a99da94c964609cfa; upstream base 01cd6be. Original runs record dca2bb6 with an identical source tree; only Git authorship metadata changed.
+- Code commit: `abd24c52f301b1c092a4ed5dbec8292cf0fc3ca0`, the `git_commit` tag of all six runs (`git_dirty=false`); upstream base `01cd6be`. Later commits on this branch change documentation only.
 - Six successful MLflow runs, all `git_dirty=false`; test split never opened.
-- Python 3.12.14; all 18 runtime pins verified. scikit-uplift 0.5.1,
+- Python 3.12.10 on Windows 11; all 18 runtime pins verified. scikit-uplift 0.5.1,
   LightGBM 4.7.0, numpy 2.4.6; seed 42. Fixed settings in `config/baselines.yaml`.
 - Qini uses `negative_effect=True`; AUUC is sklift's normalized `uplift_auc_score`;
   uplift@k uses `overall`. Rate differences below are probability units.
