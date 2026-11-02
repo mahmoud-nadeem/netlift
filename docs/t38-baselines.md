@@ -2,8 +2,7 @@
 
 Source: specification §9 (Baselines That Must Exist Before Any Uplift Model),
 §25 (training), §27 (metrics), ADR 0001, and the clarified T38 issue #50.
-The implementation depends on T36 and T37, as present on
-`split-stratified-loaders` at `01cd6be5b9bfa85ab12abc66adf4dc318f904b31`.
+The implementation depends on T36 and T37, as merged in #103 (`d56c29c`).
 Do not copy interface or pipeline files out of the team pack.
 
 ## Run
