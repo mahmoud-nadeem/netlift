@@ -36,16 +36,18 @@ value 1. Points (0,0), (2,2), (7,2), (8,1): area 2 + 10 + 3/2 = 13.5.
 Qini coefficient = (23/3 - 4) / (13.5 - 4) = (11/3) / (19/2) = 22/57.
 
 Uplift curve points (0..8): 0, 1, 2, 3, 2, 5/6, 2, 7/6, 2. Trapezoid area = 13.
-Random line: (0, 0) to (8, 2), area 8. Perfect uplift curve: score 1 where y == t
-(rows 0, 1, 2, 5, 7), else 0: points (0,0), (5,5), (8,2), area 12.5 + 10.5 = 23.
-AUUC (normalised by the perfect curve) = (13 - 8) / (23 - 8) = 1/3.
+Random line: (0, 0) to (8, 2), area 8.
+Perfect uplift curve (scikit-uplift): control responders (y=1, t=0) = 1 (row 3),
+treated non-responders (y=0, t=1) = 2 (rows 4, 6). Since 1 > 2 is false, the
+ideal score is 2*(y == t) + t: rows {0, 2} -> 3, rows {1, 5, 7} -> 2,
+rows {4, 6} -> 1, row {3} -> 0. Block ends: m=2 -> (2/2)*2 = 2;
+m=5 (T=2, C=3, Y1=2, Y0=0) -> 5; m=7 (T=4, C=3, Y1=2, Y0=0) -> (2/4)*7 = 3.5;
+m=8 -> (1/2 - 1/4)*8 = 2. Points (0,0), (2,2), (5,5), (7,3.5), (8,2):
+area 2 + 10.5 + 8.5 + 2.75 = 23.75.
+AUUC = (13 - 8) / (23.75 - 8) = 5 / 15.75 = 20/63.
 
-ASSUMPTION on AUUC: the 1/3 above assumes scikit-uplift's ``uplift_auc_score``
-is normalised by the perfect uplift curve, like its Qini score. The raw areas
-(13, 8, 23) are certain; the choice of normalisation is what the cross-check
-test against scikit-uplift settles. If only that test fails, read
-``help(sklift.metrics.uplift_auc_score)`` and record the finding; do not edit the
-expected value until you know why.
+The perfect-curve rule above is scikit-uplift 0.5.1's; it was confirmed because the
+hand derivation reproduces the library's value, not assumed.
 
 Fixture B (uplift@k). Eight rows in score order, t/y: (1,1) (1,1) (1,0) (0,1)
 (0,0) (1,0) (0,0) (0,0). Four treated (y = 1, 1, 0, 0) and four control
