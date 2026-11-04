@@ -381,8 +381,10 @@ def uplift_at_k(
 ) -> MetricResult:
     """uplift@k with a within-arm bootstrap interval; ``k`` and ``strategy`` are recorded.
 
-    ``k`` is a fraction in (0, 1]. It is always passed on as a float, because
-    scikit-uplift reads an int ``k`` as a row count, so ``k=1`` here means 100%.
+    ``k`` is a fraction in (0, 1]. scikit-uplift 0.5.1 rejects a float ``k`` of
+    1.0 and reads an int as a row count, so ``point_uplift_at_k`` passes the row
+    count for k = 1.0, which selects every row (every row of each group, for
+    ``by_group``).
     """
     if isinstance(k, bool) or not isinstance(k, int | float) or not 0.0 < k <= 1.0:
         raise ContractError(f"k must be a fraction in (0, 1], got {k!r}.")
