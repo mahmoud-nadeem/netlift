@@ -1,0 +1,19 @@
+# T38 follow-up (#107), ADR 0004. Chosen before the first trial; never edited
+# after seeing a result. The T42 learners use the same trial budget.
+seed: 42
+n_trials: 30
+subsample_frac:
+  hillstrom: null
+  criteo: 0.1
+fixed:
+  n_jobs: 8
+  deterministic: true
+  force_col_wise: true
+  verbosity: -1
+search_space:
+  num_leaves: {type: int, low: 4, high: 64, log: true}
+  min_child_samples: {type: int, low: 20, high: 500, log: true}
+  learning_rate: {type: float, low: 0.01, high: 0.2, log: true}
+  n_estimators: {type: int, low: 50, high: 600, log: false}
+  reg_lambda: {type: float, low: 0.001, high: 100.0, log: true}
+  colsample_bytree: {type: float, low: 0.5, high: 1.0, log: false}
