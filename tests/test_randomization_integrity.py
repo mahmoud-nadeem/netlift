@@ -46,9 +46,7 @@ def _synthetic(shift_f3: float = 0.0) -> tuple[pd.DataFrame, np.ndarray]:
     `shift_f3` moves f3 by that many standard deviations for treated rows only.
     """
     rng = np.random.default_rng(0)
-    X = pd.DataFrame(
-        rng.normal(size=(N_ROWS, 5)), columns=[f"f{i}" for i in range(5)]
-    )
+    X = pd.DataFrame(rng.normal(size=(N_ROWS, 5)), columns=[f"f{i}" for i in range(5)])
     treated = rng.permutation(np.arange(N_ROWS) % 2 == 0)
     X.loc[treated, "f3"] += shift_f3
     return X, treated
