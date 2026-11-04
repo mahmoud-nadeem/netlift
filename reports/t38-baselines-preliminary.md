@@ -1,5 +1,7 @@
 # T38 preliminary baseline results — 1 November 2026
 
+Scope: Hillstrom only. K1 is defined on Criteo conversion (kpis.yaml); the tuned Criteo response model is tracked in #107.
+
 These are real Hillstrom validation point estimates, **not headline KPIs**.
 No confidence intervals have been computed for the uplift metrics here; T39 must provide paired,
 within-arm bootstrap intervals before comparative claims are made.
