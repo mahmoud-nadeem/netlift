@@ -400,7 +400,7 @@ def test_an_undefined_resample_raises_and_names_the_resample(
         _run(qini_coefficient)
         
 def test_an_int_k_of_one_means_one_hundred_percent() -> None:
-    """scikit-uplift reads an int k as a row count; the wrapper never passes one."""
+    """k=1 is recorded as the float 1.0; only k == 1.0 reaches scikit-uplift as a row count."""
     result = _run(uplift_at_k, k=1)
     assert result.settings["k"] == 1.0
     assert result.metric_key == "uplift_at_100pct_overall"
