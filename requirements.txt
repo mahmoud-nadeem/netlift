@@ -4,9 +4,11 @@
 # Versions are pinned exactly. Do not relax a pin without opening a PR
 # that explains what broke and records the new resolved set.
 #
-# Resolved and verified together on Python 3.12, 20 September 2026.
-# Every package below publishes a prebuilt Windows wheel for cp312,
-# so no C++ compiler is needed on any team machine.
+# Base numerical/runtime set resolved and verified on Python 3.12,
+# 20 September 2026. T45 API pins were added 4 November 2026 and must be
+# included in the next full Python 3.12 environment verification.
+# The pinned packages publish prebuilt Windows wheels for cp312; no C++
+# compiler is needed for this dependency set.
 
 # --- Core numerical stack ---
 numpy==2.4.6
@@ -35,6 +37,11 @@ optuna==5.0.0
 matplotlib==3.11.2
 seaborn==0.13.2
 
+# --- API transport (T45) ---
+fastapi==0.128.2
+pydantic==2.13.5
+uvicorn==0.48.0
+
 # --- Configuration ---
 PyYAML==6.0.3
 python-dotenv==1.2.3
@@ -44,7 +51,6 @@ ipykernel==7.3.0
 
 # --- Added later, not now ---
 # Deep learning (TARNet / Dragonnet)   -> milestone 5
-# fastapi, uvicorn, pydantic-settings  -> milestone 5
 # streamlit                            -> milestone 5
 # azure-ai-ml                          -> milestone 6
 # Torch alone is over 2 GB. It is deliberately not installed until the
