@@ -140,8 +140,8 @@ def test_hand_computed_qini_coefficient() -> None:
 
 
 def test_hand_computed_auuc() -> None:
-    """1/3 assumes perfect-curve normalisation; see the module docstring."""
-    assert point_auuc(A_Y, A_UPLIFT, A_T) == pytest.approx(0.31746031746031744)
+    """20/63 is what scikit-uplift actually returns for this fixture."""
+    assert point_auuc(A_Y, A_UPLIFT, A_T) == pytest.approx(20 / 63)
 
 
 @pytest.mark.parametrize(
@@ -149,6 +149,8 @@ def test_hand_computed_auuc() -> None:
     [
         (0.5, "overall", -1 / 3),
         (0.5, "by_group", 1 / 2),
+        (1.0, "overall", 1 / 4),
+        (1.0, "by_group", 1 / 4),
     ],
 )
 def test_hand_computed_uplift_at_k(k: float, strategy: str, expected: float) -> None:
@@ -394,3 +396,9 @@ def test_an_undefined_resample_raises_and_names_the_resample(
     monkeypatch.setattr(metrics_module.sk_metrics, "qini_auc_score", sometimes_nan)
     with pytest.raises(ContractError, match=r"resample 2.*undefined"):
         _run(qini_coefficient)
+        
+def test_an_int_k_of_one_means_one_hundred_percent() -> None:
+    """scikit-uplift reads an int k as a row count; the wrapper never passes one."""
+    result = _run(uplift_at_k, k=1)
+    assert result.settings["k"] == 1.0
+    assert result.metric_key == "uplift_at_100pct_overall"
