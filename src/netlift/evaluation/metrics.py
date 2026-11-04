@@ -240,7 +240,9 @@ def point_uplift_at_k(
     strategy: str,
 ) -> float:
     """Treated rate minus control rate in the top ``k`` fraction, by ``strategy``."""
-    return quiet_call(sk_metrics.uplift_at_k, y, uplift, t, strategy=strategy, k=k)
+    # scikit-uplift rejects k=1.0 (expects k < 1.0 for floats). When k=1.0, pass the total rows.
+    pass_k = len(y) if k == 1.0 else k
+    return quiet_call(sk_metrics.uplift_at_k, y, uplift, t, strategy=strategy, k=pass_k)
 
 
 def _finite(value: float, what: str) -> float:
