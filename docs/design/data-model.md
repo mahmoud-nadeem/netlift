@@ -27,9 +27,9 @@ The ER-diagram row of the specification lists nine entities: `customer_snapshot`
 erDiagram
     replay_scenario ||--o{ campaign : "instantiated as"
     campaign ||--o{ treatment_assignment : "records"
-    campaign ||--o{ holdout_membership : "records"
+    treatment_assignment ||--o| holdout_membership : "held out as control"
     campaign ||--o{ scoring_run : "scored by"
-    campaign ||--o{ outcome_observation : "measured by"
+    treatment_assignment ||--o| outcome_observation : "measured by"
     model_version ||--o{ scoring_run : "used in"
     model_version ||--o{ drift_report : "monitored by"
     scoring_run ||--o{ score : "produces"
@@ -67,6 +67,7 @@ erDiagram
     holdout_membership {
         uuid campaign_id PK, FK
         text customer_id PK
+        text arm
         text holdout_kind
         timestamptz joined_at
     }
@@ -166,7 +167,8 @@ Customer features as of a date. Features differ per dataset (Criteo has anonymis
 | `customer_id` | text | NN | |
 | `as_of_date` | date | NN | |
 | `features` | jsonb | NN | Feature name to value |
-| | | UK (`dataset`, `customer_id`, `as_of_date`) | |
+| | | UK (`dataset`, `customer_id`, `as_of_date`) | Natural key |
+| | | UK (`snapshot_id`, `customer_id`) | Target of the composite foreign key from `score`: a score can only point to a snapshot of its own customer |
 
 ### 3.4 `treatment_assignment`
 
@@ -178,6 +180,7 @@ Which arm each customer was in. Together with `holdout_membership`, this is the 
 | `customer_id` | text | PK part 2 | |
 | `arm` | text | NN, CHECK in (`treatment`, `control`) | |
 | `assigned_at` | timestamptz | NN, default `now()` | |
+| | | UK (`campaign_id`, `customer_id`, `arm`) | Target of the composite foreign key from `holdout_membership`, so a held-out customer must be assigned to `control` |
 
 ### 3.5 `holdout_membership`
 
@@ -185,10 +188,12 @@ Customers held out of policy contact so that the causal effect can be measured. 
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
-| `campaign_id` | uuid | PK part 1, FK to `campaign` | |
+| `campaign_id` | uuid | PK part 1 | |
 | `customer_id` | text | PK part 2 | |
+| `arm` | text | NN, default `control`, CHECK = `control` | Always `control`; exists so the foreign key below can enforce it |
 | `holdout_kind` | text | NN, CHECK in (`replay_control`, `permanent_holdout`) | |
 | `joined_at` | timestamptz | NN, default `now()` | |
+| | | FK (`campaign_id`, `customer_id`, `arm`) to `treatment_assignment` (`campaign_id`, `customer_id`, `arm`) | A customer can be held out only if the same campaign assigned them to `control` |
 
 ### 3.6 `model_version`
 
@@ -226,7 +231,7 @@ One row per customer per run. Columns mirror the Model Output Schema contract.
 |---|---|---|---|
 | `scoring_run_id` | uuid | PK part 1, FK to `scoring_run` | |
 | `customer_id` | text | PK part 2 | |
-| `snapshot_id` | uuid | NN, FK to `customer_snapshot` | Exact features that were scored |
+| `snapshot_id` | uuid | NN | Exact features that were scored; see the composite foreign key below |
 | `uplift_score` | double precision | NN | |
 | `uplift_ci_lo` | double precision | NN | `uplift_ci_95[0]` |
 | `uplift_ci_hi` | double precision | NN, CHECK >= `uplift_ci_lo` | `uplift_ci_95[1]` |
@@ -234,9 +239,16 @@ One row per customer per run. Columns mirror the Model Output Schema contract.
 | `segment_label` | text | NN, CHECK in (`persuadable`, `sure_thing`, `lost_cause`, `sleeping_dog`, `unknown`) | Derived, presentational; never ground truth |
 | `expected_incremental_profit` | numeric(14,4) | | `margin * uplift - cost` |
 | `recommendation` | text | NN, CHECK in (`contact`, `suppress`, `no_action`) | |
-| `verdict` | text | NN, CHECK in (`confident`, `insufficient_evidence`, `insufficient_control_data`) | Kept separate from `recommendation` on purpose; NOT NULL enforces "no recommendation without a verdict" |
+| `verdict` | text | NN, CHECK in (`confident`, `insufficient_evidence`, `insufficient_control_data`) | Separate field from `recommendation`; NOT NULL enforces "no recommendation without a verdict" |
 | `top_drivers` | jsonb | | Array of `{feature, contribution}` |
 | `scored_at` | timestamptz | NN | |
+
+Table-level constraints:
+
+| Constraint | Rule | Purpose |
+|---|---|---|
+| `fk_score_snapshot_customer` | FK (`snapshot_id`, `customer_id`) to `customer_snapshot` (`snapshot_id`, `customer_id`) | The snapshot must belong to the same customer as the score |
+| `ck_score_verdict_recommendation` | `CHECK (verdict = 'confident' OR recommendation = 'no_action')` | A non-confident verdict (`insufficient_evidence`, `insufficient_control_data`) can never produce `contact` or `suppress` |
 
 ### 3.9 `outcome_observation`
 
@@ -244,12 +256,13 @@ The revealed outcome per customer per campaign, used by the measurement job.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
-| `campaign_id` | uuid | PK part 1, FK to `campaign` | |
+| `campaign_id` | uuid | PK part 1 | |
 | `customer_id` | text | PK part 2 | |
 | `visit` | boolean | | Present in both datasets |
 | `conversion` | boolean | NN | |
 | `spend` | numeric(14,4) | CHECK >= 0 | Null where the dataset has no spend |
 | `revealed_at` | timestamptz | NN | |
+| | | FK (`campaign_id`, `customer_id`) to `treatment_assignment` (`campaign_id`, `customer_id`) | An outcome can only exist for a customer assigned in the same campaign |
 
 ### 3.10 `drift_report`
 
@@ -274,13 +287,13 @@ One monitored metric for one model version over one time window (feature drift, 
 |---|---|---|---|
 | `replay_scenario` | `campaign` | 1 to many | RESTRICT |
 | `campaign` | `treatment_assignment` | 1 to many | RESTRICT |
-| `campaign` | `holdout_membership` | 1 to many | RESTRICT |
+| `treatment_assignment` | `holdout_membership` | 1 to 0..1 (key: `campaign_id`, `customer_id`, `arm`) | RESTRICT |
 | `campaign` | `scoring_run` | 1 to many | RESTRICT |
-| `campaign` | `outcome_observation` | 1 to many | RESTRICT |
+| `treatment_assignment` | `outcome_observation` | 1 to 0..1 (key: `campaign_id`, `customer_id`) | RESTRICT |
 | `model_version` | `scoring_run` | 1 to many | RESTRICT |
 | `model_version` | `drift_report` | 1 to many | RESTRICT |
 | `scoring_run` | `score` | 1 to many | RESTRICT |
-| `customer_snapshot` | `score` | 1 to many | RESTRICT |
+| `customer_snapshot` | `score` | 1 to many (key: `snapshot_id`, `customer_id`) | RESTRICT |
 
 All foreign keys use `RESTRICT`. Audit records (assignments, holdouts, scores, outcomes) must never disappear through a cascade; removal happens only through the retention policy (section 7).
 
@@ -289,13 +302,14 @@ All foreign keys use `RESTRICT`. Audit records (assignments, holdouts, scores, o
 | Table | Index | Purpose |
 |---|---|---|
 | `treatment_assignment` | PK (`campaign_id`, `customer_id`) | Spec-required lookup on `(campaign_id, customer_id)` |
+| `treatment_assignment` | UK (`campaign_id`, `customer_id`, `arm`) | Target of the foreign key from `holdout_membership` |
 | `treatment_assignment` | (`campaign_id`, `arm`) | Count and filter by arm for measurement and balance checks |
 | `holdout_membership` | PK (`campaign_id`, `customer_id`) | Spec-required lookup; "is this customer held out?" |
 | `outcome_observation` | PK (`campaign_id`, `customer_id`) | Join to assignments and scores at measurement time |
 | `score` | PK (`scoring_run_id`, `customer_id`) | Spec-required lookup on `scoring_run_id` (leading column) and per-customer explanation lookup |
 | `score` | (`scoring_run_id`, `uplift_score` DESC) | Top-k selection for the policy simulator and uplift@k |
 | `score` | (`scoring_run_id`, `decile`) | Decile table |
-| `score` | (`snapshot_id`) | Join back to features; supports the FK |
+| `score` | (`snapshot_id`, `customer_id`) | Join back to features; supports the composite FK |
 | `scoring_run` | (`campaign_id`, `started_at` DESC) | Latest run of a campaign |
 | `scoring_run` | (`model_version_id`) | Runs per model; supports the FK |
 | `model_version` | UK (`version_label`) | API lookup by label |
@@ -317,7 +331,7 @@ The schema is in third normal form: every non-key column depends on the key, the
 | `score.top_drivers` is `jsonb` | A variable-length list of `{feature, contribution}` that is always read with its score. A child table would add millions of rows with no query that needs them separately. |
 | `score.decile`, `score.segment_label` and `score.expected_incremental_profit` are stored | They are derivable from the uplift score and scenario parameters, but they are stored so that a historical score shows what was actually reported, even if the derivation logic changes later. They are presentational and must never be read as ground truth. |
 | `model_version.evaluation_summary` is `jsonb` | An attached snapshot of metrics at registration, not queried relationally. The full history stays in MLflow. |
-| `score.customer_id` is repeated beside `snapshot_id` | `customer_id` is part of the key required by the spec; `snapshot_id` records the exact features used. They agree by construction (a check is added in T60 tests). |
+| `score.customer_id` is repeated beside `snapshot_id` | `customer_id` is part of the key required by the spec; `snapshot_id` records the exact features used. They agree by construction: the composite foreign key (`snapshot_id`, `customer_id`) makes a mismatch impossible at the database level. |
 
 ## 7. Retention policy (proposal)
 
@@ -334,7 +348,7 @@ The spec requires a stated retention policy but does not give the periods. The v
 ## 8. Open questions for review
 
 - **Q1.** The spec's ER-diagram list does not include `campaign`, but the persistence layer and the index requirement `(campaign_id, customer_id)` do. This draft treats a `campaign` as one execution of a `replay_scenario`. Is that the intended relationship, or is `replay_scenario` meant to be the campaign?
-- **Q2.** Should `verdict` other than `confident` force `recommendation = no_action` (a `CHECK` constraint), or are they independent fields as in the API contract?
+- **Q2.** *Resolved in review:* a non-`confident` verdict forces `recommendation = 'no_action'`, enforced by `ck_score_verdict_recommendation`.
 - **Q3.** Is `outcome_observation` one row per customer per campaign (as drafted), or can it hold several observations over an outcome window?
 - **Q4.** Do we confirm the retention periods in section 7?
 - **Q5.** Is a database-level "one production model per family" rule wanted, or is that enforced in the MLflow registry only?
@@ -351,5 +365,8 @@ The spec requires a stated retention policy but does not give the periods. The v
 | One `score` row per customer per run | `score` primary key |
 | Model Output Schema fields | `score` columns and `model_version.version_label` |
 | No recommendation without a verdict | `score.verdict` NOT NULL |
+| A non-confident verdict never yields `contact` or `suppress` | `ck_score_verdict_recommendation` CHECK on `score` |
+| A score uses a snapshot of its own customer | Composite FK (`snapshot_id`, `customer_id`) on `score` |
+| Only control customers are held out; outcomes only for assigned customers | Composite FKs on `holdout_membership` and `outcome_observation` |
 | Campaign and model lifecycle states | `campaign.state`, `model_version.stage` |
 | Data-quality failure blocks a scoring run | `scoring_run.status = 'blocked_data_quality'` |
