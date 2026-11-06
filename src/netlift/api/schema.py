@@ -39,7 +39,7 @@ import logging
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal, get_args
 
 from netlift.utils.errors import ContractError
@@ -239,6 +239,10 @@ def _require_member(name: str, value: object, allowed: tuple[object, ...]) -> No
 
 
 def _format_timestamp(moment: datetime) -> str:
-    """ISO 8601 with a 'Z' suffix for UTC, as in the specification's example."""
-    text = moment.isoformat()
-    return text[:-6] + "Z" if text.endswith("+00:00") else text
+    """ISO 8601 in UTC with a 'Z' suffix, as in the specification's example.
+
+    The moment is converted to UTC first, so 14:22:10+02:00 is written as
+    12:22:10Z, the same instant, rather than keeping its offset.
+    """
+    text = moment.astimezone(UTC).isoformat()
+    return text.removesuffix("+00:00") + "Z"
