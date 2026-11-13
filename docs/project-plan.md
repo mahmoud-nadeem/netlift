@@ -167,7 +167,7 @@ agreement carries the rule (section 3).
 | M6 Testing and final | 1 – 4 Dec | Champion confirmed on the locked test split, opened once; test cases and bug log; final report, user manual, presentation, infographic; rehearsed demo; final upload |
 
 M2 is the instructor feedback session only, because the written literature review moved to M4
-(T25–T29).
+(T25–T28; T29 is out of scope, section 3).
 
 ---
 
