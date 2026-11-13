@@ -278,7 +278,7 @@ be subtracted; the per-resample values can. So:
   identical `y` and `t` but different rows, or the same rows in another order, must not pair. The
   dataset name matters because a row id is a position in one dataset's raw file. `row_ids` and
   `dataset` are required; a length mismatch or an empty set is rejected. (Changed after the freeze,
-  in T41, #104, from Mazen's review; see the PR.)
+  in T41, #104, from Mazen's review: `docs/decisions/0004-evaluation-fingerprint-binds-rows.md`.)
 - `paired_difference(a, b)` refuses unless name, settings, `n_resamples`, seed, resample
   fingerprint, evaluation fingerprint, split, confidence level and library version all match, and
   the difference carries the shared fingerprints and split. Its value is `a.value - b.value`, and its interval is the percentiles of the per-resample
