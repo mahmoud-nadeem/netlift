@@ -209,6 +209,8 @@ class MetricResult:
     library_version: str
     resamples: tuple[float, ...]   # the metric on each resample, in order
     resample_fingerprint: str      # sha256 of the resample index arrays
+    evaluation_fingerprint: str    # sha256 of the evaluation set's y and t
+    split_name: SplitName          # "train" (out-of-fold), "validation" or "test"
     settings: dict[str, str | int | float] = {}   # e.g. {"k": 0.3, "strategy": "overall"}
 
     metric_key: str            # property: "uplift_at_30pct_overall" for uplift@k
@@ -219,6 +221,7 @@ class UpliftMetric(Protocol):
 
 def within_arm_bootstrap_indices(t, n_resamples: int, seed: int) -> Iterator[NDArray[int64]]
 def fingerprint_indices(indices: Iterable[ArrayLike]) -> str
+def fingerprint_evaluation_set(y: ArrayLike, t: ArrayLike) -> str
 def paired_difference(a: MetricResult, b: MetricResult) -> MetricResult
 def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str  # the key
 ```
@@ -246,8 +249,11 @@ echoed in `settings`. The specification (Evaluation Metrics) notes that uplift@k
   `settings["k"]` with 0 < k <= 1 and `settings["strategy"]` of `overall` or `by_group`. Its
   `metric_key` carries both, so k=0.1 with `overall` logs as `uplift_at_10pct_overall`, and two
   values of k never share a key.
-- **`resamples` has exactly `n_resamples` finite values**, and `resample_fingerprint` is a
-  SHA-256 hex digest.
+- **`resamples` has exactly `n_resamples` finite values**, and `resample_fingerprint` and
+  `evaluation_fingerprint` are SHA-256 hex digests.
+- **Every result names its evaluation set.** `split_name` is `train` (out-of-fold predictions on
+  the training split), `validation` or `test`, so "reported on the locked split, opened once" can
+  be audited from the log.
 
 ### The same resamples for every model
 
@@ -263,8 +269,13 @@ be subtracted; the per-resample values can. So:
   an arm silently.
 - `fingerprint_indices(...)` hashes the index arrays, and the harness stores the result as
   `resample_fingerprint`. The fingerprint makes "same resamples" checked, not trusted.
-- `paired_difference(a, b)` refuses unless name, settings, `n_resamples`, seed, fingerprint,
-  confidence level and library version all match. Its value is `a.value - b.value`, and its interval is the percentiles of the per-resample
+- **The same resamples are not enough.** The split does not depend on the target, so the visit
+  and conversion matrices share `t` and therefore share resample fingerprints.
+  `fingerprint_evaluation_set(y, t)` hashes the evaluation set's outcome and treatment, and the
+  harness stores it as `evaluation_fingerprint`.
+- `paired_difference(a, b)` refuses unless name, settings, `n_resamples`, seed, resample
+  fingerprint, evaluation fingerprint, split, confidence level and library version all match, and
+  the difference carries the shared fingerprints and split. Its value is `a.value - b.value`, and its interval is the percentiles of the per-resample
   differences at `a.confidence_level`. Its name is `<name>_difference`.
 
 Logging the per-resample values as an MLflow artifact belongs to T41, not to this interface.
@@ -274,7 +285,8 @@ Logging the per-resample values as an MLflow artifact belongs to T41, not to thi
 `log_metric_result` logs the result under the key `<KPI>_<metric key>`, for example
 `K2_qini_coefficient` or `K2_uplift_at_10pct_overall`. The interval goes under `<key>_ci_low` and
 `<key>_ci_high`, the confidence level is a tag `<key>_confidence`, and `library==version`, the
-number of resamples, the seed, the resample fingerprint and every setting are parameters prefixed
+number of resamples, the seed, the resample fingerprint, the evaluation fingerprint, the split
+and every setting are parameters prefixed
 with the same key. One KPI can cover several metrics: K2 is
 both the Qini coefficient and AUUC, so one run holds `K2_qini_coefficient` and `K2_auuc` side by
 side, each with its own interval and parameters. The prefix has to be the full key, because
@@ -356,6 +368,8 @@ class ScoringResponse:
   `no_action`.** This encodes the rule in the specification's Uncertainty and Abstention section:
   "Where a segment's interval straddles zero, the system returns verdict = "insufficient_evidence"
   rather than a directional recommendation." The same holds for `insufficient_control_data`.
+- **`uplift_ci_95` is the held-out decile-level interval** of the customer's decile, not a
+  per-customer retrain bootstrap (Ali's decision on #67); the method is owned by T55.
 - **The verdict is based on the interval carried in the response** (`uplift_ci_95`):
   `confident` requires an interval that excludes zero; `contact` requires its lower bound above
   zero; `suppress` requires its upper bound below zero (the sleeping-dog rule, Uplift Score to
@@ -428,8 +442,9 @@ The specification's own example round-trips through JSON unchanged (tested):
 3. The value is not required to lie inside its interval; `log_kpi` now warns and tags the run
    instead of rejecting.
 4. Fewer than 1,000 resamples cannot be logged as a KPI.
-5. T39 draws resamples with `within_arm_bootstrap_indices` and fills `resamples` and
-   `resample_fingerprint`; K1 is built with `paired_difference`.
+5. T39 draws resamples with `within_arm_bootstrap_indices` and fills `resamples`,
+   `resample_fingerprint`, `evaluation_fingerprint` and `split_name`; K1 is built with
+   `paired_difference`.
 6. The verdict rules in the scoring response (interval excludes zero for `confident`, and so on),
    and that each policy mode decides what to do with `no_action`.
 
