@@ -945,6 +945,9 @@ protecting revenue. \\
 \bottomrule
 \end{tabularx}
 
+How these modes reconcile with the sleeping-dog rule below (Section~10.3) is owned by the T55
+decision record, which must be written before T55 starts.
+
 \subsection{Negative uplift and the sleeping-dog rule}
 
 \begin{keybox}
@@ -976,9 +979,9 @@ An empty recommendation must look different from a confident one.
 \end{itemize}
 
 \begin{alertbox}
-The reason this matters more than it looks: the top decile of a 14M-row dataset still contains
-only a few hundred control-group conversions (Section~\ref{sec:thin}). A point estimate computed
-from a few hundred events, reported without an interval, is the most likely single source of a
+The reason this matters more than it looks: on a 20\% split of a 14M-row dataset a decile holds
+only about 81 control-group conversions, fewer in the top decile (Section~\ref{sec:thin}). A
+point estimate computed from so few events, reported without an interval, is the most likely single source of a
 false claim in this entire project.
 \end{alertbox}
 
@@ -1021,8 +1024,8 @@ abstention logic exists to preserve.
 
 The single component that makes this project legible to a non-technical evaluator in ten seconds.
 
-Given a held-out randomized test set, a per-contact cost, a margin, and a budget, the simulator
-replays each candidate policy over the test set and reports, for each: number contacted, total
+Given a held-out split (validation at M4; locked test only at T70), a per-contact cost, a margin,
+and a budget, the simulator replays each candidate policy over that split and reports, for each: number contacted, total
 cost, incremental conversions with a confidence interval, incremental profit, and the profit
 per unit spent. The output is one table and one chart in which the uplift policy, the response
 model, blanket contact and random contact appear side by side.
@@ -1103,7 +1106,8 @@ so the comparison can be made immediately instead of after a waiting period.
             |               (validation for the M4 development run; locked test
             |               only at T70)
             v
-  [2] SCORE                 champion model scores that slice -> uplift + interval
+  [2] SCORE                 the scoring model (see K1) scores that slice
+            |               -> uplift + interval
             |               (outcomes are NOT read at this stage)
             v
   [3] ALLOCATE              decision layer selects targets under the budget;
@@ -1121,8 +1125,10 @@ so the comparison can be made immediately instead of after a waiting period.
             |               within the selected targets, with a bootstrap interval
             |               resampled within arms
             v
-  [7] COMPARE               predicted incremental conversions vs measured, plus the
-            |               same comparison for the response-model and random policies
+  [7] COMPARE               measured incremental conversions for the uplift,
+            |               response-model and random policies; predicted vs
+            |               measured for the uplift model only (K5), since the
+            |               response model predicts no incremental effect
             v
   [8] RECORD                calibration record; the whole run is logged to MLflow
 \end{verbatim}}
@@ -1137,7 +1143,7 @@ holdout is a deployment requirement only (Section~\ref{sec:deployment-gap}).
 \textbf{For K1, both policies contact the same number of customers.} The uplift policy and the
 response-model policy each contact exactly the same $k$ customers, each ranked by its own score,
 with no suppression and no abstention, so the comparison is at an identical contact count. Random
-contact uses the same $k$; blanket contact is shown as a reference at $k = N$. K1 is computed on Criteo with \texttt{conversion} as the target (\texttt{visit} and Hillstrom as sensitivity analyses). The primary $k$ is fixed in configuration and recorded in \texttt{docs/decisions/} before the first run; other values of $k$ are reported as sensitivity. Both policies are evaluated on the same bootstrap resamples (paired). Suppression of
+contact uses the same $k$; blanket contact is shown as a reference at $k = N$. K1 is computed on Criteo with \texttt{conversion} as the target (\texttt{visit} and Hillstrom as sensitivity analyses). The primary $k$ is fixed in configuration and recorded in \texttt{docs/decisions/} before the first run; other values of $k$ are reported as sensitivity. Both policies are evaluated on the same bootstrap resamples (paired). At M4 the uplift policy is the T-learner or X-learner chosen by out-of-fold Qini inside the training cross-validation, fixed before K1 is computed; the other is reported as sensitivity. The primary $k$ (as a fraction of the slice) and this model choice are recorded in one decision record in \texttt{docs/decisions/} before the first K1 run. Suppression of
 confidently negative uplift is evaluated on its own, not inside K1.
 
 \begin{keybox}
@@ -1331,7 +1337,8 @@ about 813 control conversions per split ($4{,}063 \times 0.2$), so about \textbf
 conversions per decile}. That is the number behind every reported decile interval.
 
 \begin{keybox}
-Every uplift number this project reports for a decile rests on a few hundred control-group events.
+Every uplift number this project reports for a decile rests on about 81 control-group events on a
+20\% split, fewer in the top decile.
 That is why:
 \begin{itemize}
 \item confidence intervals are mandatory rather than a nice extra (Section~\ref{sec:significance});
@@ -1670,8 +1677,8 @@ pin the library version in \texttt{requirements.txt}.
 \label{sec:significance}
 
 \begin{alertbox}
-A Qini coefficient is a statistic computed from a finite sample. On a dataset whose deciles contain
-a few hundred control conversions (Section~\ref{sec:thin}), two models can differ in Qini purely by
+A Qini coefficient is a statistic computed from a finite sample. On a split whose deciles contain
+about 81 control conversions, fewer in the top decile (Section~\ref{sec:thin}), two models can differ in Qini purely by
 chance. Comparing point estimates and declaring a winner is the most likely way this project
 produces a false result, and it is exactly the claim a sharp examiner will probe.
 \end{alertbox}
@@ -1872,7 +1879,8 @@ and that person will answer the defence question about it fluently.
 \begin{verbatim}
   POST /score           single customer  -> full response object (S 12)
   POST /score/batch     CSV or JSON array -> scored file + summary
-  POST /policy/simulate budget, cost, margin -> policy comparison table
+  POST /policy/simulate budget, cost, margin, mode (equal_k | product;
+                        default equal_k) -> policy comparison table
   GET  /model/info      registered version, training date, metrics + CIs
   GET  /monitor/drift   latest drift report
   GET  /health          liveness / readiness
@@ -2065,7 +2073,8 @@ conversions than contacting the same number of customers by response score''.
 
 The simulator output (Section~\ref{sec:simulator}): uplift policy, response model, blanket contact
 and random contact, side by side, as a table and as overlaid cumulative-incremental curves with
-bootstrap bands. A budget slider moves a vertical line across all curves at once.
+bootstrap bands. A budget slider moves a vertical line across all curves at once. Tab 2 shows
+equal-$k$ mode by default, with a toggle for product mode (Section~\ref{sec:simulator}).
 
 \subsection{Tab 3 --- Model Evidence}
 
@@ -2359,25 +2368,27 @@ Simulated replay (Section~\ref{sec:lifecycle}) on the validation split for the M
 confirmed once on the locked test split at T70. Both policies contact exactly the same $k$
 customers under the same budget, each ranked by its own score, with no suppression or abstention;
 incremental conversions measured as the treated rate minus the control rate within each policy's
-selected customers, by their recorded arm. K1 is computed on Criteo with \texttt{conversion} as the target (\texttt{visit} and Hillstrom as sensitivity analyses). The primary $k$ is fixed in configuration and recorded in \texttt{docs/decisions/} before the first run; other values of $k$ are reported as sensitivity. Both policies are evaluated on the same bootstrap resamples (paired). &
+selected customers, by their recorded arm. K1 is computed on Criteo with \texttt{conversion} as the target (\texttt{visit} and Hillstrom as sensitivity analyses). The primary $k$ is fixed in configuration and recorded in \texttt{docs/decisions/} before the first run; other values of $k$ are reported as sensitivity. Both policies are evaluated on the same bootstrap resamples (paired). At M4 the uplift policy is the T-learner or X-learner chosen by out-of-fold Qini inside the training cross-validation, fixed before K1 is computed; the other is reported as sensitivity. The primary $k$ (as a fraction of the slice) and this model choice are recorded in one decision record in \texttt{docs/decisions/} before the first K1 run. &
 \emph{Measured.} The 95\% bootstrap interval of the \emph{difference} excludes
 zero in favour of the uplift policy. An interval containing zero is a reportable finding, not a
 failed project & M4 (6 Nov, validation); confirmed M6 (1 Dec, locked) & Ali \\
 \addlinespace
 \textbf{K2 --- Qini coefficient and AUUC} & Evaluation harness, on the validation split for the M4
 report; confirmed once on the locked test split at T70. 1000+ bootstrap resamples within treatment
-arms; library and settings named in the report & \emph{Measured.}
+arms; library and settings named in the report. Criteo, target \texttt{conversion}; \texttt{visit} and Hillstrom as sensitivity, reported with their (much wider) intervals. & \emph{Measured.}
 The 95\% interval lies entirely above zero, i.e.\ demonstrably better than random targeting. An
 interval entirely below zero would mean worse than random, so ``excludes zero'' alone is not
 enough & M4 (6 Nov, validation); confirmed M6 (1 Dec, locked) & Ali \\
 \addlinespace
 \textbf{K3 --- Incremental profit per unit of spend} & Replay output converted with the stated
-per-contact cost and margin, on the same split as K1 & \emph{Measured.} Reported with an interval
+per-contact cost and margin, on the same split as K1. Criteo, target \texttt{conversion}; \texttt{visit} and Hillstrom as sensitivity, reported with their (much wider) intervals. & \emph{Measured.} Reported with an interval
 and with the cost and margin assumptions named on the same line & M4 (6 Nov, validation); confirmed
 M6 (1 Dec, locked) & Ali \\
 \addlinespace
 \textbf{K4 --- Negative control} & Full pipeline re-run on a randomly permuted treatment indicator &
-\textbf{Pass/fail.} The 95\% interval of the measured uplift contains zero & M4, re-run at M6 & Ali \\
+\textbf{Pass/fail.} The 95\% interval of the measured uplift contains zero. K4 runs on validation
+at M4. At M6 it runs inside the same single T70 pass as K1--K3, not as a separate opening of the
+locked split & M4, re-run at M6 & Ali \\
 \addlinespace
 \textbf{K5 --- Calibration} & Predicted versus measured incremental conversions per decile in the
 replay & \emph{Measured.} Differences straddle zero across deciles rather than showing a systematic
@@ -2598,13 +2609,14 @@ Fri 6 Nov).
 \item \textbf{Mazen:} API contract (OpenAPI) and FastAPI skeleton with mocked responses, so that the
 dashboard can be built in parallel (T45, Fri 30 Oct); architecture, technology stack, component
 and deployment diagrams (T47, Wed 4 Nov); the test plan (T51, Wed 4 Nov).
-\item \textbf{All:} the written literature review, one part each (T25--T29, Wed 4 Nov).
+\item \textbf{Aliaa, Mohammed, Mahmoud and Ali:} the written literature review, one part each
+(T25--T28, Wed 4 Nov). T29 is out of scope since 16 October (less-paperwork decision, \#102).
 \end{itemize}
 
 \textbf{Deliverables.} Problem statement and objectives; use case diagram; software architecture;
 ERD with logical and physical schema; DFD context and level~1; sequence, activity, state and class
 diagrams; wireframes and UI/UX guidelines; technology stack; deployment and component diagrams; the
-test plan; the randomization integrity report; \textbf{the written literature review} (T25--T29,
+test plan; the randomization integrity report; \textbf{the written literature review} (T25--T28,
 due Wednesday 4 November); and the \textbf{first end-to-end result with a confidence interval}.
 
 \textbf{Definition of done.} The central comparison has been run and its result --- positive,

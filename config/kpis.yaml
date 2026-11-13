@@ -32,7 +32,12 @@ kpis:
       target = conversion (visit and Hillstrom as sensitivity). The primary k
       is fixed in config and recorded in docs/decisions before the first run;
       other k values are reported as sensitivity. Both policies are evaluated
-      on the same bootstrap resamples (paired).
+      on the same bootstrap resamples (paired). At M4 the uplift policy is the
+      T-learner or X-learner chosen by out-of-fold Qini inside the training
+      CV, fixed before K1 is computed; the other is reported as sensitivity.
+      The primary k (as a fraction of the slice) and this model choice are
+      recorded in one decision record in docs/decisions/ before the first K1
+      run.
     gate_type: measured_no_target
     success_condition: >
       The 95% bootstrap interval of the difference (uplift policy minus response
@@ -51,6 +56,8 @@ kpis:
       confirmed once on the locked test split at T70 (1 Dec). 1000+ bootstrap
       resamples within treatment arms. Library and settings must be named in
       the report (Qini/AUUC normalisation differs across libraries).
+      Criteo, target = conversion; visit and Hillstrom as sensitivity,
+      reported with their (much wider) intervals.
     gate_type: measured_no_target
     success_condition: >
         The 95% bootstrap confidence interval is entirely above zero,
@@ -66,7 +73,9 @@ kpis:
       The business-facing translation of the model's ranking into currency.
     computed_by: >
       Replay output (K1) converted using the stated per-contact cost and margin
-      (Spec Section 13).
+      (Spec Section 13), on the same split as K1.
+      Criteo, target = conversion; visit and Hillstrom as sensitivity,
+      reported with their (much wider) intervals.
     gate_type: measured_no_target
     success_condition: >
       Reported with a confidence interval, and with the cost and margin
@@ -80,7 +89,9 @@ kpis:
       Whether the pipeline detects an effect where none exists — the primary
       check against leakage or a bug producing a false signal.
     computed_by: >
-      Full pipeline re-run on a randomly permuted treatment indicator.
+      Full pipeline re-run on a randomly permuted treatment indicator. Runs on
+      validation at M4; at M6 it runs inside the same single T70 pass as
+      K1-K3, not as a separate opening of the locked split.
     gate_type: pass_fail
     success_condition: >
       The 95% interval of the measured uplift contains zero.
