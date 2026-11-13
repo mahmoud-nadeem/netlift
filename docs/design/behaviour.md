@@ -141,6 +141,8 @@ classDiagram
         +library: str
         +resamples
         +resample_fingerprint: str
+        +evaluation_fingerprint: str
+        +split_name: SplitName
         +settings: dict
         +metric_key: str
     }
@@ -152,6 +154,7 @@ classDiagram
         <<module: evaluation.contracts, built>>
         +within_arm_bootstrap_indices(t, n_resamples, seed)
         +fingerprint_indices(indices) str
+        +fingerprint_evaluation_set(y, t) str
         +paired_difference(a, b) MetricResult
         +log_metric_result(run, kpi_id, result) str
     }
@@ -276,11 +279,10 @@ Notes:
   The class diagram shows the module that holds each group.
 - `NeuralCATE`, the shared-representation neural estimator, is NICE TO HAVE in the spec's scope
   and is left out. If it is built, it is one more subclass of `UpliftEstimator`.
-- Two fields are pending, so they are not drawn:
-  - #92 adds `evaluation_fingerprint` and `split_name` to `MetricResult`.
-  - T41 (#104) adds a required `task` to `start_run`, with `experiment_name` and `run_name` helpers.
-
-  Both PRs are still open.
+- Pending in T41 (#104), and not drawn yet:
+  - a required `task` on `start_run`, with `experiment_name` and `run_name` helpers;
+  - `fingerprint_evaluation_set` gaining required `row_ids` and `dataset`, and the `UpliftMetric`
+    protocol gaining `split_name`, `row_ids` and `dataset` (ADR 0004).
 - Training and promotion lead to the MLflow Model Registry. The registry is a component, not a
   class of ours. It appears in the sequence and state diagrams.
 
