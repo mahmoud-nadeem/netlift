@@ -195,7 +195,10 @@ class UpliftMetric(Protocol):
 
     Metric-specific options (for example ``k`` and ``strategy`` for uplift@k)
     are extra keyword arguments with defaults, and are echoed in
-    ``MetricResult.settings``.
+    ``MetricResult.settings``. ``split_name``, ``row_ids`` and ``dataset`` are
+    required with no default: they fill ``split_name`` and the evaluation
+    fingerprint, and a default would let a locked-test result be logged under
+    another split without anything catching it (ADR 0004).
     """
 
     def __call__(
@@ -207,6 +210,9 @@ class UpliftMetric(Protocol):
         n_resamples: int,
         confidence_level: float,
         seed: int,
+        split_name: SplitName,
+        row_ids: npt.ArrayLike,
+        dataset: DatasetName,
     ) -> MetricResult:
         """Compute the metric and its within-arm bootstrap interval."""
         ...

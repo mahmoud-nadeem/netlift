@@ -29,8 +29,13 @@ ids (interface 1's `row_id`), `y` and `t`.
 - The dataset name is hashed because a row id is a position in one dataset's raw file, so ids
   alone are not unique across datasets.
 
-`MetricResult` and `paired_difference` are unchanged. Only the function that produces the
-fingerprint changes.
+The `UpliftMetric` protocol gains the same inputs as required keywords: `split_name`, `row_ids`
+and `dataset`, with no defaults. Since round 3 of #92, a metric has needed all three to fill a
+`MetricResult` (its `split_name` and its evaluation fingerprint), but the protocol never listed
+them. A default `split_name` would let a result computed on the locked test split be logged as
+`validation`, with nothing to catch it.
+
+`MetricResult` and `paired_difference` are unchanged.
 
 ## Consequences
 

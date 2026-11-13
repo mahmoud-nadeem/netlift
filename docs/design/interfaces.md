@@ -217,7 +217,9 @@ class MetricResult:
 
 class UpliftMetric(Protocol):
     def __call__(self, y, uplift, t, *,
-                 n_resamples: int, confidence_level: float, seed: int) -> MetricResult: ...
+                 n_resamples: int, confidence_level: float, seed: int,
+                 split_name: SplitName, row_ids: ArrayLike,
+                 dataset: DatasetName) -> MetricResult: ...
 
 def within_arm_bootstrap_indices(t, n_resamples: int, seed: int) -> Iterator[NDArray[int64]]
 def fingerprint_indices(indices: Iterable[ArrayLike]) -> str

@@ -10,6 +10,7 @@ import numpy.typing as npt
 import pandas as pd
 import pytest
 
+from netlift.data.contracts import DatasetName, SplitName
 from netlift.data.synthetic import make_synthetic_splits
 from netlift.evaluation.contracts import (
     MetricResult,
@@ -110,16 +111,34 @@ def test_a_conforming_function_satisfies_the_protocol() -> None:
         n_resamples: int,
         confidence_level: float,
         seed: int,
+        split_name: SplitName,
+        row_ids: npt.ArrayLike,
+        dataset: DatasetName,
     ) -> MetricResult:
         return _result(
-            n_resamples=n_resamples, confidence_level=confidence_level, seed=seed
+            n_resamples=n_resamples,
+            confidence_level=confidence_level,
+            seed=seed,
+            split_name=split_name,
+            evaluation_fingerprint=fingerprint_evaluation_set(
+                y, t, row_ids=row_ids, dataset=dataset
+            ),
         )
 
     metric: UpliftMetric = constant_metric
     result = metric(
-        [0, 1], [0.1, 0.2], [0, 1], n_resamples=1000, confidence_level=0.9, seed=3
+        [0, 1],
+        [0.1, 0.2],
+        [0, 1],
+        n_resamples=1000,
+        confidence_level=0.9,
+        seed=3,
+        split_name="test",
+        row_ids=[7, 9],
+        dataset="hillstrom",
     )
     assert result.seed == 3
+    assert result.split_name == "test"
 
 
 # --------------------------------------------------------------------------- #
