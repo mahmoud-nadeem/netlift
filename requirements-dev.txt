@@ -9,3 +9,5 @@ coverage==7.16.1
 ruff==0.16.8
 mypy==2.3.1
 pre-commit==4.6.2
+# FastAPI TestClient transport for API integration tests.
+httpx==0.28.1
