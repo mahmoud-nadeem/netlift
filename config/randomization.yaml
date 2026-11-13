@@ -1,0 +1,18 @@
+# Pre-registered thresholds for the randomization integrity check (spec Section 20).
+# Set before looking at results. Do not change after seeing them without recording why.
+
+# Spec: "0.1 is the conventional choice". A covariate with |SMD| above this is flagged.
+smd_threshold: 0.1
+
+# Spec only says "ROC-AUC materially above 0.5" and gives no number. 0.55 is a team choice:
+# FAIL if the lower bound of the 95% CI of the (group-aware) AUC is above this.
+auc_fail: 0.55
+
+# Overlap: cross-fitted propensity scores outside [overlap_eps, 1 - overlap_eps] count as
+# lack of overlap. FAIL if more than overlap_max_frac of rows fall outside.
+overlap_eps: 0.01
+overlap_max_frac: 0.01
+
+seed: 42
+n_boot: 200
+auc_sample: 500000
