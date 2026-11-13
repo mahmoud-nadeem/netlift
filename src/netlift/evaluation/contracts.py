@@ -20,7 +20,8 @@ refuses to compare two results whose fingerprints differ.
 The same resamples are not enough: since the split does not depend on the
 target, the visit and conversion matrices share ``t`` and therefore share
 resample fingerprints. Every result also records the evaluation set it was
-computed on (``fingerprint_evaluation_set`` over ``y`` and ``t``) and its split,
+computed on (``fingerprint_evaluation_set`` over the dataset, the row ids, ``y``
+and ``t``) and its split,
 and ``paired_difference`` requires both to match too.
 
 scikit-uplift is the single source of truth for every reported Qini, AUUC and
@@ -44,7 +45,7 @@ from typing import TYPE_CHECKING, Protocol, get_args
 import numpy as np
 import numpy.typing as npt
 
-from netlift.data.contracts import SplitName
+from netlift.data.contracts import DatasetName, SplitName
 from netlift.utils.errors import ContractError
 from netlift.utils.tracking import get_run_data, load_kpi_ids
 
@@ -262,26 +263,52 @@ def fingerprint_indices(indices: Iterable[npt.ArrayLike]) -> str:
     return digest.hexdigest()
 
 
-def fingerprint_evaluation_set(y: npt.ArrayLike, t: npt.ArrayLike) -> str:
-    """SHA-256 over the evaluation set's outcome and treatment: the evaluation fingerprint.
+def fingerprint_evaluation_set(
+    y: npt.ArrayLike,
+    t: npt.ArrayLike,
+    *,
+    row_ids: npt.ArrayLike,
+    dataset: str,
+) -> str:
+    """SHA-256 over the dataset name, the ordered row ids, ``y`` and ``t``.
 
-    Two results computed on different targets (visit and conversion share ``t``)
-    or on different rows get different fingerprints.
+    This is the evaluation fingerprint. Two evaluation sets with identical ``y``
+    and ``t`` but different rows, or the same rows in a different order, get
+    different fingerprints, so ``paired_difference`` never pairs resamples whose
+    positions point at different observations. Visit and conversion share ``t``
+    and the rows, and differ in ``y``. Row ids are positions in one dataset's raw
+    file, so the dataset name is hashed too.
     """
+    if dataset not in get_args(DatasetName):
+        raise ContractError(
+            f"dataset must be one of {get_args(DatasetName)}, got {dataset!r}."
+        )
+    ids = np.asarray(row_ids)
     outcome = np.asarray(y)
     arms = np.asarray(t)
-    if outcome.ndim != 1 or arms.ndim != 1 or outcome.size != arms.size:
+    if (
+        ids.ndim != 1
+        or outcome.ndim != 1
+        or arms.ndim != 1
+        or not ids.size == outcome.size == arms.size
+    ):
         raise ContractError(
-            f"y and t must be one-dimensional and the same length, got shapes "
-            f"{outcome.shape} and {arms.shape}."
+            f"row_ids, y and t must be one-dimensional and the same length, got "
+            f"shapes {ids.shape}, {outcome.shape} and {arms.shape}."
         )
     if outcome.size == 0:
         raise ContractError("Cannot fingerprint an empty evaluation set.")
+    if ids.dtype.kind not in "iu" or (ids < 0).any():
+        raise ContractError("row_ids must be non-negative integers (interface 1).")
     for label, values in (("y", outcome), ("t", arms)):
         if values.dtype.kind not in "biuf" or not np.isin(values, (0, 1)).all():
             raise ContractError(f"{label} must be binary 0/1 to be fingerprinted.")
+    name = dataset.encode("utf-8")
     digest = hashlib.sha256()
+    digest.update(len(name).to_bytes(8, "little"))
+    digest.update(name)
     digest.update(outcome.size.to_bytes(8, "little"))
+    digest.update(np.ascontiguousarray(ids, dtype=np.int64).tobytes())
     digest.update(np.ascontiguousarray(outcome, dtype=np.int8).tobytes())
     digest.update(np.ascontiguousarray(arms, dtype=np.int8).tobytes())
     return digest.hexdigest()

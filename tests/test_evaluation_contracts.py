@@ -179,6 +179,7 @@ def _mean_uplift(
     n: int,
     seed: int,
     y: npt.NDArray[np.int64] | None = None,
+    row_ids: npt.NDArray[np.int64] | None = None,
     split_name: str = "validation",
 ) -> MetricResult:
     """A toy metric built the way T39 is meant to build real ones."""
@@ -202,7 +203,10 @@ def _mean_uplift(
             within_arm_bootstrap_indices(t, n_resamples=n, seed=seed)
         ),
         evaluation_fingerprint=fingerprint_evaluation_set(
-            np.zeros_like(t) if y is None else y, t
+            np.zeros_like(t) if y is None else y,
+            t,
+            row_ids=np.arange(len(t)) if row_ids is None else row_ids,
+            dataset="synthetic",
         ),
         split_name=split_name,  # type: ignore[arg-type]
     )
@@ -274,8 +278,11 @@ def test_visit_and_conversion_on_the_same_t_cannot_be_paired() -> None:
     conversion = make_synthetic_splits("conversion", seed=4).validation
     assert np.array_equal(visit.t, conversion.t)
     uplift = np.random.default_rng(3).normal(0.05, 0.02, size=visit.n_rows)
-    a = _mean_uplift(uplift, visit.t, n=50, seed=1, y=visit.y)
-    b = _mean_uplift(uplift, conversion.t, n=50, seed=1, y=conversion.y)
+    assert np.array_equal(visit.row_id, conversion.row_id)
+    a = _mean_uplift(uplift, visit.t, n=50, seed=1, y=visit.y, row_ids=visit.row_id)
+    b = _mean_uplift(
+        uplift, conversion.t, n=50, seed=1, y=conversion.y, row_ids=conversion.row_id
+    )
     assert a.resample_fingerprint == b.resample_fingerprint
     with pytest.raises(ContractError, match="evaluation_fingerprint"):
         paired_difference(a, b)
@@ -303,22 +310,79 @@ def test_evaluation_set_fields_are_validated(field: str) -> None:
         _result(**{field: "nope"})
 
 
-def test_evaluation_fingerprint_depends_on_y_and_t() -> None:
-    t = np.array([0, 1, 0, 1])
-    base = fingerprint_evaluation_set(np.array([0, 0, 1, 1]), t)
-    assert base == fingerprint_evaluation_set([0, 0, 1, 1], [0, 1, 0, 1])
-    assert base != fingerprint_evaluation_set(np.array([0, 1, 1, 1]), t)
-    assert base != fingerprint_evaluation_set(
-        np.array([0, 0, 1, 1]), np.array([1, 1, 0, 0])
+def _fingerprint(
+    y: object = (0, 0, 1, 1),
+    t: object = (0, 1, 0, 1),
+    row_ids: object = (10, 11, 12, 13),
+    dataset: str = "hillstrom",
+) -> str:
+    return fingerprint_evaluation_set(
+        np.asarray(y), np.asarray(t), row_ids=np.asarray(row_ids), dataset=dataset
     )
 
 
+def test_identical_inputs_give_the_same_evaluation_fingerprint() -> None:
+    assert _fingerprint() == _fingerprint()
+    assert _fingerprint() == fingerprint_evaluation_set(
+        [0, 0, 1, 1], [0, 1, 0, 1], row_ids=[10, 11, 12, 13], dataset="hillstrom"
+    )
+
+
+def test_different_row_ids_with_the_same_y_and_t_differ() -> None:
+    """Mazen's P1: identical y and t on different rows are not the same set."""
+    assert _fingerprint() != _fingerprint(row_ids=(20, 21, 22, 23))
+
+
+def test_the_same_row_ids_in_another_order_differ() -> None:
+    """Resamples are positional, so the order of the rows matters."""
+    assert _fingerprint() != _fingerprint(row_ids=(11, 10, 12, 13))
+
+
+def test_a_different_dataset_name_differs() -> None:
+    assert _fingerprint() != _fingerprint(dataset="criteo")
+
+
+def test_evaluation_fingerprint_depends_on_y_and_t() -> None:
+    assert _fingerprint() != _fingerprint(y=(0, 1, 1, 1))
+    assert _fingerprint() != _fingerprint(t=(1, 1, 0, 0))
+
+
 @pytest.mark.parametrize(
-    ("y", "t"), [([0, 1], [0, 1, 1]), ([0, 2], [0, 1]), ([], []), ([[0, 1]], [[0, 1]])]
+    ("y", "t", "row_ids"),
+    [
+        ([0, 1], [0, 1], [1, 2, 3]),
+        ([0, 1], [0, 1, 1], [1, 2]),
+        ([0, 1, 1], [0, 1], [1, 2, 3]),
+    ],
 )
-def test_evaluation_fingerprint_rejects_bad_input(y: list[int], t: list[int]) -> None:
+def test_evaluation_fingerprint_rejects_a_length_mismatch(
+    y: list[int], t: list[int], row_ids: list[int]
+) -> None:
+    with pytest.raises(ContractError, match="same length"):
+        _fingerprint(y=y, t=t, row_ids=row_ids)
+
+
+@pytest.mark.parametrize(
+    ("y", "t", "row_ids", "dataset"),
+    [
+        ([], [], [], "hillstrom"),
+        ([0, 2], [0, 1], [1, 2], "hillstrom"),
+        ([[0, 1]], [[0, 1]], [[1, 2]], "hillstrom"),
+        ([0, 1], [0, 1], [-1, 2], "hillstrom"),
+        ([0, 1], [0, 1], [0.5, 2.0], "hillstrom"),
+        ([0, 1], [0, 1], [1, 2], "Hillstrom"),
+    ],
+)
+def test_evaluation_fingerprint_rejects_bad_input(
+    y: list[int], t: list[int], row_ids: list[float], dataset: str
+) -> None:
     with pytest.raises(ContractError):
-        fingerprint_evaluation_set(y, t)
+        _fingerprint(y=y, t=t, row_ids=row_ids, dataset=dataset)
+
+
+def test_row_ids_and_dataset_are_required() -> None:
+    with pytest.raises(TypeError):
+        fingerprint_evaluation_set([0, 1], [0, 1])  # type: ignore[call-arg]
 
 
 # --------------------------------------------------------------------------- #
