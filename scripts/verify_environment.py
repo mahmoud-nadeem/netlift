@@ -40,6 +40,7 @@ PACKAGES: dict[str, str] = {
     "matplotlib": "matplotlib",
     "seaborn": "seaborn",
     "PyYAML": "yaml",
+    "pyarrow": "pyarrow",
     "python-dotenv": "dotenv",
     "ipykernel": "ipykernel",
 }
