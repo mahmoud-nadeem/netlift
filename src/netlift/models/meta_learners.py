@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from lightgbm import LGBMClassifier
+from lightgbm import LGBMClassifier, LGBMRegressor
 
 from netlift.data.contracts import FeatureMatrix, validate_features
 
@@ -85,3 +85,80 @@ def fit_class_transformation(
     model = LGBMClassifier(**dict(params))
     model.fit(train.X, transformed, sample_weight=weights)
     return ClassTransformation(model=model, feature_columns=tuple(train.X.columns))
+
+
+@dataclass(frozen=True)
+class TLearner:
+    """Estimate uplift as the difference between two outcome models."""
+
+    control_model: LGBMClassifier
+    treated_model: LGBMClassifier
+    feature_columns: tuple[str, ...]
+
+    def predict_uplift(self, features: pd.DataFrame) -> npt.NDArray[np.float64]:
+        validate_features(features)
+        inputs = features.loc[:, list(self.feature_columns)]
+        treated = self.treated_model.predict_proba(inputs)[:, 1]
+        control = self.control_model.predict_proba(inputs)[:, 1]
+        return np.asarray(treated - control, dtype=np.float64)
+
+
+def fit_t_learner(train: FeatureMatrix, params: Mapping[str, object]) -> TLearner:
+    """Fit one binary outcome classifier per treatment arm."""
+    validate_features(train.X)
+    control = train.t == 0
+    treated = train.t == 1
+    if np.unique(train.y[control]).size != 2 or np.unique(train.y[treated]).size != 2:
+        raise ValueError("T-learner requires both outcome classes in each arm.")
+
+    control_model = LGBMClassifier(**dict(params))
+    treated_model = LGBMClassifier(**dict(params))
+    control_model.fit(train.X.loc[control], train.y[control])
+    treated_model.fit(train.X.loc[treated], train.y[treated])
+    return TLearner(control_model, treated_model, tuple(train.X.columns))
+
+
+@dataclass(frozen=True)
+class XLearner:
+    """Combine arm-specific predictions of the imputed treatment effect."""
+
+    control_effect: LGBMRegressor
+    treated_effect: LGBMRegressor
+    treated_share: float
+    feature_columns: tuple[str, ...]
+
+    def predict_uplift(self, features: pd.DataFrame) -> npt.NDArray[np.float64]:
+        validate_features(features)
+        inputs = features.loc[:, list(self.feature_columns)]
+        score = self.treated_share * self.control_effect.predict(inputs) + (
+            1.0 - self.treated_share
+        ) * self.treated_effect.predict(inputs)
+        return np.asarray(score, dtype=np.float64)
+
+
+def fit_x_learner(
+    train: FeatureMatrix,
+    outcome_params: Mapping[str, object],
+    effect_params: Mapping[str, object],
+) -> XLearner:
+    """Fit outcome models, then regress imputed effects within each arm."""
+    outcomes = fit_t_learner(train, outcome_params)
+    treated = train.t == 1
+    control = ~treated
+    control_x = train.X.loc[control]
+    treated_x = train.X.loc[treated]
+
+    control_target = (
+        outcomes.treated_model.predict_proba(control_x)[:, 1] - train.y[control]
+    )
+    treated_target = (
+        train.y[treated] - outcomes.control_model.predict_proba(treated_x)[:, 1]
+    )
+
+    control_effect = LGBMRegressor(**dict(effect_params))
+    treated_effect = LGBMRegressor(**dict(effect_params))
+    control_effect.fit(control_x, control_target)
+    treated_effect.fit(treated_x, treated_target)
+    return XLearner(
+        control_effect, treated_effect, float(treated.mean()), outcomes.feature_columns
+    )
