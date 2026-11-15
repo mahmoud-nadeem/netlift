@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -24,13 +25,13 @@ class SLearner:
         validate_features(features)
         inputs = features.loc[:, list(self.feature_columns)].copy()
         inputs[_TREATMENT_COLUMN] = 0
-        control = self.model.predict_proba(inputs)[:, 1]
+        control = np.asarray(self.model.predict_proba(inputs), dtype=np.float64)[:, 1]
         inputs[_TREATMENT_COLUMN] = 1
-        treated = self.model.predict_proba(inputs)[:, 1]
+        treated = np.asarray(self.model.predict_proba(inputs), dtype=np.float64)[:, 1]
         return np.asarray(treated - control, dtype=np.float64)
 
 
-def fit_s_learner(train: FeatureMatrix, params: Mapping[str, object]) -> SLearner:
+def fit_s_learner(train: FeatureMatrix, params: Mapping[str, Any]) -> SLearner:
     """Fit one outcome classifier on both arms of the training split."""
     validate_features(train.X)
     if set(np.unique(train.t)) != {0, 1}:
@@ -54,13 +55,15 @@ class ClassTransformation:
     def predict_uplift(self, features: pd.DataFrame) -> npt.NDArray[np.float64]:
         validate_features(features)
         inputs = features.loc[:, list(self.feature_columns)]
-        probability = self.model.predict_proba(inputs)[:, 1]
+        probability = np.asarray(self.model.predict_proba(inputs), dtype=np.float64)[
+            :, 1
+        ]
         return np.asarray(2.0 * probability - 1.0, dtype=np.float64)
 
 
 def fit_class_transformation(
     train: FeatureMatrix,
-    params: Mapping[str, object],
+    params: Mapping[str, Any],
     *,
     propensity_weighted: bool,
 ) -> ClassTransformation:
@@ -98,12 +101,16 @@ class TLearner:
     def predict_uplift(self, features: pd.DataFrame) -> npt.NDArray[np.float64]:
         validate_features(features)
         inputs = features.loc[:, list(self.feature_columns)]
-        treated = self.treated_model.predict_proba(inputs)[:, 1]
-        control = self.control_model.predict_proba(inputs)[:, 1]
+        treated = np.asarray(
+            self.treated_model.predict_proba(inputs), dtype=np.float64
+        )[:, 1]
+        control = np.asarray(
+            self.control_model.predict_proba(inputs), dtype=np.float64
+        )[:, 1]
         return np.asarray(treated - control, dtype=np.float64)
 
 
-def fit_t_learner(train: FeatureMatrix, params: Mapping[str, object]) -> TLearner:
+def fit_t_learner(train: FeatureMatrix, params: Mapping[str, Any]) -> TLearner:
     """Fit one binary outcome classifier per treatment arm."""
     validate_features(train.X)
     control = train.t == 0
@@ -130,16 +137,18 @@ class XLearner:
     def predict_uplift(self, features: pd.DataFrame) -> npt.NDArray[np.float64]:
         validate_features(features)
         inputs = features.loc[:, list(self.feature_columns)]
-        score = self.treated_share * self.control_effect.predict(inputs) + (
-            1.0 - self.treated_share
-        ) * self.treated_effect.predict(inputs)
+        score = self.treated_share * np.asarray(
+            self.control_effect.predict(inputs), dtype=np.float64
+        ) + (1.0 - self.treated_share) * np.asarray(
+            self.treated_effect.predict(inputs), dtype=np.float64
+        )
         return np.asarray(score, dtype=np.float64)
 
 
 def fit_x_learner(
     train: FeatureMatrix,
-    outcome_params: Mapping[str, object],
-    effect_params: Mapping[str, object],
+    outcome_params: Mapping[str, Any],
+    effect_params: Mapping[str, Any],
 ) -> XLearner:
     """Fit outcome models, then regress imputed effects within each arm."""
     outcomes = fit_t_learner(train, outcome_params)
@@ -149,10 +158,16 @@ def fit_x_learner(
     treated_x = train.X.loc[treated]
 
     control_target = (
-        outcomes.treated_model.predict_proba(control_x)[:, 1] - train.y[control]
+        np.asarray(outcomes.treated_model.predict_proba(control_x), dtype=np.float64)[
+            :, 1
+        ]
+        - train.y[control]
     )
     treated_target = (
-        train.y[treated] - outcomes.control_model.predict_proba(treated_x)[:, 1]
+        train.y[treated]
+        - np.asarray(outcomes.control_model.predict_proba(treated_x), dtype=np.float64)[
+            :, 1
+        ]
     )
 
     control_effect = LGBMRegressor(**dict(effect_params))
