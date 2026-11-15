@@ -14,8 +14,7 @@ LightGBM classifiers fit treated train rows only. Both searches use the existing
 
 There are two searches per dataset/target: primary treated OOF log loss and sensitivity OOF Qini, each with 30 trials (60 per dataset/target, 180 total). Trial details are saved in each run's trials.csv, rather than 180 separate MLflow runs. T42 budget/search-space parity requires separate confirmation.
 
-Selection follows the rule recorded in ADR 0004 at the source commit: higher train OOF Qini, with lower treated OOF log loss breaking a tie. ADR 0004 is marked proposed; this report does not claim reviewer approval. Both candidates are retained for review.
-
+Selection follows ADR 0005 (numbered 0004 at the training commit): higher train OOF Qini, with lower treated OOF log loss breaking a tie. ADR 0005 is marked proposed. Both candidates are retained for review.
 ## Candidate comparison and selection
 
 | Dataset | Target | Search objective | OOF Qini | OOF log loss | Selected |
@@ -53,7 +52,7 @@ All three selected candidates have negative model-minus-constant log-loss interv
 
 ## Reproduction and handoff
 
-See config/response_tuning.yaml and docs/decisions/0004-response-model-tuning.md at the source commit. The existing runner supports each dataset/target and objective; no retraining is needed to export these saved results. Keep the source commit reachable with an annotated tag before squash merge, including in the delivered company repository.
+See `config/response_tuning.yaml` at the training commit and [ADR 0005](../docs/decisions/0005-response-model-tuning.md) for the tuning protocol. The existing runner supports each dataset, target, and objective. Exporting the saved results requires no retraining. Keep the training commit reachable with an annotated tag before squash merge, including in the delivered company repository.
 
 The companion selection JSON records all six run IDs, selected flags, OOF values and input-file SHA-256 values. The results CSV retains all candidate parameters and metrics at exported precision. Original MLflow artifacts must be delivered separately: validation_scores.csv, validation_outcomes.csv, manifest.json, trials.csv and response_model.joblib. The export utility copies these without changing run metadata and checks finite scores, unique/aligned row IDs, binary outcomes/treatment, row counts, manifest flags and matching outcomes across objectives. Its export-checks.json records file hashes and the actual checks performed.
 
