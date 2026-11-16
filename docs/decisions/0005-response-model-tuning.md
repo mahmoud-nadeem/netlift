@@ -1,5 +1,6 @@
 # ADR 0005: Tuning the response-model baseline (#107)
 Status: proposed. Owner: @mohamedshrief44. Reviewer: @Ali-Alaa-Salah.
+Protocol recorded before the first trial: 2026-11-04, commit `9ce5f92` (then numbered ADR 0004).
 
 ## Context
 
