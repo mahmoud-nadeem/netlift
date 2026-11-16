@@ -1,4 +1,4 @@
-# T38 follow-up (#107), ADR 0004. Chosen before the first trial; never edited
+# T38 follow-up (#107), ADR 0005. Chosen before the first trial; never edited
 # after seeing a result. The T42 learners use the same trial budget.
 seed: 42
 n_trials: 30

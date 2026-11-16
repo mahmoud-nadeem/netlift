@@ -1,4 +1,4 @@
-"""Tune the response-model baseline inside the train folds (#107, ADR 0004).
+"""Tune the response-model baseline inside the train folds (#107, ADR 0005).
 
 Criteo conversion is the primary target; Hillstrom visit and conversion are the
 sensitivity leg. Selection uses out-of-fold scores on the train split only. The

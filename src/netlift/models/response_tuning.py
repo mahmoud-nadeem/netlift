@@ -1,4 +1,4 @@
-"""Tune the T38 response-model baseline inside the train folds (#107, ADR 0004).
+"""Tune the T38 response-model baseline inside the train folds (#107, ADR 0005).
 
 Only the train matrix is passed to the search, so validation and test rows cannot
 influence a trial. Each trial fits LightGBM on the treated rows outside a fold and
