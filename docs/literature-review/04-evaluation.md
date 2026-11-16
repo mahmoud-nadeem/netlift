@@ -12,7 +12,7 @@ Owner: Ali Alaa · Reviewer: Mohammed Sherif · Due: Wed 4 Nov 2026
 
 ## 2. Efron & Tibshirani (1993): the bootstrap
 
-**Citation.** Efron, B., & Tibshirani, R. J. (1993). *An Introduction to the Bootstrap*. Monographs on Statistics and Applied Probability 57. New York: Chapman & Hall. ISBN 0-412-04231-2.
+**Citation.** Efron, B., & Tibshirani, R. J. (1993). *An Introduction to the Bootstrap*. Monographs on Statistics and Applied Probability 57. New York: Chapman & Hall. ISBN 0-412-04231-2. <https://www.routledge.com/An-Introduction-to-the-Bootstrap/Efron-Tibshirani/p/book/9780412042317> (publisher page; it dates the reissue 1994).
 
 **Summary.** Many statistics have no usable formula for their standard error or confidence interval. The bootstrap treats the sample as the population, redraws samples from it with replacement, and recomputes the statistic on each redraw. The percentile interval (Chapter 13) reads the interval from the quantiles of those recomputed values. For two groups (Section 8.3), the resampling uses one empirical distribution per group, so each group is redrawn separately.
 
