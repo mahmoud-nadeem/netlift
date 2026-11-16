@@ -5,6 +5,8 @@ derived in its docstring): the Qini curve at m = 0..8 targeted rows is
 0, 1, 1, 2, 1, 1/2, 1, 2/3, 1 and the uplift curve is 0, 1, 2, 3, 2, 5/6, 2, 7/6, 2.
 With ``n_grid=8`` the fractions are m/8, so the grid points are the knots and
 no interpolation is involved.
+
+``split_name``, ``row_ids`` and ``dataset`` are required keywords (ADR 0004).
 """
 
 from __future__ import annotations
@@ -31,12 +33,16 @@ from netlift.evaluation.metrics import qini_coefficient
 from netlift.utils.errors import ContractError
 
 N_RESAMPLES = 50  # unit tests only; a reported band needs 1,000 resamples.
+N_ROWS = 600
+# Interface 1 row ids: positions in a raw file, deliberately not 0..n-1.
+ROW_IDS = np.arange(N_ROWS, dtype=np.int64) + 100
 
 # Fixture A of test_metrics.py, not in score order.
 _ORDER = [3, 6, 0, 7, 2, 5, 1, 4]
 A_UPLIFT = np.array([0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1])[_ORDER]
 A_T = np.array([1, 0, 1, 0, 1, 0, 1, 0])[_ORDER]
 A_Y = np.array([1, 0, 1, 1, 0, 0, 0, 0])[_ORDER]
+A_ROW_IDS = np.arange(8, dtype=np.int64) + 10
 
 
 def _data(
@@ -54,22 +60,33 @@ QINI_A = [0, 1, 1, 2, 1, 0.5, 1, 2 / 3, 1]
 UPLIFT_A = [0, 1, 2, 3, 2, 5 / 6, 2, 7 / 6, 2]
 
 
-def _band(curve: Any, **overrides: Any) -> CurveBand:
-    y, uplift, t = _data()
+def _arguments(**overrides: Any) -> dict[str, Any]:
+    """Every keyword a curve needs; ``split_name``, ``row_ids`` and ``dataset`` are required."""
     arguments: dict[str, Any] = {
         "n_resamples": N_RESAMPLES,
         "confidence_level": 0.95,
         "seed": 7,
+        "split_name": "validation",
+        "row_ids": ROW_IDS,
+        "dataset": "synthetic",
     }
     arguments.update(overrides)
-    band: CurveBand = curve(y, uplift, t, **arguments)
+    return arguments
+
+
+def _band(curve: Any, **overrides: Any) -> CurveBand:
+    y, uplift, t = _data()
+    band: CurveBand = curve(y, uplift, t, **_arguments(**overrides))
     return band
 
 
+def _small(**overrides: Any) -> dict[str, Any]:
+    """Keywords for the 8-row fixture A."""
+    return _arguments(n_resamples=10, seed=0, row_ids=A_ROW_IDS, **overrides)
+
+
 def test_hand_computed_qini_curve_on_the_grid() -> None:
-    band = qini_curve(
-        A_Y, A_UPLIFT, A_T, n_resamples=10, confidence_level=0.95, seed=0, n_grid=8
-    )
+    band = qini_curve(A_Y, A_UPLIFT, A_T, **_small(n_grid=8))
     assert band.fraction == pytest.approx(np.arange(9) / 8)
     assert band.point == pytest.approx(QINI_A)
     assert band.random_baseline == pytest.approx(np.arange(9) / 8 * 1.0)
@@ -77,9 +94,7 @@ def test_hand_computed_qini_curve_on_the_grid() -> None:
 
 @pytest.mark.parametrize("curve", [uplift_curve, cumulative_gain_curve])
 def test_hand_computed_uplift_curve_on_the_grid(curve: Any) -> None:
-    band = curve(
-        A_Y, A_UPLIFT, A_T, n_resamples=10, confidence_level=0.95, seed=0, n_grid=8
-    )
+    band = curve(A_Y, A_UPLIFT, A_T, **_small(n_grid=8))
     assert band.point == pytest.approx(UPLIFT_A)
 
 
@@ -88,9 +103,7 @@ def test_interpolation_between_knots_is_linear() -> None:
 
     Fraction 3/16 is 1.5 rows: half way between m=1 (1) and m=2 (1) -> 1.0.
     """
-    band = qini_curve(
-        A_Y, A_UPLIFT, A_T, n_resamples=10, confidence_level=0.95, seed=0, n_grid=16
-    )
+    band = qini_curve(A_Y, A_UPLIFT, A_T, **_small(n_grid=16))
     assert band.point[1] == pytest.approx(0.5)
     assert band.point[3] == pytest.approx(1.0)
 
@@ -131,17 +144,50 @@ def test_band_fingerprints_match_the_contract(curve: Any) -> None:
     assert band.resample_fingerprint == fingerprint_indices(
         within_arm_bootstrap_indices(t, N_RESAMPLES, 7)
     )
-    assert band.evaluation_fingerprint == fingerprint_evaluation_set(y, t)
+    assert band.evaluation_fingerprint == fingerprint_evaluation_set(
+        y, t, row_ids=ROW_IDS, dataset="synthetic"
+    )
     assert band.split_name == "validation"
     assert band.library == "scikit-uplift"
 
 
+@pytest.mark.parametrize("curve", CURVES)
+def test_split_name_is_recorded(curve: Any) -> None:
+    assert _band(curve, split_name="train").split_name == "train"
+    assert _band(curve, split_name="test").split_name == "test"
+
+
+@pytest.mark.parametrize("curve", CURVES)
+@pytest.mark.parametrize("missing", ["split_name", "row_ids", "dataset"])
+def test_split_name_row_ids_and_dataset_have_no_default(
+    curve: Any, missing: str
+) -> None:
+    y, uplift, t = _data()
+    arguments = _arguments()
+    del arguments[missing]
+    with pytest.raises(TypeError, match=missing):
+        curve(y, uplift, t, **arguments)
+
+
+@pytest.mark.parametrize("curve", CURVES)
+def test_the_evaluation_fingerprint_binds_row_ids_and_dataset(curve: Any) -> None:
+    base = _band(curve)
+    reordered = _band(curve, row_ids=ROW_IDS[::-1])
+    other_dataset = _band(curve, dataset="criteo")
+    fingerprints = {
+        base.evaluation_fingerprint,
+        reordered.evaluation_fingerprint,
+        other_dataset.evaluation_fingerprint,
+    }
+    assert len(fingerprints) == 3
+
+
 def test_curve_band_shares_resamples_with_the_metric() -> None:
     y, uplift, t = _data()
-    metric = qini_coefficient(
-        y, uplift, t, n_resamples=N_RESAMPLES, confidence_level=0.95, seed=7
-    )
-    assert metric.resample_fingerprint == _band(qini_curve).resample_fingerprint
+    metric = qini_coefficient(y, uplift, t, **_arguments())
+    band = _band(qini_curve)
+    assert metric.resample_fingerprint == band.resample_fingerprint
+    assert metric.evaluation_fingerprint == band.evaluation_fingerprint
 
 
 def test_band_equals_pointwise_percentiles_of_the_resample_curves() -> None:
@@ -172,6 +218,9 @@ def test_lower_confidence_level_gives_a_nested_band() -> None:
         {"n_resamples": 0},
         {"confidence_level": 1.0},
         {"split_name": "holdout"},
+        {"row_ids": ROW_IDS[:-1]},
+        {"row_ids": ROW_IDS.astype(np.float64)},
+        {"dataset": "movielens"},
     ],
 )
 def test_invalid_arguments_are_rejected(curve: Any, override: dict[str, Any]) -> None:
@@ -181,10 +230,11 @@ def test_invalid_arguments_are_rejected(curve: Any, override: dict[str, Any]) ->
 
 @pytest.mark.parametrize("curve", CURVES)
 def test_invalid_data_is_rejected(curve: Any) -> None:
-    kwargs = {"n_resamples": 5, "confidence_level": 0.95, "seed": 0}
+    short = _arguments(n_resamples=5, seed=0, row_ids=np.arange(3))
+    four = _arguments(n_resamples=5, seed=0, row_ids=np.arange(4))
     with pytest.raises(ContractError, match="both arms"):
-        curve([0, 1, 1], [0.1, 0.2, 0.3], [1, 1, 1], **kwargs)
+        curve([0, 1, 1], [0.1, 0.2, 0.3], [1, 1, 1], **short)
     with pytest.raises(ContractError, match="no positive outcome"):
-        curve([0, 0, 0, 0], [0.1, 0.2, 0.3, 0.4], [0, 1, 0, 1], **kwargs)
+        curve([0, 0, 0, 0], [0.1, 0.2, 0.3, 0.4], [0, 1, 0, 1], **four)
     with pytest.raises(ContractError, match="NaN or infinite"):
-        curve([0, 1, 1, 0], [0.1, np.nan, 0.3, 0.4], [0, 1, 0, 1], **kwargs)
+        curve([0, 1, 1, 0], [0.1, np.nan, 0.3, 0.4], [0, 1, 0, 1], **four)

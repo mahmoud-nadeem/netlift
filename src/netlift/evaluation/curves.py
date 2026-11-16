@@ -3,7 +3,9 @@
 The curves come from scikit-uplift (``qini_curve``, ``uplift_curve``). The bands
 use the same within-arm resamples as the metrics (``within_arm_bootstrap_indices``),
 so a curve band and a metric interval computed with the same ``t`` and ``seed``
-share one ``resample_fingerprint``.
+share one ``resample_fingerprint``. As for the metrics, ``split_name``, ``row_ids``
+and ``dataset`` are required keywords and fill the band's evaluation fingerprint
+(ADR 0004).
 
 How the resample curves are aligned. scikit-uplift returns a piecewise-linear
 curve with a knot at every distinct score, x counted in targeted rows. Resampling
@@ -29,13 +31,12 @@ import numpy as np
 import numpy.typing as npt
 import sklift.metrics as sk_metrics  # type: ignore[import-untyped]
 
-from netlift.data.contracts import SplitName
+from netlift.data.contracts import DatasetName, SplitName
 from netlift.evaluation.contracts import (
     SOURCE_OF_TRUTH_LIBRARY,
     fingerprint_evaluation_set,
 )
 from netlift.evaluation.metrics import (
-    DEFAULT_SPLIT,
     FloatArray,
     IntArray,
     check_bootstrap_arguments,
@@ -128,7 +129,9 @@ def _curve_band(
     n_resamples: int,
     confidence_level: float,
     seed: int,
-    split_name: str,
+    split_name: SplitName,
+    row_ids: npt.ArrayLike,
+    dataset: DatasetName,
     n_grid: int,
 ) -> CurveBand:
     check_bootstrap_arguments(n_resamples, confidence_level, seed, split_name)
@@ -137,6 +140,10 @@ def _curve_band(
     ensure_sklift_api()
     y_array, score, t_array = prepare_inputs(
         y, uplift, t, require_positive_outcome=True
+    )
+    # Validates row_ids and dataset before any resampling.
+    evaluation_fingerprint = fingerprint_evaluation_set(
+        y_array, t_array, row_ids=row_ids, dataset=dataset
     )
     grid = np.linspace(0.0, 1.0, n_grid + 1)
     point = _curve_on_grid(
@@ -169,8 +176,8 @@ def _curve_band(
         library=SOURCE_OF_TRUTH_LIBRARY,
         library_version=library_version(),
         resample_fingerprint=fingerprint,
-        evaluation_fingerprint=fingerprint_evaluation_set(y_array, t_array),
-        split_name=split_name,  # type: ignore[arg-type]
+        evaluation_fingerprint=evaluation_fingerprint,
+        split_name=split_name,
     )
 
 
@@ -182,7 +189,9 @@ def qini_curve(
     n_resamples: int,
     confidence_level: float,
     seed: int,
-    split_name: SplitName = DEFAULT_SPLIT,
+    split_name: SplitName,
+    row_ids: npt.ArrayLike,
+    dataset: DatasetName,
     n_grid: int = DEFAULT_GRID_POINTS,
 ) -> CurveBand:
     """Qini curve (cumulative incremental conversions) with a bootstrap band."""
@@ -196,6 +205,8 @@ def qini_curve(
         confidence_level=confidence_level,
         seed=seed,
         split_name=split_name,
+        row_ids=row_ids,
+        dataset=dataset,
         n_grid=n_grid,
     )
 
@@ -208,7 +219,9 @@ def uplift_curve(
     n_resamples: int,
     confidence_level: float,
     seed: int,
-    split_name: SplitName = DEFAULT_SPLIT,
+    split_name: SplitName,
+    row_ids: npt.ArrayLike,
+    dataset: DatasetName,
     n_grid: int = DEFAULT_GRID_POINTS,
 ) -> CurveBand:
     """scikit-uplift's uplift curve, (treated rate - control rate) x rows targeted, with a band."""
@@ -222,6 +235,8 @@ def uplift_curve(
         confidence_level=confidence_level,
         seed=seed,
         split_name=split_name,
+        row_ids=row_ids,
+        dataset=dataset,
         n_grid=n_grid,
     )
 
@@ -234,7 +249,9 @@ def cumulative_gain_curve(
     n_resamples: int,
     confidence_level: float,
     seed: int,
-    split_name: SplitName = DEFAULT_SPLIT,
+    split_name: SplitName,
+    row_ids: npt.ArrayLike,
+    dataset: DatasetName,
     n_grid: int = DEFAULT_GRID_POINTS,
 ) -> CurveBand:
     """Cumulative gain for the dashboard.
@@ -253,5 +270,7 @@ def cumulative_gain_curve(
         confidence_level=confidence_level,
         seed=seed,
         split_name=split_name,
+        row_ids=row_ids,
+        dataset=dataset,
         n_grid=n_grid,
     )

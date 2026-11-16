@@ -6,8 +6,11 @@ percentile bootstrap resampled within treatment arms, using the frozen
 ``within_arm_bootstrap_indices`` of ``contracts.py``.
 
 Each public metric has the frozen signature ``metric(y, uplift, t, *, n_resamples,
-confidence_level, seed)`` plus optional keywords (``split_name`` and, for
-uplift@k, ``k`` and ``strategy``) that are echoed in the ``MetricResult``.
+confidence_level, seed, split_name, row_ids, dataset)`` (ADR 0004). ``split_name``,
+``row_ids`` and ``dataset`` have no default: they fill the result's split and its
+evaluation fingerprint, which binds the dataset and the ordered row ids to ``y`` and
+``t``. Metric-specific options (``k`` and ``strategy`` for uplift@k) are extra
+keywords with defaults, echoed in the ``MetricResult``.
 
 A resample whose metric is undefined (NaN or infinite) is never turned into a
 number: the call raises ``ContractError`` naming the resample. Dropping it would
@@ -28,7 +31,7 @@ import numpy as np
 import numpy.typing as npt
 import sklift.metrics as sk_metrics  # type: ignore[import-untyped]
 
-from netlift.data.contracts import SplitName
+from netlift.data.contracts import DatasetName, SplitName
 from netlift.evaluation.contracts import (
     SOURCE_OF_TRUTH_LIBRARY,
     UPLIFT_AT_K,
@@ -44,10 +47,8 @@ from netlift.utils.errors import ContractError
 IntArray = npt.NDArray[np.int64]
 FloatArray = npt.NDArray[np.float64]
 
-DEFAULT_SPLIT: SplitName = "validation"
-DEFAULT_K = (
-    0.3  # scikit-uplift's own default; the primary k comes from config (spec, K1).
-)
+# scikit-uplift's own default; the primary k comes from config (spec, K1).
+DEFAULT_K = 0.3
 DEFAULT_STRATEGY = "overall"
 
 # Parameters this module passes by keyword. Checked once per process so that a
@@ -239,10 +240,11 @@ def point_uplift_at_k(
     k: float,
     strategy: str,
 ) -> float:
-    """Treated rate minus control rate in the top ``k`` fraction, by ``strategy``."""
-    # scikit-uplift rejects k=1.0 (expects k < 1.0 for floats). When k=1.0, pass the total rows.
-    pass_k = len(y) if k == 1.0 else k
-    return quiet_call(sk_metrics.uplift_at_k, y, uplift, t, strategy=strategy, k=pass_k)
+    """Treated rate minus control rate in the top ``k`` fraction, by ``strategy``.
+
+    ``k`` must already be a float strictly between 0 and 1.
+    """
+    return quiet_call(sk_metrics.uplift_at_k, y, uplift, t, strategy=strategy, k=k)
 
 
 def _finite(value: float, what: str) -> float:
@@ -270,7 +272,9 @@ def _bootstrap_metric(
     n_resamples: int,
     confidence_level: float,
     seed: int,
-    split_name: str,
+    split_name: SplitName,
+    row_ids: npt.ArrayLike,
+    dataset: DatasetName,
     settings: dict[str, SettingValue],
     require_positive_outcome: bool,
 ) -> MetricResult:
@@ -278,6 +282,11 @@ def _bootstrap_metric(
     ensure_sklift_api()
     y_array, score, t_array = prepare_inputs(
         y, uplift, t, require_positive_outcome=require_positive_outcome
+    )
+    # Cheap, and it validates row_ids and dataset, so a bad one fails before the
+    # bootstrap rather than after 1,000 resamples.
+    evaluation_fingerprint = fingerprint_evaluation_set(
+        y_array, t_array, row_ids=row_ids, dataset=dataset
     )
     value = _finite(point(y_array, score, t_array), f"{name}: the point estimate")
 
@@ -304,8 +313,8 @@ def _bootstrap_metric(
         library_version=library_version(),
         resamples=tuple(resamples),
         resample_fingerprint=resample_fingerprint,
-        evaluation_fingerprint=fingerprint_evaluation_set(y_array, t_array),
-        split_name=split_name,  # type: ignore[arg-type]
+        evaluation_fingerprint=evaluation_fingerprint,
+        split_name=split_name,
         settings=settings,
     )
 
@@ -318,13 +327,16 @@ def qini_coefficient(
     n_resamples: int,
     confidence_level: float,
     seed: int,
-    split_name: SplitName = DEFAULT_SPLIT,
+    split_name: SplitName,
+    row_ids: npt.ArrayLike,
+    dataset: DatasetName,
 ) -> MetricResult:
     """Qini coefficient with a within-arm percentile bootstrap interval (K2).
 
-    ``split_name`` defaults to "validation"; pass "train" for out-of-fold
-    predictions and "test" only inside the T70 procedure. The default is a
-    convenience, so a locked-test caller that forgets it is mislabelled.
+    ``split_name``, ``row_ids`` and ``dataset`` are required (ADR 0004). Pass
+    "train" for out-of-fold predictions and "test" only inside the T70
+    procedure. ``row_ids`` are interface 1's ``row_id`` values, in the same order
+    as ``y``, ``uplift`` and ``t``.
     """
     return _bootstrap_metric(
         "qini_coefficient",
@@ -336,6 +348,8 @@ def qini_coefficient(
         confidence_level=confidence_level,
         seed=seed,
         split_name=split_name,
+        row_ids=row_ids,
+        dataset=dataset,
         settings={"negative_effect": "true"},
         require_positive_outcome=True,
     )
@@ -349,9 +363,14 @@ def auuc(
     n_resamples: int,
     confidence_level: float,
     seed: int,
-    split_name: SplitName = DEFAULT_SPLIT,
+    split_name: SplitName,
+    row_ids: npt.ArrayLike,
+    dataset: DatasetName,
 ) -> MetricResult:
-    """AUUC (scikit-uplift ``uplift_auc_score``) with a within-arm bootstrap interval (K2)."""
+    """AUUC (scikit-uplift ``uplift_auc_score``) with a within-arm bootstrap interval (K2).
+
+    ``split_name``, ``row_ids`` and ``dataset`` are required (ADR 0004).
+    """
     return _bootstrap_metric(
         "auuc",
         point_auuc,
@@ -362,6 +381,8 @@ def auuc(
         confidence_level=confidence_level,
         seed=seed,
         split_name=split_name,
+        row_ids=row_ids,
+        dataset=dataset,
         settings={},
         require_positive_outcome=True,
     )
@@ -375,19 +396,23 @@ def uplift_at_k(
     n_resamples: int,
     confidence_level: float,
     seed: int,
-    split_name: SplitName = DEFAULT_SPLIT,
+    split_name: SplitName,
+    row_ids: npt.ArrayLike,
+    dataset: DatasetName,
     k: float = DEFAULT_K,
     strategy: str = DEFAULT_STRATEGY,
 ) -> MetricResult:
     """uplift@k with a within-arm bootstrap interval; ``k`` and ``strategy`` are recorded.
 
-    ``k`` is a fraction in (0, 1]. scikit-uplift 0.5.1 rejects a float ``k`` of
-    1.0 and reads an int as a row count, so ``point_uplift_at_k`` passes the row
-    count for k = 1.0, which selects every row (every row of each group, for
-    ``by_group``).
+    ``k`` is a fraction strictly between 0 and 1. scikit-uplift 0.5.1 rejects a
+    float ``k`` of 1.0 and reads an int as a row count, so both are refused here
+    instead of being translated. ``split_name``, ``row_ids`` and ``dataset`` are
+    required (ADR 0004).
     """
-    if isinstance(k, bool) or not isinstance(k, int | float) or not 0.0 < k <= 1.0:
-        raise ContractError(f"k must be a fraction in (0, 1], got {k!r}.")
+    if isinstance(k, bool) or not isinstance(k, int | float) or not 0.0 < k < 1.0:
+        raise ContractError(
+            f"k must be a fraction strictly between 0 and 1, got {k!r}."
+        )
     if strategy not in UPLIFT_AT_K_STRATEGIES:
         raise ContractError(
             f"strategy must be one of {sorted(UPLIFT_AT_K_STRATEGIES)}, got {strategy!r}."
@@ -407,6 +432,8 @@ def uplift_at_k(
         confidence_level=confidence_level,
         seed=seed,
         split_name=split_name,
+        row_ids=row_ids,
+        dataset=dataset,
         settings={"k": fraction, "strategy": strategy},
         require_positive_outcome=False,
     )

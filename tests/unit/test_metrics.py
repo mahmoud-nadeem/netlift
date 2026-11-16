@@ -55,7 +55,10 @@ Fixture B (uplift@k). Eight rows in score order, t/y: (1,1) (1,1) (1,0) (0,1)
 
   overall,  k=0.5: top 4 rows = (1,1) (1,1) (1,0) (0,1): treated 2/3, control 1/1 -> -1/3.
   by_group, k=0.5: top 2 treated = 1, 1 -> 1; top 2 control = 1, 0 -> 1/2     -> +1/2.
-  k=1.0, both:     treated 2/4, control 1/4                                   -> 1/4.
+
+k must lie strictly between 0 and 1 (scikit-uplift 0.5.1 rejects a float k of 1.0
+and reads an int as a row count), so there is no k = 1 fixture: the harness
+refuses it with a ContractError instead of translating it.
 """
 
 from __future__ import annotations
@@ -104,6 +107,9 @@ B_T = _B_T[_B_ORDER]
 B_Y = _B_Y[_B_ORDER]
 
 N_RESAMPLES = 50  # unit tests only; a reported result needs 1,000 (log_metric_result).
+N_ROWS = 600
+# Interface 1 row ids: positions in a raw file, deliberately not 0..n-1.
+ROW_IDS = np.arange(N_ROWS, dtype=np.int64) + 100
 
 
 def _data(
@@ -117,15 +123,23 @@ def _data(
     return y, uplift, t
 
 
-def _run(metric: Any, **overrides: Any) -> MetricResult:
-    y, uplift, t = _data()
+def _arguments(**overrides: Any) -> dict[str, Any]:
+    """Every keyword a metric needs; ``split_name``, ``row_ids`` and ``dataset`` are required."""
     arguments: dict[str, Any] = {
         "n_resamples": N_RESAMPLES,
         "confidence_level": 0.95,
         "seed": 7,
+        "split_name": "validation",
+        "row_ids": ROW_IDS,
+        "dataset": "synthetic",
     }
     arguments.update(overrides)
-    result: MetricResult = metric(y, uplift, t, **arguments)
+    return arguments
+
+
+def _run(metric: Any, **overrides: Any) -> MetricResult:
+    y, uplift, t = _data()
+    result: MetricResult = metric(y, uplift, t, **_arguments(**overrides))
     return result
 
 
@@ -142,7 +156,7 @@ def test_hand_computed_qini_coefficient() -> None:
 
 
 def test_hand_computed_auuc() -> None:
-    """20/63 is what scikit-uplift actually returns for this fixture."""
+    """20/63: derivation in the module docstring (perfect-curve area 23.75)."""
     assert point_auuc(A_Y, A_UPLIFT, A_T) == pytest.approx(20 / 63)
 
 
@@ -151,8 +165,6 @@ def test_hand_computed_auuc() -> None:
     [
         (0.5, "overall", -1 / 3),
         (0.5, "by_group", 1 / 2),
-        (1.0, "overall", 1 / 4),
-        (1.0, "by_group", 1 / 4),
     ],
 )
 def test_hand_computed_uplift_at_k(k: float, strategy: str, expected: float) -> None:
@@ -233,15 +245,76 @@ def test_fingerprints_match_the_frozen_contract(metric: Any) -> None:
     assert result.resample_fingerprint == fingerprint_indices(
         within_arm_bootstrap_indices(t, N_RESAMPLES, 7)
     )
-    assert result.evaluation_fingerprint == fingerprint_evaluation_set(y, t)
+    assert result.evaluation_fingerprint == fingerprint_evaluation_set(
+        y, t, row_ids=ROW_IDS, dataset="synthetic"
+    )
 
 
 @pytest.mark.parametrize("metric", METRICS)
-def test_split_name_defaults_to_validation_and_can_be_set(metric: Any) -> None:
-    assert _run(metric).split_name == "validation"
+def test_split_name_is_recorded_and_validated(metric: Any) -> None:
+    assert _run(metric, split_name="validation").split_name == "validation"
     assert _run(metric, split_name="train").split_name == "train"
+    assert _run(metric, split_name="test").split_name == "test"
     with pytest.raises(ContractError, match="split_name"):
         _run(metric, split_name="holdout")
+
+
+@pytest.mark.parametrize("metric", METRICS)
+@pytest.mark.parametrize("missing", ["split_name", "row_ids", "dataset"])
+def test_split_name_row_ids_and_dataset_have_no_default(
+    metric: Any, missing: str
+) -> None:
+    y, uplift, t = _data()
+    arguments = _arguments()
+    del arguments[missing]
+    with pytest.raises(TypeError, match=missing):
+        metric(y, uplift, t, **arguments)
+
+
+@pytest.mark.parametrize("metric", METRICS)
+def test_the_evaluation_fingerprint_binds_row_ids_and_dataset(metric: Any) -> None:
+    base = _run(metric)
+    shifted = _run(metric, row_ids=ROW_IDS + 1)
+    reordered = _run(metric, row_ids=ROW_IDS[::-1])
+    other_dataset = _run(metric, dataset="criteo")
+    fingerprints = {
+        base.evaluation_fingerprint,
+        shifted.evaluation_fingerprint,
+        reordered.evaluation_fingerprint,
+        other_dataset.evaluation_fingerprint,
+    }
+    assert len(fingerprints) == 4
+    # The resamples depend on t only, so they are unchanged.
+    assert other_dataset.resamples == base.resamples
+
+
+@pytest.mark.parametrize("metric", METRICS)
+@pytest.mark.parametrize(
+    ("override", "match"),
+    [
+        ({"row_ids": ROW_IDS[:-1]}, "same length"),
+        ({"row_ids": ROW_IDS - 101}, "non-negative integers"),
+        ({"row_ids": ROW_IDS.astype(np.float64)}, "non-negative integers"),
+        ({"row_ids": ROW_IDS.reshape(2, -1)}, "one-dimensional"),
+        ({"dataset": "movielens"}, "dataset must be one of"),
+    ],
+)
+def test_invalid_row_ids_and_dataset_are_rejected(
+    metric: Any, override: dict[str, Any], match: str
+) -> None:
+    with pytest.raises(ContractError, match=match):
+        _run(metric, **override)
+
+
+def test_bad_row_ids_fail_before_any_resampling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def must_not_run(*args: Any, **kwargs: Any) -> float:
+        raise AssertionError("the bootstrap started before row_ids were validated")
+
+    monkeypatch.setattr(metrics_module.sk_metrics, "qini_auc_score", must_not_run)
+    with pytest.raises(ContractError, match="same length"):
+        _run(qini_coefficient, row_ids=ROW_IDS[:-1])
 
 
 def test_resamples_are_the_metric_on_the_contract_indices() -> None:
@@ -278,9 +351,8 @@ def test_metric_keys_differ_for_different_k_and_strategy() -> None:
 def test_paired_difference_of_two_scorers_on_the_same_resamples() -> None:
     y, uplift, t = _data()
     noise = np.random.default_rng(3).normal(size=uplift.size)
-    kwargs = {"n_resamples": N_RESAMPLES, "confidence_level": 0.95, "seed": 7}
-    good = qini_coefficient(y, uplift, t, **kwargs)
-    random_scores = qini_coefficient(y, noise, t, **kwargs)
+    good = qini_coefficient(y, uplift, t, **_arguments())
+    random_scores = qini_coefficient(y, noise, t, **_arguments())
     difference = paired_difference(good, random_scores)
     per_resample = np.asarray(good.resamples) - np.asarray(random_scores.resamples)
     assert difference.name == "qini_coefficient_difference"
@@ -289,19 +361,23 @@ def test_paired_difference_of_two_scorers_on_the_same_resamples() -> None:
     assert good.resample_fingerprint == random_scores.resample_fingerprint
 
 
-def test_paired_difference_refuses_different_splits_k_or_outcomes() -> None:
+def test_paired_difference_refuses_different_splits_k_rows_or_outcomes() -> None:
     with pytest.raises(ContractError, match="split_name"):
         paired_difference(_run(auuc), _run(auuc, split_name="train"))
     with pytest.raises(ContractError, match="settings"):
         paired_difference(_run(uplift_at_k, k=0.1), _run(uplift_at_k, k=0.3))
     y, uplift, t = _data()
     other_y = np.where(np.arange(y.size) % 7 == 0, 1 - y, y)
-    kwargs = {"n_resamples": N_RESAMPLES, "confidence_level": 0.95, "seed": 7}
     with pytest.raises(ContractError, match="evaluation_fingerprint"):
         paired_difference(
-            qini_coefficient(y, uplift, t, **kwargs),
-            qini_coefficient(other_y, uplift, t, **kwargs),
+            qini_coefficient(y, uplift, t, **_arguments()),
+            qini_coefficient(other_y, uplift, t, **_arguments()),
         )
+    # Same y and t, different rows (ADR 0004): a different row order or dataset.
+    with pytest.raises(ContractError, match="evaluation_fingerprint"):
+        paired_difference(_run(auuc), _run(auuc, row_ids=ROW_IDS[::-1]))
+    with pytest.raises(ContractError, match="evaluation_fingerprint"):
+        paired_difference(_run(auuc), _run(auuc, dataset="criteo"))
 
 
 # --------------------------------------------------------------------------- #
@@ -310,9 +386,9 @@ def test_paired_difference_refuses_different_splits_k_or_outcomes() -> None:
 
 
 def _call(metric: Any, y: Any, uplift: Any, t: Any, **extra: Any) -> MetricResult:
-    result: MetricResult = metric(
-        y, uplift, t, n_resamples=5, confidence_level=0.95, seed=0, **extra
-    )
+    arguments = _arguments(n_resamples=5, seed=0, row_ids=np.arange(np.size(y)))
+    arguments.update(extra)
+    result: MetricResult = metric(y, uplift, t, **arguments)
     return result
 
 
@@ -347,8 +423,9 @@ def test_no_positive_outcome_is_rejected_not_zeroed(metric: Any) -> None:
         _call(metric, [0, 0, 0, 0], [0.1, 0.2, 0.3, 0.4], [0, 1, 0, 1])
 
 
-@pytest.mark.parametrize("k", [0, 0.0, -0.1, 1.5, True, "0.3", None])
+@pytest.mark.parametrize("k", [0, 0.0, -0.1, 1, 1.0, 1.5, True, "0.3", None])
 def test_invalid_k_is_rejected(k: Any) -> None:
+    """k >= 1 is refused, not translated: float 1.0 is rejected by scikit-uplift 0.5.1."""
     with pytest.raises(ContractError, match="k must be"):
         _run(uplift_at_k, k=k)
 
@@ -398,9 +475,3 @@ def test_an_undefined_resample_raises_and_names_the_resample(
     monkeypatch.setattr(metrics_module.sk_metrics, "qini_auc_score", sometimes_nan)
     with pytest.raises(ContractError, match=r"resample 2.*undefined"):
         _run(qini_coefficient)
-        
-def test_an_int_k_of_one_means_one_hundred_percent() -> None:
-    """k=1 is recorded as the float 1.0; only k == 1.0 reaches scikit-uplift as a row count."""
-    result = _run(uplift_at_k, k=1)
-    assert result.settings["k"] == 1.0
-    assert result.metric_key == "uplift_at_100pct_overall"
