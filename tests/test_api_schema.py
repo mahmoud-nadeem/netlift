@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -189,3 +189,23 @@ def test_bad_timestamp_is_rejected() -> None:
     data["scored_at"] = "yesterday"
     with pytest.raises(ContractError, match="ISO 8601"):
         ScoringResponse.from_dict(data)
+
+
+def test_offset_timestamp_is_written_in_utc() -> None:
+    """Mazen's catch on #104: a +02:00 time used to be written with its offset."""
+    plus_two = timezone(timedelta(hours=2))
+    response = _response(scored_at=datetime(2026, 11, 3, 14, 22, 10, tzinfo=plus_two))
+    assert response.to_dict()["scored_at"] == "2026-11-03T12:22:10Z"
+
+
+def test_utc_timestamp_is_written_unchanged() -> None:
+    response = _response(scored_at=datetime(2026, 11, 3, 14, 22, 10, tzinfo=UTC))
+    assert response.to_dict()["scored_at"] == "2026-11-03T14:22:10Z"
+
+
+def test_offset_timestamp_round_trips_to_the_same_instant() -> None:
+    plus_two = timezone(timedelta(hours=2))
+    moment = datetime(2026, 11, 3, 14, 22, 10, tzinfo=plus_two)
+    rebuilt = ScoringResponse.from_dict(_response(scored_at=moment).to_dict())
+    assert rebuilt.scored_at == moment
+    assert rebuilt.scored_at.utcoffset() == timedelta(0)
