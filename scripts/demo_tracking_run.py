@@ -23,7 +23,7 @@ from sklearn.model_selection import train_test_split
 from sklift.metrics import qini_auc_score, uplift_auc_score
 from sklift.models import TwoModels
 
-from netlift.utils.tracking import start_run
+from netlift.utils.tracking import experiment_name, run_name, start_run
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -87,7 +87,9 @@ def main() -> int:
     )
 
     with start_run(
-        "smoke: two-model, logistic base, Hillstrom womens vs control",
+        run_name("T19", "two-model-smoke"),
+        task="T19",
+        experiment=experiment_name("hillstrom", "visit"),
         dataset=DATASET,
         seed=SEED,
         tags={"purpose": "smoke"},
