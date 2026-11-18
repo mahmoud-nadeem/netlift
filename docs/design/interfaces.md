@@ -209,7 +209,7 @@ class MetricResult:
     library_version: str
     resamples: tuple[float, ...]   # the metric on each resample, in order
     resample_fingerprint: str      # sha256 of the resample index arrays
-    evaluation_fingerprint: str    # sha256 of the evaluation set's y and t
+    evaluation_fingerprint: str    # sha256 of the dataset, row ids, y and t
     split_name: SplitName          # "train" (out-of-fold), "validation" or "test"
     settings: dict[str, str | int | float] = {}   # e.g. {"k": 0.3, "strategy": "overall"}
 
@@ -217,11 +217,14 @@ class MetricResult:
 
 class UpliftMetric(Protocol):
     def __call__(self, y, uplift, t, *,
-                 n_resamples: int, confidence_level: float, seed: int) -> MetricResult: ...
+                 n_resamples: int, confidence_level: float, seed: int,
+                 split_name: SplitName, row_ids: ArrayLike,
+                 dataset: DatasetName) -> MetricResult: ...
 
 def within_arm_bootstrap_indices(t, n_resamples: int, seed: int) -> Iterator[NDArray[int64]]
 def fingerprint_indices(indices: Iterable[ArrayLike]) -> str
-def fingerprint_evaluation_set(y: ArrayLike, t: ArrayLike) -> str
+def fingerprint_evaluation_set(y: ArrayLike, t: ArrayLike, *,
+                               row_ids: ArrayLike, dataset: str) -> str
 def paired_difference(a: MetricResult, b: MetricResult) -> MetricResult
 def log_metric_result(run: Run, kpi_id: str, result: MetricResult) -> str  # the key
 ```
@@ -271,8 +274,13 @@ be subtracted; the per-resample values can. So:
   `resample_fingerprint`. The fingerprint makes "same resamples" checked, not trusted.
 - **The same resamples are not enough.** The split does not depend on the target, so the visit
   and conversion matrices share `t` and therefore share resample fingerprints.
-  `fingerprint_evaluation_set(y, t)` hashes the evaluation set's outcome and treatment, and the
-  harness stores it as `evaluation_fingerprint`.
+  `fingerprint_evaluation_set(y, t, row_ids=..., dataset=...)` hashes the dataset name, the
+  ordered row ids, the outcome and the treatment, and the harness stores it as
+  `evaluation_fingerprint`. The row ids matter because resamples are positional: two sets with
+  identical `y` and `t` but different rows, or the same rows in another order, must not pair. The
+  dataset name matters because a row id is a position in one dataset's raw file. `row_ids` and
+  `dataset` are required; a length mismatch or an empty set is rejected. (Changed after the freeze,
+  in T41, #104, from Mazen's review: `docs/decisions/0004-evaluation-fingerprint-binds-rows.md`.)
 - `paired_difference(a, b)` refuses unless name, settings, `n_resamples`, seed, resample
   fingerprint, evaluation fingerprint, split, confidence level and library version all match, and
   the difference carries the shared fingerprints and split. Its value is `a.value - b.value`, and its interval is the percentiles of the per-resample

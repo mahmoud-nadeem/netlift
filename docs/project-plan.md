@@ -123,9 +123,9 @@ Everything else in the timeline can slip by a few days without damage. These two
 The final submission moved from mid-January to 4 December: roughly six weeks fewer. Three things
 change as a result.
 
-**Testing is no longer a phase of its own.** Tests are written with the code they test, during
-M5, and every pull request keeps CI green. The M6 window is for opening the locked test split once,
-writing the test report, and the final presentation.
+**Testing is written with the code in M5; M6 keeps a dedicated window for opening the locked test
+split once and the test report.** Every pull request in M5 keeps CI green. The rest of M6 is the
+final presentation and reports.
 
 **Implementation and design overlap.** M4 is a design milestone, but the data pipeline, the split,
 the evaluation harness and the first estimators are built inside it, because the central comparison
@@ -148,6 +148,11 @@ implementation, Mazen carries the API, Docker, Azure, monitoring and CI/CD, and 
 modelling work finishes in the second week of M5. Mohammed also draws the wireframes in M4, so the
 person who designs the screens builds them.
 
+**Less paperwork (decided 16 October).** A document is written only if DEPI requires it or it
+prevents a real error. Nothing already written is deleted. As a result T29 is out of scope, T27
+and T28 are shortened, and T54 is a discussion rather than a document (section 5). The working
+agreement carries the rule (section 3).
+
 ---
 
 ## 4. Milestones
@@ -161,6 +166,9 @@ person who designs the screens builds them.
 | M5 Implementation | 7 – 30 Nov | A clean checkout plus one documented command reproduces the headline result; the deployed endpoint answers a real request; the dashboard runs against it |
 | M6 Testing and final | 1 – 4 Dec | Champion confirmed on the locked test split, opened once; test cases and bug log; final report, user manual, presentation, infographic; rehearsed demo; final upload |
 
+M2 is the instructor feedback session only, because the written literature review moved to M4
+(T25–T28; T29 is out of scope, section 3).
+
 ---
 
 ## 5. Tasks
@@ -171,7 +179,8 @@ owner becomes unavailable. Task numbers continue from Milestone 1 (T1–T22).
 
 ### M1 – M3 (due Friday 16 October)
 
-The literature tasks T25–T29 were moved to M4 on 13 October (see section 1).
+The literature tasks T25–T29 were moved to M4 on 13 October (see section 1). On 16 October T29
+was taken out of scope and T27 and T28 were shortened (section 3).
 
 | ID | Task | Owner | Partner | Due | Output |
 |---|---|---|---|---|---|
@@ -197,7 +206,7 @@ The literature tasks T25–T29 were moved to M4 on 13 October (see section 1).
 | T41 | MLflow tracking server logging runs from the harness | Mahmoud | Mazen | Fri 30 Oct | `docs/experiment-tracking.md` updated |
 | T42 | T-learner and X-learner, Hillstrom then Criteo | Mohammed | Mahmoud | Tue 3 Nov | `src/netlift/models/`, MLflow runs |
 | T43 | Permuted-treatment negative control | Ali | Mohammed | Wed 4 Nov | test and report section |
-| T44 | Uplift versus response model at equal budget, with interval: K1 (protected) | Ali | Mohammed | Fri 6 Nov | `reports/central-comparison.md` |
+| T44 | Uplift versus response model at equal budget, with interval: K1 (protected) | Ali | Mohammed | Fri 6 Nov | `reports/central-comparison.md` (validation split) |
 | #29 | Sensitivity check: StratifiedGroupKFold on the feature-profile hash | Aliaa | Ali | Fri 6 Nov | report section |
 | T45 | API contract (OpenAPI) and FastAPI skeleton with mocked responses | Mazen | Ali | Fri 30 Oct | `src/netlift/api/`, `docs/design/api-contract.md` |
 | T46 | Use case diagram and descriptions | Ali | Mohammed | Fri 30 Oct | `docs/design/use-cases.md` |
@@ -208,12 +217,12 @@ The literature tasks T25–T29 were moved to M4 on 13 October (see section 1).
 | T51 | Test plan: unit, integration and acceptance, keyed to requirement IDs | Mazen | Ali | Wed 4 Nov | `docs/design/test-plan.md` |
 | T25 | Literature: randomized experiments, non-compliance and the two datasets | Aliaa | Mazen | Wed 4 Nov | `docs/literature-review/01-experiments-and-data.md` |
 | T26 | Literature: meta-learners and class transformation | Mohammed | Aliaa | Wed 4 Nov | `docs/literature-review/02-meta-learners.md` |
-| T27 | Literature: uplift trees, causal forests and neural estimators | Mahmoud | Ali | Wed 4 Nov | `docs/literature-review/03-trees-and-neural.md` |
-| T28 | Literature: evaluating uplift models | Ali | Mohammed | Wed 4 Nov | `docs/literature-review/04-evaluation.md` |
-| T29 | Literature: machine-learning systems in production | Mazen | Mahmoud | Wed 4 Nov | `docs/literature-review/05-ml-systems.md` |
+| T27 | Literature: uplift trees, causal forests and neural estimators. Two sources, about 400 words; every source states what it changes in our code | Mahmoud | Ali | Wed 4 Nov | `docs/literature-review/03-trees-and-neural.md` |
+| T28 | Literature: evaluating uplift models. Two sources, about 400 words; every source states what it changes in our code | Ali | Mohammed | Wed 4 Nov | `docs/literature-review/04-evaluation.md` |
+| T29 | Literature: machine-learning systems in production. **Out of scope (16 Oct):** DEPI does not require a written literature review, and Mazen's M5 load (API, Docker, Azure, monitoring and CI/CD; 34 h, the joint highest in M5, section 6) leaves no room for it | Mazen | Mahmoud | — | none |
 | T52 | Align the specification's milestone and timeline sections with this plan | Mahmoud | Ali | Wed 4 Nov | specification `.tex` and PDF |
 | T53 | Assemble and submit the System Analysis and Design document; upload | Mahmoud | all | Fri 6 Nov | `docs/design/README.md`, company repository |
-| T54 | Milestone 4 retrospective and refinement of the M5 tasks | Mahmoud | all | Sat 7 Nov | `docs/retrospective-m4.md` |
+| T54 | Milestone 4 retrospective and refinement of the M5 tasks: a 30-minute discussion in the 7 Nov meeting, no document; the outcome goes straight into the M5 issues | Mahmoud | all | Sat 7 Nov | the M5 issues |
 
 Diagram conventions, so nothing is drawn three times in three styles: Mermaid inside the Markdown
 file wherever Mermaid has the diagram type (class, sequence, state, ER, flowcharts for DFD and
@@ -249,7 +258,7 @@ Report drafts start in the last week of M5, so the final week is for assembly, n
 | ID | Task | Owner | Partner | Due |
 |---|---|---|---|---|
 | T69 | Final report: each member drafts their component section by Fri 27 Nov; assembly | Mahmoud | all | Thu 3 Dec |
-| T70 | Champion confirmed on the locked test split, opened once, procedure written down first | Ali | Mahmoud | Tue 1 Dec |
+| T70 | Champion confirmed on the locked test split, opened once, procedure written down first; K1–K3 confirmed here | Ali | Mahmoud | Tue 1 Dec |
 | T71 | Test-case document and bug log | Mazen | all | Wed 2 Dec |
 | T72 | User manual and recorded demo video (fallback for the live demo) | Mohammed | Mazen | Wed 2 Dec |
 | T73 | Technical documentation: architecture, schema, API | Mazen | Aliaa | Thu 3 Dec |
