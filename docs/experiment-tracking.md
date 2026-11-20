@@ -181,11 +181,16 @@ Start it from the repository root and leave it running in its own terminal:
 mlflow server --backend-store-uri sqlite:///mlflow.db --artifacts-destination ./mlartifacts --host 127.0.0.1 --port 5000
 ```
 
-Point the client at it in `.env`, then open <http://127.0.0.1:5000>:
+Point the client at it in the terminal that runs the script, then open <http://127.0.0.1:5000>:
 
 ```
-MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+$env:MLFLOW_TRACKING_URI = "http://127.0.0.1:5000"
 ```
+
+That is PowerShell; in Git Bash it is `export MLFLOW_TRACKING_URI=http://127.0.0.1:5000`. It
+lasts until the terminal closes. **Setting it in `.env` has no effect:** no code in `src/` or
+`scripts/` loads `.env`, and `start_run` reads `MLFLOW_TRACKING_URI` from the process
+environment only.
 
 The server binds to `127.0.0.1` only, so nobody else on the network can reach it.
 `tests/test_tracking_server.py` starts the same server on a free port and checks
@@ -217,12 +222,9 @@ committing the tracking database, a binary that every merge would conflict on.
 
 ## The tracking backend
 
-Set in `.env`:
-
-```
-MLFLOW_TRACKING_URI=sqlite:///mlflow.db
-MLFLOW_EXPERIMENT_NAME=netlift
-```
+With `MLFLOW_TRACKING_URI` unset in the environment, the wrapper uses `sqlite:///mlflow.db`
+in the folder the script runs from, which is the repository root. To use another backend, set
+the variable in the terminal as above, not in `.env`.
 
 **MLflow 3.x refuses the plain `./mlruns` directory store** and raises on first
 use. Almost every tutorial online still uses it. The wrapper rejects a directory
