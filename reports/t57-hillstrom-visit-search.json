@@ -1,0 +1,72 @@
+{
+  "task": "T57",
+  "adr": "0006",
+  "dataset": "hillstrom",
+  "target": "visit",
+  "train_rows": 25568,
+  "subsample_frac": null,
+  "n_folds": 3,
+  "n_trials_budget": 30,
+  "timeout_s": 14400.0,
+  "seed": 42,
+  "qini_negative_effect": true,
+  "families": [
+    {
+      "family": "t_learner",
+      "best_value": 0.01702845110319896,
+      "best_params": {
+        "n_jobs": 8,
+        "deterministic": true,
+        "force_col_wise": true,
+        "verbosity": -1,
+        "num_leaves": 4,
+        "min_child_samples": 487,
+        "learning_rate": 0.01808278612872992,
+        "n_estimators": 344,
+        "reg_lambda": 0.2112723660407587,
+        "colsample_bytree": 0.7339622042377107
+      },
+      "best_trial": 28,
+      "n_trials_completed": 30,
+      "elapsed_s": 23.282558399951085
+    },
+    {
+      "family": "x_learner",
+      "best_value": 0.020423728373476537,
+      "best_params": {
+        "n_jobs": 8,
+        "deterministic": true,
+        "force_col_wise": true,
+        "verbosity": -1,
+        "num_leaves": 6,
+        "min_child_samples": 479,
+        "learning_rate": 0.011283446803313623,
+        "n_estimators": 311,
+        "reg_lambda": 0.4144541580690004,
+        "colsample_bytree": 0.7199098134831217
+      },
+      "best_trial": 23,
+      "n_trials_completed": 30,
+      "elapsed_s": 39.62375620007515
+    },
+    {
+      "family": "uplift_forest",
+      "best_value": 0.017428397774111738,
+      "best_params": {
+        "n_jobs": -1,
+        "evaluationFunction": "ED",
+        "n_estimators": 59,
+        "max_depth": 3,
+        "min_samples_leaf": 132,
+        "min_samples_treatment": 200,
+        "n_reg": 26,
+        "max_features": 7
+      },
+      "best_trial": 21,
+      "n_trials_completed": 30,
+      "elapsed_s": 442.453697900055
+    }
+  ],
+  "champion": "x_learner",
+  "result_status": "preliminary: out-of-fold on train; validation scores come from T39"
+}
