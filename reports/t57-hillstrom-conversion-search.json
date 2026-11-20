@@ -28,7 +28,7 @@
       },
       "best_trial": 17,
       "n_trials_completed": 30,
-      "elapsed_s": 33.108061800012365
+      "elapsed_s": 25.019779800088145
     },
     {
       "family": "x_learner",
@@ -47,7 +47,7 @@
       },
       "best_trial": 19,
       "n_trials_completed": 30,
-      "elapsed_s": 70.68904079997446
+      "elapsed_s": 54.97405890002847
     },
     {
       "family": "uplift_forest",
@@ -64,7 +64,7 @@
       },
       "best_trial": 19,
       "n_trials_completed": 30,
-      "elapsed_s": 553.0518559999764
+      "elapsed_s": 439.5453290999867
     }
   ],
   "champion": "t_learner",
