@@ -1,0 +1,41 @@
+# T57, ADR 0006. Chosen before the first trial; never edited after seeing a result.
+# The objective is the out-of-fold Qini inside the training split (spec section 26).
+seed: 42
+n_folds: 3                 # stratified on the joint (t, y) key of the target in use
+n_trials: 30               # ADR 0006: set from the measured fit time, before the first trial
+timeout_hours: 4.0         # per family, a cap on top of n_trials (ADR 0006)
+subsample_frac:
+  hillstrom: null          # the full training split
+  criteo: 0.1              # spec section 25: stratified 10% subsample inside each split
+qini:
+  negative_effect: true    # as in ADR 0005, so the response model and the uplift models share one Qini
+families: [t_learner, x_learner, uplift_forest]
+
+# T- and X-learner base models: LightGBM, the search space of ADR 0005 (#107), so the
+# response model and the meta-learners are tuned over the same template.
+lightgbm:
+  fixed:
+    n_jobs: 8
+    deterministic: true
+    force_col_wise: true
+    verbosity: -1
+  search_space:
+    num_leaves: {type: int, low: 4, high: 64, log: true}
+    min_child_samples: {type: int, low: 20, high: 500, log: true}
+    learning_rate: {type: float, low: 0.01, high: 0.2, log: true}
+    n_estimators: {type: int, low: 50, high: 600, log: false}
+    reg_lambda: {type: float, low: 0.001, high: 100.0, log: true}
+    colsample_bytree: {type: float, low: 0.5, high: 1.0, log: false}
+
+# causalml UpliftRandomForestClassifier. The split criterion is a categorical hyperparameter.
+uplift_forest:
+  fixed:
+    n_jobs: -1
+  search_space:
+    evaluationFunction: {type: categorical, choices: [KL, ED, Chi]}
+    n_estimators: {type: int, low: 20, high: 100, log: false}
+    max_depth: {type: int, low: 3, high: 8, log: false}
+    min_samples_leaf: {type: int, low: 100, high: 2000, log: true}
+    min_samples_treatment: {type: int, low: 10, high: 200, log: true}
+    n_reg: {type: int, low: 1, high: 100, log: true}
+    max_features: {type: int, low: 3, high: 12, log: false}
