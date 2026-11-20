@@ -4,7 +4,7 @@ Owner: Mahmoud Nadeem · Reviewer: Ali Alaa · Due: Wed 4 Nov 2026
 
 ## 1. Rzepakowski & Jaroszewicz (2012): splitting criteria for uplift trees
 
-**Citation.** Rzepakowski, P., & Jaroszewicz, S. (2012). Decision trees for uplift modeling with single and multiple treatments. *Knowledge and Information Systems*, 32(2), 303–327. <https://doi.org/10.1007/s10115-011-0434-0> (open access; published online 29 July 2011).
+**Citation.** Rzepakowski, P., & Jaroszewicz, S. (2012). Decision trees for uplift modeling with single and multiple treatments. *Knowledge and Information Systems*, 32, 303–327. <https://doi.org/10.1007/s10115-011-0434-0> (open access; published online 29 July 2011).
 
 **Summary.** A standard tree splits to separate the classes. An uplift tree has to split where the *difference* between the treated and control outcome distributions changes. The paper designs splitting criteria that measure that divergence, and pruning methods for it, for one treatment and for several. Its experiments show these trees improving on earlier uplift-modelling techniques.
 
