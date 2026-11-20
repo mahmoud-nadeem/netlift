@@ -28,7 +28,7 @@ before**, so the deadline day itself is for review, merging and uploading only.
 | M2 - Literature Review | Literature Review | Fri 16 Oct 2026 | Thu 15 Oct |
 | M3 - Requirements Gathering | Requirements Gathering | Fri 16 Oct 2026 | Thu 15 Oct |
 | M4 - System Analysis and Design | System Analysis & Design | Fri 6 Nov 2026 | Thu 5 Nov |
-| M5 - Implementation | Implementation (Source Code & Execution) | Mon 30 Nov 2026 | Fri 27 Nov (feature freeze) |
+| M5 - Implementation | Implementation (Source Code & Execution) | Mon 30 Nov 2026 | Sat 28 Nov (feature freeze) |
 | M6 - Testing, Final Presentation and Reports | Final Presentation & Testing & Reports | Fri 4 Dec 2026 | Thu 3 Dec |
 
 The instructor confirmed on 13 October that the Literature Review phase is a feedback session with
@@ -102,6 +102,9 @@ gantt
     Deadline M6                               :milestone, crit, 2026-12-04, 0d
 ```
 
+The M5 bars are the plan of 7 November. The due dates in section 5, set by the M5 replan of
+20 November, replace them.
+
 ### Two protected dates
 
 **Friday 30 October — randomization integrity report on both datasets.** Standardized mean
@@ -139,7 +142,7 @@ is due at its end.
 | Confidence intervals, negative control, locked test split, response-model baseline | Never cut, at any level of pressure |
 | Uplift Random Forest, Optuna under a Qini objective, SHAP, drift monitors | Kept (SHOULD HAVE) |
 | Azure deployment | Container deployment to Azure. A managed endpoint only if M5 is ahead |
-| Neural estimator (shared-representation CATE) | Kept as the deep-learning component, time-boxed to one week, and the first item cut if M5 slips |
+| Neural estimator (shared-representation CATE) | **Cut (20 Nov):** there is no time left, and it was the first item to cut (T63) |
 | Class-transformation trap figure | Kept: small, and it is Mohammed's demonstration |
 | Causal forest, multi-treatment uplift, revenue uplift | Cut. Recorded as future work in the final report |
 
@@ -204,9 +207,9 @@ was taken out of scope and T27 and T28 were shortened (section 3).
 | T39 | Evaluation harness: Qini, AUUC, uplift@k, bootstrap intervals within arms, hand-computed fixture tests | Ali | Mahmoud | Fri 30 Oct | `src/netlift/evaluation/`, tests |
 | T40 | Randomization integrity report, both datasets (protected) | Aliaa | Ali | Fri 30 Oct | `reports/randomization-integrity.md` |
 | T41 | MLflow tracking server logging runs from the harness | Mahmoud | Mazen | Fri 30 Oct | `docs/experiment-tracking.md` updated |
-| T42 | T-learner and X-learner, Hillstrom then Criteo | Mohammed | Mahmoud | Tue 3 Nov | `src/netlift/models/`, MLflow runs |
-| T43 | Permuted-treatment negative control | Ali | Mohammed | Wed 4 Nov | test and report section |
-| T44 | Uplift versus response model at equal budget, with interval: K1 (protected) | Ali | Mohammed | Fri 6 Nov | `reports/central-comparison.md` (validation split) |
+| T42 | T-learner and X-learner, Hillstrom then Criteo. **Merged into T56 (#117)** | Mohammed | Mahmoud | — | see T56 |
+| T43 | Permuted-treatment negative control (#119) | Ali | Mohammed | Sun 22 Nov | test and report section |
+| T44 | Uplift versus response model at equal budget, with interval: K1 (protected). Moves to Wed 25 Nov if the K1 input is not on #56 by Mon 23 Nov, 10 pm | Ali | Mohammed | Tue 24 Nov | `reports/central-comparison.md` (validation split) |
 | #29 | Sensitivity check: StratifiedGroupKFold on the feature-profile hash | Aliaa | Ali | Fri 6 Nov | report section |
 | T45 | API contract (OpenAPI) and FastAPI skeleton with mocked responses | Mazen | Ali | Fri 30 Oct | `src/netlift/api/`, `docs/design/api-contract.md` |
 | T46 | Use case diagram and descriptions | Ali | Mohammed | Fri 30 Oct | `docs/design/use-cases.md` |
@@ -221,8 +224,8 @@ was taken out of scope and T27 and T28 were shortened (section 3).
 | T28 | Literature: evaluating uplift models. Two sources, about 400 words; every source states what it changes in our code | Ali | Mohammed | Wed 4 Nov | `docs/literature-review/04-evaluation.md` |
 | T29 | Literature: machine-learning systems in production. **Out of scope (16 Oct):** DEPI does not require a written literature review, and Mazen's M5 load (API, Docker, Azure, monitoring and CI/CD; 34 h, the joint highest in M5, section 6) leaves no room for it | Mazen | Mahmoud | — | none |
 | T52 | Align the specification's milestone and timeline sections with this plan | Mahmoud | Ali | Wed 4 Nov | specification `.tex` and PDF |
-| T53 | Assemble and submit the System Analysis and Design document; upload | Mahmoud | all | Fri 6 Nov | `docs/design/README.md`, company repository |
-| T54 | Milestone 4 retrospective and refinement of the M5 tasks: a 30-minute discussion in the 7 Nov meeting, no document; the outcome goes straight into the M5 issues | Mahmoud | all | Sat 7 Nov | the M5 issues |
+| T53 | Assemble and submit the System Analysis and Design document; upload | Mahmoud | all | Sat 21 Nov | `docs/design/README.md`, company repository |
+| T54 | Milestone 4 retrospective and refinement of the M5 tasks. **Not held:** the M5 replan pull request of 20 Nov is the refinement | Mahmoud | all | — | this file, section 5 |
 
 Diagram conventions, so nothing is drawn three times in three styles: Mermaid inside the Markdown
 file wherever Mermaid has the diagram type (class, sequence, state, ER, flowcharts for DFD and
@@ -231,25 +234,27 @@ activity); diagrams.net for use-case, component and deployment diagrams, committ
 
 ### M5 – Implementation (7 – 30 November)
 
-Refined at the M4 retrospective on 7 November. Feature freeze Friday 27 November; 28–30 November
-is fixes and documentation only.
+Replanned on 20 November in a pull request instead of a meeting (T54). Feature freeze Saturday
+28 November; 29–30 November is fixes and documentation only.
 
 | ID | Task | Owner | Partner | Due |
 |---|---|---|---|---|
-| T55 | Decision layer: policy modes, negative-uplift suppression, both abstention verdicts | Ali | Mazen | Fri 13 Nov |
-| T56 | Final meta-learners on Criteo and the class-transformation trap figure | Mohammed | Ali | Fri 13 Nov |
-| T57 | Uplift Random Forest and Optuna under a Qini objective; champion registered in MLflow | Mahmoud | Mohammed | Fri 20 Nov |
-| T58 | Production data pipeline (configuration, logging, errors) and the leakage audit enforced in CI | Aliaa | Mazen | Fri 20 Nov |
-| T59 | FastAPI service against the registered model, Docker image | Mazen | Ali | Fri 20 Nov |
-| T60 | PostgreSQL scoring log implementing the M4 schema | Aliaa | Mazen | Fri 20 Nov |
-| T61 | Campaign policy simulator with incremental-profit output, and SHAP | Ali | Mohammed | Fri 20 Nov |
-| T62 | Streamlit dashboard: four tabs against the API | Mohammed | Mazen | Fri 27 Nov |
-| T63 | Neural CATE estimator, time-boxed to one week, first to cut | Mahmoud | Ali | Fri 27 Nov |
-| T64 | Azure deployment, drift monitors, CI/CD complete | Mazen | Mahmoud | Fri 27 Nov |
-| T65 | Error analysis report and behavioural and invariance tests | Ali | Aliaa | Fri 27 Nov |
-| T66 | Data validation tests, dataset cards, data dictionary | Aliaa | Mohammed | Fri 27 Nov |
+| T55 | Decision layer: policy modes, negative-uplift suppression, both abstention verdicts | Ali | Mazen | Wed 25 Nov |
+| T56 | Final meta-learners on Criteo and the class-transformation trap figure (#117); absorbs T42 | Mohammed | Ali | Sun 22 Nov |
+| #107 | Tune the response-model baseline inside the train folds (#115) | Mohammed | Ali | Sun 22 Nov |
+| T57 | K1 input: T/X choice, full-train refit, validation scores (posted on #56) | Mahmoud | Mohammed | Mon 23 Nov |
+| T57 | Uplift Random Forest and Optuna under a Qini objective: forest and champion registration in MLflow | Mahmoud | Mohammed | Wed 25 Nov |
+| T58 | Production data pipeline (configuration, logging, errors) and the leakage audit enforced in CI | Aliaa | Mazen | Mon 23 Nov |
+| T59 | FastAPI service against the registered model, Docker image | Mazen | Ali | Thu 26 Nov |
+| T60 | Scoring log implementing the M4 schema through SQLAlchemy, on SQLite locally and in the Azure demo. Moving to PostgreSQL stays a connection-string change | Aliaa | Mazen | Thu 26 Nov |
+| T61 | Campaign policy simulator with incremental-profit output, and SHAP | Ali | Mohammed | Thu 26 Nov |
+| T62 | Streamlit dashboard: four tabs against the API | Mohammed | Mazen | Sat 28 Nov |
+| T63 | Neural CATE estimator. **Cut (20 Nov):** there is no time left, and it was the first item to cut | Mahmoud | Ali | — |
+| T64 | One container on Azure, the existing GitHub Actions CI, and one drift script (PSI on the input features). No automated retraining | Mazen | Mahmoud | Sat 28 Nov |
+| T65 | Error analysis report and behavioural and invariance tests | Ali | Aliaa | Sat 28 Nov |
+| T66 | Data validation tests, dataset cards, data dictionary | Aliaa | Mohammed | Sat 28 Nov |
 | T67 | README, API documentation, one command that reproduces the headline result | Mazen | Aliaa | Mon 30 Nov |
-| T68 | Weekly end-to-end integration run on `main` (13, 20, 27 Nov); upload on 30 Nov | Mahmoud | Mazen | each Friday |
+| T68 | Weekly end-to-end integration run on `main` (13, 20, 27 Nov); upload on 30 Nov | Mahmoud | Mazen | each Friday; upload Mon 30 Nov |
 
 ### M6 – Testing, Final Presentation and Reports (1 – 4 December)
 
