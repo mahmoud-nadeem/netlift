@@ -55,6 +55,14 @@ the out-of-fold Qini, each fold's Qini and the fit time.
 refitted on the full training split; its validation scores come from the T39 harness, and it is
 registered in the MLflow Model Registry.
 
+**K1's uplift model (added 20 Nov, while the Criteo study was running and before any of its
+results were seen).** Of the T-learner and the X-learner, the one with the higher out-of-fold Qini
+in the Criteo conversion search is K1's uplift model, and the other is its sensitivity
+(`config/kpis.yaml`, K1). A tie goes to the T-learner. Both are refitted with their best
+parameters on the full training split, without the subsample, and score the full validation split
+(`scripts/refit_k1_models.py`). The test split is not opened. K1's primary k belongs to T44's
+decision record, not to this one.
+
 ## Trial budget, from a measured fit
 
 Measured on 20 Nov 2026 on the team laptop (16 logical cores), Criteo conversion, 10% subsample
