@@ -31,12 +31,12 @@ files. Update the "Merged" column when a pull request merges.
 | Non-functional requirements | T34 | Aliaa | `docs/requirements/04-non-functional-requirements.md` | [#99](https://github.com/mahmoud-nadeem/netlift/pull/99) | Yes |
 | Literature: experiments and the two datasets | T25 | Aliaa | `docs/literature-review/01-experiments-and-data.md` | [#96](https://github.com/mahmoud-nadeem/netlift/pull/96) | Yes |
 | Literature: meta-learners and class transformation | T26 | Mohammed | `docs/literature-review/02-meta-learners.md` | [#91](https://github.com/mahmoud-nadeem/netlift/pull/91) | No |
-| Literature: uplift trees and honest estimation | T27 | Mahmoud | `docs/literature-review/03-trees-and-neural.md` | opened with this index | No |
+| Literature: uplift trees and honest estimation | T27 | Mahmoud | `docs/literature-review/03-trees-and-neural.md` | [#124](https://github.com/mahmoud-nadeem/netlift/pull/124) | No |
 | Literature: evaluating uplift models | T28 | Ali | `docs/literature-review/04-evaluation.md` | [#110](https://github.com/mahmoud-nadeem/netlift/pull/110) | Yes |
 | Specification aligned with the plan | T52 | Mahmoud | `docs/NetLift_Project_Specification.tex` and `.pdf` | [#94](https://github.com/mahmoud-nadeem/netlift/pull/94) | Yes |
 | Decision records 0001–0004 | — | several | `docs/decisions/` | #28, #95, #103, #104 | Yes |
 
 ## Still to merge before the M4 files are built
 
-#108, #118, #114, #116, #112, #120, #91 and the T27 pull request. The Word and PDF files are
+#108, #118, #114, #116, #112, #120, #91 and #124. The Word and PDF files are
 built once these are on `main`, and pushed to the company repository.
