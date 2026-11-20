@@ -1,6 +1,6 @@
 # Behaviour: problem, objectives and diagrams
 
-**Task:** T50 (#62) · **Owner:** Mahmoud · **Reviewer:** Aliaa · **Status:** first draft (1 Nov 2026)
+**Task:** T50 (#62) · **Owner:** Mahmoud · **Reviewer:** Aliaa · **Status:** revised after Aliaa's review (20 Nov 2026)
 
 This document gives the problem statement and the objectives, then the class, sequence, activity
 and state diagrams of NetLift. It draws only on the specification, the user stories and use cases
@@ -28,8 +28,10 @@ Retention and promotion budgets are usually spent by ranking customers on a mode
 customers who convert *less* because they were contacted (sleeping dogs). Budget is spent on
 discounts nobody needed, and some contacts destroy value (specification, Problem Statement).
 
-The quantity that matters is the effect of the contact on each customer: the conditional average
-treatment effect τ(x) = E[Y(1) − Y(0) | X = x]. It is never observed for any single customer,
+The quantity that matters is the effect of being assigned to contact on each customer: the
+conditional average treatment effect τ(x) = E[Y(1) − Y(0) | X = x], where the treatment is the
+randomized assignment. It is not the effect of being exposed to the ad: Criteo's `exposure` is
+recorded after assignment, so it is a post-treatment column and never the treatment. It is never observed for any single customer,
 because each customer is either contacted or not. It can only be estimated for groups, from
 randomized experiment data, and it has to be reported with an interval, because the signal is
 small and the control group is thin.
@@ -45,7 +47,7 @@ Each objective maps to a KPI in `config/kpis.yaml` (specification §46).
 
 | # | Objective | KPI |
 |---|---|---|
-| 1 | At the same contact count, produce more incremental conversions than targeting by a response model. The 95% interval of the difference is reported either way. | K1 (primary) |
+| 1 | At the same contact count, produce more incremental conversions than targeting by a response model. The 95% interval of the difference is reported either way. Until T70 it is reported on validation; the final K1 figure comes from the locked test split, opened once under T70. | K1 (primary) |
 | 2 | Rank customers better than random targeting: Qini coefficient and AUUC with bootstrap intervals resampled within treatment arms. | K2 |
 | 3 | State incremental profit per unit of spend, with the cost and margin named on the same line. | K3 |
 | 4 | Show that the pipeline finds no effect when there is none: a permuted-treatment negative control. | K4 |
@@ -92,11 +94,14 @@ classDiagram
         +fold: int64 array
         +row_id: int64 array
         +meta: FeatureMatrixMeta
+        +n_rows: int
+        +fold_ids: tuple
         +cell_counts() DataFrame
     }
     class LockedTestSplit {
         <<built: interface 1>>
         +meta: FeatureMatrixMeta
+        +columns: tuple
         +row_ids: int64 array
         +is_open: bool
         +open(reason) FeatureMatrix
@@ -114,19 +119,20 @@ classDiagram
     }
     class DataPipeline {
         <<module: data.pipeline, built in T37>>
-        +load_splits(dataset, target) DatasetSplits
-        +build_splits(prepared, cfg) DatasetSplits
-        +plan_split(prepared, cfg)
+        +load_config(path) dict
+        +load_splits(dataset, target, ...) DatasetSplits
+        +build_splits(p, dataset, target, treatment, cfg, subsample_frac) DatasetSplits
+        +plan_split(p, cfg, subsample_frac)
     }
     class Prepared {
         <<built in T37>>
         +X: DataFrame
-        +arm
-        +t
-        +in_scope
-        +y_visit
-        +y_conversion
-        +row_id
+        +arm: int8 array
+        +t: int8 array
+        +in_scope: bool array
+        +y_visit: int8 array
+        +y_conversion: int8 array
+        +row_id: int64 array
     }
 
     class MetricResult {
@@ -148,15 +154,16 @@ classDiagram
     }
     class UpliftMetric {
         <<protocol: interface 2, built>>
-        +__call__(y, uplift, t, n_resamples, confidence_level, seed) MetricResult
+        +__call__(y, uplift, t, n_resamples, confidence_level, seed, split_name, row_ids, dataset) MetricResult
     }
     class EvaluationContracts {
         <<module: evaluation.contracts, built>>
         +within_arm_bootstrap_indices(t, n_resamples, seed)
         +fingerprint_indices(indices) str
-        +fingerprint_evaluation_set(y, t) str
+        +fingerprint_evaluation_set(y, t, row_ids, dataset) str
         +paired_difference(a, b) MetricResult
         +log_metric_result(run, kpi_id, result) str
+        +check_reportable_run(run_id) list
     }
 
     class ScoringResponse {
@@ -180,22 +187,46 @@ classDiagram
         +feature: str
         +contribution: float
     }
+    class Verdict {
+        <<enumeration>>
+        confident
+        insufficient_evidence
+        insufficient_control_data
+    }
+    class Recommendation {
+        <<enumeration>>
+        contact
+        suppress
+        no_action
+    }
+    class SegmentLabel {
+        <<enumeration>>
+        persuadable
+        sure_thing
+        lost_cause
+        sleeping_dog
+        unknown
+    }
 
     class Run {
         <<built: utils.tracking>>
         +log_params(params)
         +log_metrics(metrics)
         +log_kpi(kpi_id, value, ci_low, ci_high) str
+        +log_dict(data, artifact_file)
         +log_artifact(path)
         +set_tags(tags)
     }
     class Tracking {
         <<module: utils.tracking, built>>
-        +start_run(run_name, dataset, seed, experiment, tags) Run
+        +start_run(run_name, task, dataset, seed, experiment, tags) Run
+        +experiment_name(dataset, target) str
+        +run_name(task, model) str
     }
 
     class Baselines {
-        <<planned: T38>>
+        <<module: models.baselines, built in T38>>
+        +build_baseline(splits, name, ...) BaselineResult
         random, blanket, response model
     }
     class BaseLearner {
@@ -217,7 +248,7 @@ classDiagram
         <<planned: Advanced tier>>
     }
     class UpliftEvaluator {
-        <<planned: T39>>
+        <<planned: T39, #111>>
         Qini, AUUC, uplift@k
     }
     class PolicyEngine {
@@ -245,6 +276,9 @@ classDiagram
     DataPipeline ..> DatasetSplits : returns
     DataPipeline ..> DataContracts : validates with
     ScoringResponse *-- Driver : top_drivers
+    ScoringResponse --> Verdict
+    ScoringResponse --> Recommendation
+    ScoringResponse --> SegmentLabel
     UpliftMetric ..> MetricResult : returns
     EvaluationContracts ..> MetricResult
     EvaluationContracts ..> Run : logs through
@@ -279,10 +313,18 @@ Notes:
   The class diagram shows the module that holds each group.
 - `NeuralCATE`, the shared-representation neural estimator, is NICE TO HAVE in the spec's scope
   and is left out. If it is built, it is one more subclass of `UpliftEstimator`.
-- Pending in T41 (#104), and not drawn yet:
-  - a required `task` on `start_run`, with `experiment_name` and `run_name` helpers;
-  - `fingerprint_evaluation_set` gaining required `row_ids` and `dataset`, and the `UpliftMetric`
-    protocol gaining `split_name`, `row_ids` and `dataset` (ADR 0004).
+- In the code, every argument of `build_splits` after `p`, and of `plan_split` after `cfg`, is
+  keyword-only. `load_splits` is abbreviated with `...`: its other keyword arguments are
+  `treatment`, `subsample_frac` and `cfg`.
+- `Prepared.arm` is the stratification arm: the three arms for Hillstrom and the treatment flag for
+  Criteo. `Prepared.t` is 0/1 under the chosen comparison and is meaningful only where `in_scope`.
+  `row_id` is the row's position in the raw file.
+- The three enumerations are the `Literal` types in `api/schema.py`. A verdict other than
+  `confident` always carries `no_action` (interfaces.md, interface 3). They drive sections 4.1
+  and 5.
+- T41 (#104) is on `main`: `start_run` requires a `task`, `fingerprint_evaluation_set` requires
+  `row_ids` and `dataset`, and the `UpliftMetric` protocol requires `split_name`, `row_ids` and
+  `dataset` (ADR 0004).
 - Training and promotion lead to the MLflow Model Registry. The registry is a component, not a
   class of ours. It appears in the sequence and state diagrams.
 
@@ -472,31 +514,38 @@ campaign system is **deployment-only**.
 flowchart TD
     start([Scenario scored: every customer has uplift, interval, verdict]) --> mode[Read policy mode from the scenario configuration]
     mode --> pool[Build the eligible pool: verdict confident only]
-    pool --> abst[List insufficient_evidence and insufficient_control_data customers separately. Proposed, Q2]
-    abst --> which{Policy mode}
-    which -->|Fixed budget| fb[Rank by estimated uplift, take the top k = B / c, skip uplift of 0 or less]
-    which -->|Profit-maximising| pm[Select every customer with uplift above c / m; spend is an output]
-    which -->|Fixed target| ft[Select the smallest set expected to deliver N]
-    which -->|Suppression-only| so[Select everyone except the suppression list. Proposed, Q2]
+    pool --> abst[List insufficient_evidence and insufficient_control_data customers separately; they are never selected in any mode. Proposed, Q2]
+    abst --> dog[Sleeping-dog rule: estimate negative and the whole interval below zero, so put on the suppression list and remove from the pool]
+    dog --> which{Policy mode}
+    which -->|Fixed budget| fb[Rank the pool by estimated uplift, take the top k = B / c, skip uplift of 0 or less]
+    which -->|Profit-maximising| pm[Select every customer in the pool with uplift above c / m; spend is an output]
+    which -->|Fixed target| ft[Select the smallest set from the pool expected to deliver N]
+    which -->|Suppression-only| so[Select every customer in the pool. Proposed, Q2]
     ft --> reach{N reachable?}
-    reach -->|no| q5[Behaviour not specified, Q5]
-    reach -->|yes| dog
-    fb --> dog
-    pm --> dog
-    so --> dog
-    dog[Sleeping-dog rule: estimate negative and the whole interval below zero, so suppress and never contact]
-    dog --> empty{Any customer selected?}
+    reach -->|no| q5([End: behaviour not specified, Q5])
+    reach -->|yes| sel
+    fb --> sel
+    pm --> sel
+    so --> sel
+    sel[Target list]
+    sel --> empty{Any customer selected?}
     empty -->|no| unspent[Empty target list; under Fixed budget the budget stays unspent]
     empty -->|yes| hold
     unspent --> hold
     hold[After allocation, join the recorded arm: selected control customers are the replay holdout]
     hold --> summary[Show contacts, expected incremental conversions with an interval, expected profit, comparison with response-model targeting]
     summary --> allocated([Scenario state: allocated])
-    allocated --> dl[Analyst downloads the target list from Tab 1]
+    allocated --> dl[Analyst downloads the target list from Tab 1. Proposed, Q3]
     dl --> live{Live deployment?}
     live -->|this semester| replay([Recorded outcomes are revealed in UC-06])
     live -->|deployment-only| ces([Send to the Campaign Execution System; permanent randomized holdout; ingest outcomes after the window])
 ```
+
+The sleeping-dog rule filters the pool before selection, so no slot is freed after selection and
+nothing needs refilling. Fixed budget takes the top k of what remains, and spends less than B when
+fewer than k customers in the pool have positive uplift. Abstentions never enter the pool, so
+Suppression-only selects every confident customer who is not on the suppression list (Proposed,
+Q2).
 
 Nothing in this flow reads the outcome column, and a test asserts it (FR-04).
 
@@ -534,35 +583,38 @@ stateDiagram-v2
 ### 6.2 Model lifecycle
 
 The specification's registry stages are `registered` → `staging` → `production` → `archived`
-(§45). The states below follow one model version from training to serving and back through
-retraining. Training and evaluation are **planned** (T38 to T44). Registration and serving are
-**planned** (M5).
+(§45). The states below follow one model version. A retrain does not move an existing version: it
+creates a new version, which starts again at `trained`. Training and evaluation are **planned**
+(T38 to T44). Registration and serving are **planned** (M5).
 
 ```mermaid
 stateDiagram-v2
     [*] --> trained : offline pipeline run, from config and a git commit
     trained --> evaluated : Qini, AUUC, uplift@k with bootstrap intervals; K4 negative control
     evaluated --> discarded : fails K4 or the leakage gate
-    evaluated --> champion : registered as champion
-    champion --> served : API loads this version at start-up
-    served --> drift_flagged : drift threshold breached (feature or score drift)
-    drift_flagged --> retrained : Data Scientist starts the pipeline by hand
-    served --> retrained : cadence date reached
-    retrained --> evaluated : new version, compared on the same resamples
-    served --> archived : replaced by a newer champion
-    archived --> served : rollback by version pin
+    evaluated --> registered : registered with its evaluation attached (staging)
+    registered --> champion : promoted [Q9] (production)
+    registered --> archived : not promoted
+    champion --> archived : replaced by a newer champion
+    archived --> champion : rollback by version pin
     discarded --> [*]
     archived --> [*]
 
+    note right of registered
+        A retrained candidate is compared with the champion
+        on the same resamples (paired_difference). The rule
+        that promotes it is open (Q9).
+    end note
     note right of champion
-        Registered in the MLflow Model Registry with its
-        evaluation attached. The rule that promotes a retrained
-        candidate over the current champion is open (Q9).
+        The API loads this version at start-up. Drift is a
+        flag on this version, not a state: a breach or the
+        cadence date prompts a retrain, which creates a
+        new version at trained (4.4).
     end note
 ```
 
-`registered as champion` and `served` correspond to the registry's `staging` and `production`.
-`archived` is the registry stage of the same name.
+`registered` is the registry's `staging`, `champion` is `production` and the version the API
+serves, and `archived` is the registry stage of the same name.
 
 ---
 
