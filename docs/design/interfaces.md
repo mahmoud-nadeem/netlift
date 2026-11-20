@@ -1,6 +1,6 @@
 # Frozen interfaces
 
-**Status: Proposed — awaiting approval from Aliaa, Ali and Mazen (due Tue 20 Oct)**
+**Status: Frozen on 2 November 2026 (#92). Later changes are recorded in ADR 0004.**
 
 Task T36 (#48). Three interfaces sit between the members' work. Freezing them early lets every
 M4 task build against a stub instead of waiting for the task upstream of it. Each interface has
