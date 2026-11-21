@@ -204,9 +204,13 @@ not train until week 15 wastes everyone's disk and download time.
 
 ## Verified configuration
 
-Resolved and tested together on Python 3.12, 20 September 2026. T45 adds the API transport
-pins below; these must be included in the next full Python 3.12 environment verification.
-The same set was also verified on Python 3.11.
+The base ML/runtime stack was resolved and tested together on Python 3.12 on 20 September
+2026; that pre-T45 stack was also verified on Python 3.11. T45 added the API transport pins
+below on 4 November 2026. Those API pins have since been included in the full Python 3.12
+environment verification: `scripts/verify_environment.py` passed all 26 checks, including
+pin coverage for all 21 pinned packages. Python 3.11 compatibility of the added T45 API pins
+has not been separately verified.
+
 `pip check` reports no broken requirements with all of the following installed
 in one environment:
 

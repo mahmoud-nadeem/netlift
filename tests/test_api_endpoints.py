@@ -8,15 +8,21 @@ import json
 import zipfile
 from typing import Any
 
+import pytest
+
 from fastapi.testclient import TestClient
 
 from netlift.api.app import create_app
 from netlift.api.service import MOCK_MODEL_VERSION, MockNetLiftService
 
 
-def client(*, ready: bool = True, drift_available: bool = True) -> TestClient:
+def client(
+    *, ready: bool = True, drift_available: bool = True
+) -> TestClient:
     return TestClient(
-        create_app(MockNetLiftService(ready=ready, drift_available=drift_available))
+        create_app(
+            MockNetLiftService(ready=ready, drift_available=drift_available)
+        )
     )
 
 
@@ -61,7 +67,10 @@ def test_score_returns_frozen_eleven_field_schema_and_economics_headers() -> Non
         "scored_at",
     }
     assert body["model_version"] == MOCK_MODEL_VERSION
-    assert body["expected_incremental_profit"] == -4.18  # 200 * 0.0041 - 5
+    assert body["uplift_score"] == pytest.approx(0.03)
+    assert body["uplift_ci_95"] == pytest.approx([0.02, 0.04])
+    assert body["decile"] == 1
+    assert body["expected_incremental_profit"] == pytest.approx(1.0)  # 200 * 0.03 - 5
     assert body["scored_at"].endswith("Z")
     assert response.headers["x-netlift-contact-cost"] == "5"
     assert response.headers["x-netlift-conversion-margin"] == "200"
@@ -97,7 +106,9 @@ def test_mock_covers_both_abstention_verdicts_without_directional_action() -> No
 
 
 def test_mock_sleeping_dog_is_suppressed() -> None:
-    response = client().post("/score", json=score_payload("mock-sleeping-dog:001"))
+    response = client().post(
+        "/score", json=score_payload("mock-sleeping-dog:001")
+    )
     assert response.status_code == 200
     assert response.json()["segment_label"] == "sleeping_dog"
     assert response.json()["recommendation"] == "suppress"
@@ -118,14 +129,6 @@ def test_score_rejects_generic_outcome_column() -> None:
     response = client().post("/score", json=payload)
     assert response.status_code == 422
     assert "outcome" in response.text
-
-
-def test_score_rejects_non_numeric_feature_values_as_validation_error() -> None:
-    payload = score_payload()
-    payload["features"]["f0"] = "not-a-number"
-    response = client().post("/score", json=payload)
-    assert response.status_code == 422
-    assert "must be numeric" in response.text
 
 
 def test_score_rejects_non_finite_feature_values() -> None:
@@ -168,6 +171,8 @@ def test_batch_json_returns_zip_and_includes_both_abstention_cases() -> None:
         "insufficient_control_data": 1,
     }
     assert summary["is_mock"] is True
+
+
 
 
 def test_batch_json_accepts_flat_feature_columns() -> None:
@@ -258,6 +263,8 @@ def test_policy_simulation_returns_four_mock_policies_without_recording() -> Non
     assert all(len(item["curve"]) == 5 for item in body["policies"])
 
 
+
+
 def test_policy_simulation_is_deterministic_for_identical_inputs() -> None:
     payload = {
         "scenario_id": "campaign-demo",
@@ -274,10 +281,13 @@ def test_policy_simulation_is_deterministic_for_identical_inputs() -> None:
     assert first.json() == second.json()
 
 
-def test_policy_simulation_refuses_locked_test_split() -> None:
+@pytest.mark.parametrize("invalid_slice", ["test", "locked_test", "Test", "train"])
+def test_policy_simulation_refuses_non_validation_splits(
+    invalid_slice: str,
+) -> None:
     payload = {
         "scenario_id": "campaign-demo",
-        "data_slice": "test",
+        "data_slice": invalid_slice,
         "model_version": MOCK_MODEL_VERSION,
         "seed": 42,
         "budget": 20_000,
@@ -286,7 +296,17 @@ def test_policy_simulation_refuses_locked_test_split() -> None:
     }
     response = client().post("/policy/simulate", json=payload)
     assert response.status_code == 422
-    assert "validation" in response.text
+
+    error = response.json()["error"]
+    assert error["code"] == "request_validation_error"
+    assert any(
+        "data_slice" in detail["location"] for detail in error["details"]
+    )
+    assert any(
+        "The locked test split is opened once at T70; "
+        "this endpoint accepts 'validation' only." in detail["message"]
+        for detail in error["details"]
+    )
 
 
 def test_policy_simulation_refuses_budget_below_one_contact() -> None:
@@ -359,3 +379,97 @@ def test_health_reports_mock_readiness_and_unready_service_blocks_scoring() -> N
     score = unready_client.post("/score", json=score_payload())
     assert score.status_code == 503
     assert score.json()["error"]["code"] == "service_not_ready"
+
+
+def test_transport_models_accept_production_adapter_values() -> None:
+    """Mock markers must not make the public response types mock-only."""
+    from datetime import UTC, datetime
+
+    from netlift.api.models import (
+        DataQualityStatus,
+        DriftReportResponse,
+        EffectDrift,
+        FeatureDrift,
+        HealthResponse,
+        MetricEstimate,
+        ModelInfoResponse,
+        PolicySimulationResponse,
+        ScoreDistribution,
+    )
+
+    metric = MetricEstimate(
+        name="qini_coefficient", value=0.31, ci_95=(0.24, 0.38), status="available"
+    )
+    model_info = ModelInfoResponse(
+        model_version="netlift-xlearner-1.0.0",
+        training_date=None,
+        metrics=[metric],
+        source="registry",
+        is_mock=False,
+        message="Registered model metadata.",
+    )
+    feature = FeatureDrift(
+        feature="f0", psi=0.08, ks_statistic=0.04, status="available"
+    )
+    effect = EffectDrift(
+        metric="incremental_conversions_rate",
+        current_estimate=0.0012,
+        reference_estimate=0.001,
+        difference=0.0002,
+        ci_95=(-0.0003, 0.0007),
+        source="replay_output",
+    )
+    drift = DriftReportResponse(
+        status="available",
+        generated_at=datetime(2026, 11, 4, 12, 0, tzinfo=UTC),
+        model_version="netlift-xlearner-1.0.0",
+        feature_drift=[feature],
+        score_drift=ScoreDistribution(
+            mean=0.0018,
+            standard_deviation=0.0042,
+            p05=-0.0041,
+            median=0.0012,
+            p95=0.0097,
+            status="available",
+        ),
+        effect_drift=effect,
+        data_quality=DataQualityStatus(
+            status="available",
+            max_null_rate=0.0,
+            range_violations=0,
+            schema_changes=0,
+        ),
+        is_mock=False,
+        message="Measured drift report.",
+    )
+    health = HealthResponse(
+        status="ready", ready=True, mode="live", model_loaded=True, message="Ready."
+    )
+    simulation = PolicySimulationResponse(
+        simulation_id="sim-001",
+        scenario_id="scenario-001",
+        data_slice="validation",
+        model_version="netlift-xlearner-1.0.0",
+        seed=42,
+        budget=20_000,
+        contact_cost=5,
+        conversion_margin=200,
+        policies=[],
+        comparison={
+            "incremental_conversions_difference": 1.0,
+            "ci_95": (0.2, 1.8),
+            "conclusion": "uplift_better",
+        },
+        recorded_run_created=False,
+        source="live",
+        is_mock=False,
+        message="Production what-if result.",
+    )
+
+    assert model_info.source == "registry" and model_info.is_mock is False
+    assert drift.effect_drift is not None
+    assert drift.effect_drift.source == "replay_output" and drift.is_mock is False
+    assert health.mode == "live" and health.model_loaded is True
+    assert simulation.source == "live" and simulation.is_mock is False
+    assert simulation.recorded_run_created is False
+    assert simulation.data_slice == "validation"

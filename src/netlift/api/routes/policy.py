@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
 from fastapi import APIRouter, Depends
 
 from netlift.api.dependencies import require_ready
@@ -32,12 +30,16 @@ router = APIRouter(prefix="/policy", tags=["policy"])
         "Accepts the inputs for a shared-replay what-if request and returns the T45 mock "
         "response shape. The production adapter must call the shared replay code. Until "
         "Q1 is decided, data_slice must be "
-        "validation. This endpoint is a deterministic mock: it does not open the locked "
-        "outcomes, or create an MLflow recorded run."
+        "validation. The mock compares uplift, response-model and random policies at "
+        "equal k (the same budget-derived contact count); blanket contact is shown as "
+        "a full-population reference. Measured production differences require a paired "
+        "bootstrap on shared within-arm resamples. The current deterministic mock does "
+        "not calculate a real bootstrap interval, open locked outcomes, or create an "
+        "MLflow recorded run."
     ),
 )
 async def simulate_policy(
     payload: PolicySimulationRequest,
-    service: Annotated[NetLiftService, Depends(require_ready)],
+    service: NetLiftService = Depends(require_ready),
 ) -> PolicySimulationResponse:
     return service.simulate(payload)

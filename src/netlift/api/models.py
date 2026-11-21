@@ -83,7 +83,7 @@ class ScoreRequest(StrictAPIModel):
             if not isinstance(name, str) or not name.strip():
                 raise ValueError("Feature names must be non-empty strings.")
             if not isinstance(raw, bool | int | float):
-                raise ValueError(f"Feature '{name}' must be numeric.")  # noqa: TRY004
+                raise ValueError(f"Feature '{name}' must be numeric.")
             number = float(raw)
             if not math.isfinite(number):
                 raise ValueError(f"Feature '{name}' must be finite.")
@@ -93,7 +93,9 @@ class ScoreRequest(StrictAPIModel):
     @model_validator(mode="after")
     def validate_feature_contract(self) -> ScoreRequest:
         generic_outcome = [
-            name for name in self.features if name.strip().lower() == "outcome"
+            name
+            for name in self.features
+            if name.strip().lower() == "outcome"
         ]
         if generic_outcome:
             raise ValueError(
@@ -115,14 +117,27 @@ class PolicySimulationRequest(StrictAPIModel):
     data_slice: Literal["validation"] = Field(
         default="validation",
         description=(
-            "T45 interim rule: replays use validation only while Q1 remains open."
+            "The locked test split is opened once at T70; this endpoint accepts "
+            "'validation' only."
         ),
     )
+
     model_version: str = Field(min_length=1)
     seed: int = Field(ge=0)
     budget: float = Field(gt=0, allow_inf_nan=False)
     contact_cost: float = Field(gt=0, allow_inf_nan=False)
     conversion_margin: float = Field(gt=0, allow_inf_nan=False)
+
+    @field_validator("data_slice", mode="before")
+    @classmethod
+    def require_validation_slice(cls, value: object) -> object:
+        """Return an actionable validation error for every other split name."""
+        if value != "validation":
+            raise ValueError(
+                "The locked test split is opened once at T70; "
+                "this endpoint accepts 'validation' only."
+            )
+        return value
 
     @model_validator(mode="after")
     def require_one_contact(self) -> PolicySimulationRequest:
@@ -137,7 +152,9 @@ class MetricEstimate(StrictAPIModel):
     name: str
     value: float | None
     ci_95: tuple[float, float] | None
-    status: Literal["illustrative_mock", "unavailable"] = "illustrative_mock"
+    status: Literal[
+        "illustrative_mock", "available", "unavailable"
+    ] = "illustrative_mock"
 
     @model_validator(mode="after")
     def validate_interval(self) -> MetricEstimate:
@@ -150,8 +167,8 @@ class ModelInfoResponse(StrictAPIModel):
     model_version: str
     training_date: date | None
     metrics: list[MetricEstimate]
-    source: Literal["mock"] = "mock"
-    is_mock: Literal[True] = True
+    source: Literal["mock", "registry"] = "mock"
+    is_mock: bool = True
     message: str
 
 
@@ -159,7 +176,9 @@ class FeatureDrift(StrictAPIModel):
     feature: str
     psi: float | None
     ks_statistic: float | None
-    status: Literal["illustrative_mock", "unavailable"] = "illustrative_mock"
+    status: Literal[
+        "illustrative_mock", "available", "unavailable"
+    ] = "illustrative_mock"
 
 
 class EffectDrift(StrictAPIModel):
@@ -168,7 +187,7 @@ class EffectDrift(StrictAPIModel):
     reference_estimate: float
     difference: float
     ci_95: tuple[float, float]
-    source: Literal["mock_replay_output"] = "mock_replay_output"
+    source: Literal["mock_replay_output", "replay_output"] = "mock_replay_output"
 
 
 class ScoreDistribution(StrictAPIModel):
@@ -177,11 +196,13 @@ class ScoreDistribution(StrictAPIModel):
     p05: float
     median: float
     p95: float
-    status: Literal["illustrative_mock"] = "illustrative_mock"
+    status: Literal[
+        "illustrative_mock", "available", "unavailable"
+    ] = "illustrative_mock"
 
 
 class DataQualityStatus(StrictAPIModel):
-    status: Literal["illustrative_mock", "unavailable"]
+    status: Literal["illustrative_mock", "available", "unavailable"]
     max_null_rate: float | None
     range_violations: int | None
     schema_changes: int | None
@@ -195,7 +216,7 @@ class DriftReportResponse(StrictAPIModel):
     score_drift: ScoreDistribution | None
     effect_drift: EffectDrift | None
     data_quality: DataQualityStatus | None
-    is_mock: Literal[True] = True
+    is_mock: bool = True
     message: str
 
 
@@ -235,16 +256,16 @@ class PolicySimulationResponse(StrictAPIModel):
     policies: list[PolicyResult]
     comparison: PolicyDifference
     recorded_run_created: Literal[False] = False
-    source: Literal["mock"] = "mock"
-    is_mock: Literal[True] = True
+    source: Literal["mock", "live"] = "mock"
+    is_mock: bool = True
     message: str
 
 
 class HealthResponse(StrictAPIModel):
     status: Literal["ready", "not_ready"]
     ready: bool
-    mode: Literal["mock"] = "mock"
-    model_loaded: Literal[False] = False
+    mode: Literal["mock", "live"] = "mock"
+    model_loaded: bool = False
     message: str
 
 
