@@ -194,7 +194,6 @@ dependencies that nobody chose and makes the file impossible to review.
 | Package | Needed from |
 |---|---|
 | PyTorch | milestone 5, for TARNet and Dragonnet |
-| FastAPI, Uvicorn | milestone 5, for the serving API |
 | Streamlit | milestone 5, for the dashboard |
 | azure-ai-ml | milestone 6, for Azure deployment |
 
@@ -205,7 +204,8 @@ not train until week 15 wastes everyone's disk and download time.
 
 ## Verified configuration
 
-Resolved and tested together on Python 3.12, 20 September 2026.
+Resolved and tested together on Python 3.12, 20 September 2026. T45 adds the API transport
+pins below; these must be included in the next full Python 3.12 environment verification.
 The same set was also verified on Python 3.11.
 `pip check` reports no broken requirements with all of the following installed
 in one environment:
@@ -218,6 +218,15 @@ shap 0.51.0          mlflow 3.16.1        optuna 5.0.0
 matplotlib 3.11.2    seaborn 0.13.2       PyYAML 6.0.3
 python-dotenv 1.2.3  ipykernel 7.3.0
 ```
+
+T45 API transport pins (added 4 November 2026):
+
+```
+fastapi 0.128.2  pydantic 2.13.5  uvicorn 0.48.0
+```
+
+`httpx==0.28.1` is a development-only dependency for FastAPI's `TestClient`; it is pinned in
+`requirements-dev.txt` and is not part of the runtime verification set.
 
 `scikit-uplift` and `causalml` coexist in a single environment. They do not
 need separate virtual environments.
