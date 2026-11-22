@@ -73,6 +73,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=ROOT / "requirements.txt",
         help="Pinned requirements recorded with the MLflow model.",
     )
+    parser.add_argument(
+        "--n-jobs",
+        type=int,
+        default=6,
+        help=(
+            "Parallel workers for the forest refit. Each tree's seed is drawn before "
+            "the parallel step, so this changes memory and time, not the model. "
+            "With all 16 cores, each worker's bootstrap copy of the full training "
+            "split ran out of memory on a 15.6 GB machine (22 Nov)."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -123,9 +134,10 @@ def main(argv: list[str] | None = None) -> None:
         },
     ) as run:
         started = time.perf_counter()
-        model = fit_model(
-            champion.family, champion.params, train.X, train.t, train.y, seed=seed
-        )
+        params = dict(champion.params)
+        if champion.family == "uplift_forest":
+            params["n_jobs"] = args.n_jobs
+        model = fit_model(champion.family, params, train.X, train.t, train.y, seed=seed)
         fit_seconds = time.perf_counter() - started
         started = time.perf_counter()
         score = model.predict_uplift(validation.X)
@@ -158,6 +170,7 @@ def main(argv: list[str] | None = None) -> None:
             "n_trials_budget": int(report["n_trials_budget"]),
             "search_report_sha256": report_sha,
             "params": champion.params,
+            "refit_n_jobs": args.n_jobs if champion.family == "uplift_forest" else None,
             "seed": seed,
             "refit_on": "full training split, no subsample",
             "train_rows": train.n_rows,
