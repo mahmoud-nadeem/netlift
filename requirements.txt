@@ -35,6 +35,7 @@ optuna==5.0.0
 matplotlib==3.11.2
 seaborn==0.13.2
 streamlit==1.67.0
+altair==6.3.0
 
 # --- Configuration ---
 PyYAML==6.0.3

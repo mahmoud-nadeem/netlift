@@ -4,15 +4,14 @@ import csv
 import hashlib
 import io
 import json
-import os
 import zipfile
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 import pandas as pd
 import streamlit as st
 
-API_URL = os.getenv("NETLIFT_API_URL", "http://127.0.0.1:8000").rstrip("/")
+from dashboard.api_client import post
+from dashboard.policy_comparison import policy_comparison
+
 ECONOMICS_FIELDS = ("contact_cost", "conversion_margin")
 DEMO_CSV = b"""customer_id,f0,f3
 customer-001,0.2,1.5
@@ -71,40 +70,17 @@ def make_batch_csv(upload: bytes, cost: float, margin: float) -> bytes:
 
 def score_batch(payload: bytes) -> tuple[pd.DataFrame, dict]:
     """Submit the batch and load the two in-memory API response files."""
-    request = Request(
-        f"{API_URL}/score/batch",
-        data=payload,
-        headers={"Content-Type": "text/csv", "Accept": "application/zip"},
-        method="POST",
+    response = post(
+        "/score/batch", payload, content_type="text/csv", accept="application/zip"
     )
     try:
-        with (
-            urlopen(request, timeout=60) as response,
-            zipfile.ZipFile(io.BytesIO(response.read())) as archive,
-        ):
+        with zipfile.ZipFile(io.BytesIO(response)) as archive:
             scores = pd.read_csv(
                 io.BytesIO(archive.read("scores.csv")),
                 dtype={"customer_id": str},
                 keep_default_na=False,
             )
             summary = json.loads(archive.read("summary.json"))
-    except HTTPError as exc:
-        with exc:
-            try:
-                error = json.load(exc)["error"]
-                message = error["message"]
-                details = [
-                    detail["message"]
-                    for detail in error.get("details", [])
-                    if "message" in detail
-                ]
-                if details:
-                    message = f"{message} {' '.join(details[:3])}"
-            except (KeyError, ValueError, TypeError):
-                message = f"The scoring API returned HTTP {exc.code}."
-        raise RuntimeError(message) from exc
-    except (URLError, TimeoutError) as exc:
-        raise RuntimeError(f"Could not reach the scoring API at {API_URL}.") from exc
     except (zipfile.BadZipFile, KeyError, ValueError) as exc:
         raise RuntimeError(
             "The scoring API returned an invalid batch archive."
@@ -171,9 +147,7 @@ def show_results(scores: pd.DataFrame, summary: dict) -> None:
         st.dataframe(drivers, hide_index=True, width="stretch")
 
 
-def main() -> None:
-    st.set_page_config(page_title="NetLift · Campaign Planner", layout="wide")
-    st.title("Campaign Planner")
+def campaign_planner() -> None:
 
     source = st.radio(
         "Customer source", ["Upload CSV", "Demo customers"], horizontal=True
@@ -219,6 +193,16 @@ def main() -> None:
         st.info(
             "Inputs changed. Score customers again to see results for these inputs."
         )
+
+
+def main() -> None:
+    st.set_page_config(page_title="NetLift Dashboard", layout="wide")
+    st.title("NetLift")
+    planner, comparison = st.tabs(["Campaign Planner", "Policy Comparison"])
+    with planner:
+        campaign_planner()
+    with comparison:
+        policy_comparison()
 
 
 if __name__ == "__main__":
