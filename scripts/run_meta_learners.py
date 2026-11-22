@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from sklift.metrics import qini_auc_score, uplift_at_k, uplift_auc_score
 
+from netlift.data.loaders import CRITEO_PARQUET
 from netlift.data.pipeline import load_splits
 from netlift.evaluation.contracts import fingerprint_evaluation_set
 from netlift.models.meta_learners import (
@@ -38,7 +39,7 @@ def main() -> None:
     parser.add_argument("--model", choices=("s", "t", "x", "all"), default="all")
     args = parser.parse_args()
     models = ("s", "t", "x") if args.model == "all" else (args.model,)
-    dataset_path = Path("data/interim/criteo.parquet")
+    dataset_path = CRITEO_PARQUET
     splits = load_splits("criteo", target="conversion")
     train, validation = splits.train, splits.validation
     fingerprint = fingerprint_evaluation_set(

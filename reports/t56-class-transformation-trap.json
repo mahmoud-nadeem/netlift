@@ -1,0 +1,18 @@
+{
+  "dataset": "criteo",
+  "target": "conversion",
+  "split": "validation",
+  "validation_rows": 2795918,
+  "mean_predicted_uplift_pp": {
+    "naive": -69.53415057219179,
+    "propensity_weighted": 0.0028623043262122616
+  },
+  "observed_arm_difference_pp": 0.11532177073461485,
+  "observed_arm_difference_ci_pp": [
+    0.09987592271630344,
+    0.1307557093726994
+  ],
+  "confidence_level": 0.95,
+  "bootstrap_seed": 42,
+  "bootstrap_resamples": 1000
+}

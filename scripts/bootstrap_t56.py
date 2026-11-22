@@ -5,19 +5,14 @@ import json
 from pathlib import Path
 from time import perf_counter
 
-import mlflow
 import numpy as np
 import pandas as pd
 from sklift.metrics import qini_auc_score, uplift_at_k, uplift_auc_score
 
 from netlift.data.pipeline import load_splits
 from netlift.evaluation.contracts import fingerprint_evaluation_set
+from netlift.utils.tracking import tracking_client
 
-RUNS = {
-    "S": "4042d3813ec34d08b3f5c14a19eb9c92",
-    "T": "976c5ea630134d08abc526816eba16c1",
-    "X": "1241bdc26a834f52b90e2a2d9f449708",
-}
 METRICS = ("qini", "auuc", "uplift_10", "uplift_20", "uplift_30")
 
 
@@ -32,23 +27,31 @@ def measure(y, score, t):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--resamples", type=int, required=True)
+    parser.add_argument(
+        "--s-run-id", required=True, help="MLflow run ID for the S-learner"
+    )
+    parser.add_argument(
+        "--t-run-id", required=True, help="MLflow run ID for the T-learner"
+    )
+    parser.add_argument(
+        "--x-run-id", required=True, help="MLflow run ID for the X-learner"
+    )
     args = parser.parse_args()
     if args.resamples < 1:
         parser.error("--resamples must be positive")
 
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    run_ids = {"S": args.s_run_id, "T": args.t_run_id, "X": args.x_run_id}
+    client = tracking_client()
     val = load_splits("criteo", target="conversion").validation
     y, t = val.y, val.t
     fingerprint = fingerprint_evaluation_set(y, t, row_ids=val.row_id, dataset="criteo")
     ids = pd.Index(val.row_id)
     predictions = {}
-    for name, run_id in RUNS.items():
-        run = mlflow.get_run(run_id)
+    for name, run_id in run_ids.items():
+        run = client.get_run(run_id)
         if run.data.params.get("evaluation_fingerprint") != fingerprint:
             raise ValueError(f"{name}: validation fingerprint mismatch")
-        path = mlflow.artifacts.download_artifacts(
-            run_id=run_id, artifact_path="validation_scores.csv"
-        )
+        path = client.download_artifacts(run_id, "validation_scores.csv")
         frame = pd.read_csv(path, float_precision="round_trip").set_index("row_id")
         if len(frame) != len(ids) or not frame.index.is_unique:
             raise ValueError(f"{name}: unexpected validation rows")
@@ -59,7 +62,7 @@ def main() -> None:
 
     rng = np.random.default_rng(42)
     control, treated = np.flatnonzero(t == 0), np.flatnonzero(t == 1)
-    samples = {name: np.empty((args.resamples, len(METRICS))) for name in RUNS}
+    samples = {name: np.empty((args.resamples, len(METRICS))) for name in run_ids}
     start = perf_counter()
     for i in range(args.resamples):
         idx = np.concatenate(
@@ -87,7 +90,7 @@ def main() -> None:
     result = {
         "split": "validation",
         "evaluation_fingerprint": fingerprint,
-        "run_ids": RUNS,
+        "run_ids": run_ids,
         "seed": 42,
         "n_resamples": args.resamples,
         "confidence_level": 0.95,
@@ -97,7 +100,9 @@ def main() -> None:
             for a, b in (("S", "T"), ("S", "X"), ("T", "X"))
         },
     }
-    output = Path("../t56-bootstrap-results.json")
+    output = (
+        Path(__file__).resolve().parents[1] / "reports" / "t56-bootstrap-results.json"
+    )
     output.write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(f"Saved: {output.resolve()}")
 
