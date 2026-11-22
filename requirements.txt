@@ -34,6 +34,7 @@ optuna==5.0.0
 # --- Visualisation ---
 matplotlib==3.11.2
 seaborn==0.13.2
+streamlit==1.67.0
 
 # --- Configuration ---
 PyYAML==6.0.3
@@ -45,7 +46,6 @@ ipykernel==7.3.0
 # --- Added later, not now ---
 # Deep learning (TARNet / Dragonnet)   -> milestone 5
 # fastapi, uvicorn, pydantic-settings  -> milestone 5
-# streamlit                            -> milestone 5
 # azure-ai-ml                          -> milestone 6
 # Torch alone is over 2 GB. It is deliberately not installed until the
 # milestone that needs it.
