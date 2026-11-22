@@ -16,6 +16,23 @@ def post(path: str, payload: bytes, *, content_type: str, accept: str) -> bytes:
         headers={"Content-Type": content_type, "Accept": accept},
         method="POST",
     )
+    return _read_response(request)
+
+
+def get_json(path: str) -> dict:
+    """Read a JSON object from a dashboard endpoint."""
+    request = Request(f"{API_URL}{path}", headers={"Accept": "application/json"})
+    payload = _read_response(request)
+    try:
+        result = json.loads(payload)
+    except ValueError as exc:
+        raise RuntimeError("The NetLift API returned invalid JSON.") from exc
+    if not isinstance(result, dict):
+        raise TypeError("The NetLift API returned an unexpected JSON response.")
+    return result
+
+
+def _read_response(request: Request) -> bytes:
     try:
         with urlopen(request, timeout=60) as response:
             return response.read()
