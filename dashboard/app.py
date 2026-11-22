@@ -11,6 +11,7 @@ import streamlit as st
 
 from dashboard.api_client import post
 from dashboard.model_evidence import model_evidence
+from dashboard.monitoring import monitoring
 from dashboard.policy_comparison import policy_comparison
 
 ECONOMICS_FIELDS = ("contact_cost", "conversion_margin")
@@ -199,8 +200,8 @@ def campaign_planner() -> None:
 def main() -> None:
     st.set_page_config(page_title="NetLift Dashboard", layout="wide")
     st.title("NetLift")
-    planner, comparison, evidence = st.tabs(
-        ["Campaign Planner", "Policy Comparison", "Model Evidence"]
+    planner, comparison, evidence, monitor = st.tabs(
+        ["Campaign Planner", "Policy Comparison", "Model Evidence", "Monitoring"]
     )
     with planner:
         campaign_planner()
@@ -208,6 +209,8 @@ def main() -> None:
         policy_comparison()
     with evidence:
         model_evidence()
+    with monitor:
+        monitoring()
 
 
 if __name__ == "__main__":
