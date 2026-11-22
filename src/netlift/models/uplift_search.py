@@ -183,26 +183,63 @@ def _fit_outcome_models(
     return control_model, treated_model
 
 
-def fit_predict(
+@dataclass(frozen=True)
+class UpliftModel:
+    """A fitted model of one family that predicts uplift for new rows.
+
+    T-learner: ``parts = (control_model, treated_model)``. X-learner:
+    ``parts = (control_effect, treated_effect)`` with ``treated_share`` as the weight.
+    Uplift forest: ``parts = (forest,)``.
+    """
+
+    family: Family
+    parts: tuple[Any, ...]
+    feature_columns: tuple[str, ...]
+    treated_share: float = 0.0
+
+    def predict_uplift(self, X: pd.DataFrame) -> FloatArray:
+        """Uplift estimate for each row of ``X``, after the forbidden-column check."""
+        validate_features(X)
+        missing = [c for c in self.feature_columns if c not in X.columns]
+        if missing:
+            raise ContractError(f"Missing feature columns: {missing}.")
+        inputs = X.loc[:, list(self.feature_columns)]
+        if self.family == "t_learner":
+            control_model, treated_model = self.parts
+            return _positive_probability(treated_model, inputs) - _positive_probability(
+                control_model, inputs
+            )
+        if self.family == "x_learner":
+            control_effect, treated_effect = self.parts
+            share = self.treated_share
+            return np.asarray(
+                share * np.asarray(control_effect.predict(inputs), dtype=np.float64)
+                + (1.0 - share)
+                * np.asarray(treated_effect.predict(inputs), dtype=np.float64),
+                dtype=np.float64,
+            )
+        (forest,) = self.parts
+        predicted = np.asarray(forest.predict(inputs.to_numpy(dtype=np.float64)))
+        return np.asarray(predicted.reshape(len(inputs), -1)[:, 0], dtype=np.float64)
+
+
+def fit_model(
     family: Family,
     params: Mapping[str, Any],
     X_fit: pd.DataFrame,
     t_fit: npt.NDArray[np.int8],
     y_fit: npt.NDArray[np.int8],
-    X_pred: pd.DataFrame,
     *,
     seed: int,
-) -> FloatArray:
-    """Fit one family on the fit rows and return its uplift estimate for the predict rows."""
+) -> UpliftModel:
+    """Fit one family on the given rows and return the fitted model."""
     validate_features(X_fit)
-    validate_features(X_pred)
+    columns = tuple(str(c) for c in X_fit.columns)
     if family in ("t_learner", "x_learner"):
         lgbm = {**params, "random_state": seed}
         control_model, treated_model = _fit_outcome_models(X_fit, t_fit, y_fit, lgbm)
         if family == "t_learner":
-            return _positive_probability(treated_model, X_pred) - _positive_probability(
-                control_model, X_pred
-            )
+            return UpliftModel(family, (control_model, treated_model), columns)
         control, treated = t_fit == 0, t_fit == 1
         control_target = _positive_probability(
             treated_model, X_fit.loc[control]
@@ -214,12 +251,11 @@ def fit_predict(
         treated_effect = LGBMRegressor(**lgbm)
         control_effect.fit(X_fit.loc[control], control_target)
         treated_effect.fit(X_fit.loc[treated], treated_target)
-        share = float(treated.mean())
-        return np.asarray(
-            share * np.asarray(control_effect.predict(X_pred), dtype=np.float64)
-            + (1.0 - share)
-            * np.asarray(treated_effect.predict(X_pred), dtype=np.float64),
-            dtype=np.float64,
+        return UpliftModel(
+            family,
+            (control_effect, treated_effect),
+            columns,
+            treated_share=float(treated.mean()),
         )
     if family == "uplift_forest":
         forest_params = dict(params)
@@ -231,9 +267,24 @@ def fit_predict(
             control_name=_CONTROL, random_state=seed, **forest_params
         )
         forest.fit(X_fit.to_numpy(dtype=np.float64), labels, y_fit)
-        predicted = np.asarray(forest.predict(X_pred.to_numpy(dtype=np.float64)))
-        return np.asarray(predicted.reshape(len(X_pred), -1)[:, 0], dtype=np.float64)
+        return UpliftModel(family, (forest,), columns)
     raise ContractError(f"Unknown family {family!r}; expected one of {FAMILIES}.")
+
+
+def fit_predict(
+    family: Family,
+    params: Mapping[str, Any],
+    X_fit: pd.DataFrame,
+    t_fit: npt.NDArray[np.int8],
+    y_fit: npt.NDArray[np.int8],
+    X_pred: pd.DataFrame,
+    *,
+    seed: int,
+) -> FloatArray:
+    """Fit one family on the fit rows and return its uplift estimate for the predict rows."""
+    validate_features(X_pred)
+    model = fit_model(family, params, X_fit, t_fit, y_fit, seed=seed)
+    return model.predict_uplift(X_pred)
 
 
 def out_of_fold_uplift(
