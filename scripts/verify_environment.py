@@ -39,6 +39,8 @@ PACKAGES: dict[str, str] = {
     "optuna": "optuna",
     "matplotlib": "matplotlib",
     "seaborn": "seaborn",
+    "streamlit": "streamlit",
+    "altair": "altair",
     "PyYAML": "yaml",
     "pyarrow": "pyarrow",
     "python-dotenv": "dotenv",
