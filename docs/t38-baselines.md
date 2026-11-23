@@ -11,7 +11,7 @@ Use the project's Python 3.12 environment and pinned dependencies, then install
 its package with `python -m pip install -e .`. Place the verified Hillstrom file
 at `data/raw/hillstrom.csv` (SHA-256
 `0e5893329d8b93cefecc571777672028290ab69865718020c78c7284f291aece`).
-Set `MLFLOW_TRACKING_URI=sqlite:///mlflow.db` in the environment or `.env`.
+`MLFLOW_TRACKING_URI` defaults to `sqlite:///mlflow.db`; to change it, set it in the terminal's environment (`.env` is not loaded).
 
 ```bash
 python scripts/run_baselines.py --target both --contact-cost 1
