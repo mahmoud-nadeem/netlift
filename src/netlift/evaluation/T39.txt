@@ -1,0 +1,3 @@
+git checkout t39-evaluation-harness
+
+git checkout origin/t39-evaluation-harness -- src/netlift/evaluation/metrics.py src/netlift/evaluation/curves.py
