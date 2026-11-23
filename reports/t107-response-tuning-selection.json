@@ -1,0 +1,68 @@
+{
+  "source_commit": "e92b90b6f58bced4def2812a7f66beb94ab86c05",
+  "selection_rule": "higher OOF Qini; tie: lower treated OOF log loss",
+  "selection_split": "train",
+  "status": "preliminary",
+  "candidates": [
+    {
+      "dataset": "criteo",
+      "target": "conversion",
+      "objective": "log_loss",
+      "run_id": "63e214a596574d16a67b467d8b272ebd",
+      "selected": false,
+      "oof_qini": 0.18943596572015697,
+      "oof_log_loss": 0.012348882061309307,
+      "dataset_sha256": "8e75030990567c8dddb8b80c38b5d42f9d55a5b05b76666f9571a186c5942369"
+    },
+    {
+      "dataset": "criteo",
+      "target": "conversion",
+      "objective": "qini",
+      "run_id": "bc1679d231f34028a622f2e50ffbeeec",
+      "selected": true,
+      "oof_qini": 0.19085552992368118,
+      "oof_log_loss": 0.012476640099915127,
+      "dataset_sha256": "8e75030990567c8dddb8b80c38b5d42f9d55a5b05b76666f9571a186c5942369"
+    },
+    {
+      "dataset": "hillstrom",
+      "target": "visit",
+      "objective": "log_loss",
+      "run_id": "a1dc0681318f4971bb57a5c601453111",
+      "selected": false,
+      "oof_qini": 0.022500303455180087,
+      "oof_log_loss": 0.4598701373945084,
+      "dataset_sha256": "0e5893329d8b93cefecc571777672028290ab69865718020c78c7284f291aece"
+    },
+    {
+      "dataset": "hillstrom",
+      "target": "conversion",
+      "objective": "log_loss",
+      "run_id": "eedf971fb1a74ef5a4bf4bbbe299f738",
+      "selected": true,
+      "oof_qini": 0.04505009153403208,
+      "oof_log_loss": 0.06682517325823381,
+      "dataset_sha256": "0e5893329d8b93cefecc571777672028290ab69865718020c78c7284f291aece"
+    },
+    {
+      "dataset": "hillstrom",
+      "target": "visit",
+      "objective": "qini",
+      "run_id": "06218d7da13e4b78b6bd3e54be87368e",
+      "selected": true,
+      "oof_qini": 0.022659595669326342,
+      "oof_log_loss": 0.45990084760899647,
+      "dataset_sha256": "0e5893329d8b93cefecc571777672028290ab69865718020c78c7284f291aece"
+    },
+    {
+      "dataset": "hillstrom",
+      "target": "conversion",
+      "objective": "qini",
+      "run_id": "05c79910e8764498997dd63fcb71f789",
+      "selected": false,
+      "oof_qini": 0.03324368364338325,
+      "oof_log_loss": 0.06997005628625723,
+      "dataset_sha256": "0e5893329d8b93cefecc571777672028290ab69865718020c78c7284f291aece"
+    }
+  ]
+}
