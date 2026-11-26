@@ -209,7 +209,7 @@ was taken out of scope and T27 and T28 were shortened (section 3).
 | T41 | MLflow tracking server logging runs from the harness | Mahmoud | Mazen | Fri 30 Oct | `docs/experiment-tracking.md` updated |
 | T42 | T-learner and X-learner, Hillstrom then Criteo. **Merged into T56 (#117)** | Mohammed | Mahmoud | — | see T56 |
 | T43 | Permuted-treatment negative control (#119) | Ali | Mohammed | Sun 22 Nov | test and report section |
-| T44 | Uplift versus response model at equal budget, with interval: K1 (protected). Moves to Wed 25 Nov if the K1 input is not on #56 by Mon 23 Nov, 10 pm | Ali | Mohammed | Tue 24 Nov | `reports/central-comparison.md` (validation split) |
+| T44 | Uplift versus response model at equal budget, with interval: K1 (protected) | Ali | Mohammed | Fri 27 Nov | `reports/central-comparison.md` (validation split) |
 | #29 | Sensitivity check: StratifiedGroupKFold on the feature-profile hash | Aliaa | Ali | Fri 6 Nov | report section |
 | T45 | API contract (OpenAPI) and FastAPI skeleton with mocked responses | Mazen | Ali | Fri 30 Oct | `src/netlift/api/`, `docs/design/api-contract.md` |
 | T46 | Use case diagram and descriptions | Ali | Mohammed | Fri 30 Oct | `docs/design/use-cases.md` |
@@ -234,20 +234,21 @@ activity); diagrams.net for use-case, component and deployment diagrams, committ
 
 ### M5 – Implementation (7 – 30 November)
 
-Replanned on 20 November in a pull request instead of a meeting (T54). Feature freeze Saturday
-28 November; 29–30 November is fixes and documentation only.
+Replanned on 20 November in a pull request instead of a meeting (T54), and re-dated on 26 November
+for the tasks that slipped. Feature freeze Saturday 28 November; 29–30 November is fixes and
+documentation only.
 
 | ID | Task | Owner | Partner | Due |
 |---|---|---|---|---|
-| T55 | Decision layer: policy modes, negative-uplift suppression, both abstention verdicts | Ali | Mazen | Wed 25 Nov |
+| T55 | Decision layer: policy modes, negative-uplift suppression, both abstention verdicts | Mahmoud | Mazen | Sat 28 Nov |
 | T56 | Final meta-learners on Criteo and the class-transformation trap figure (#117); absorbs T42 | Mohammed | Ali | Sun 22 Nov |
 | #107 | Tune the response-model baseline inside the train folds (#115) | Mohammed | Ali | Sun 22 Nov |
 | T57 | K1 input: T/X choice, full-train refit, validation scores (posted on #56) | Mahmoud | Mohammed | Mon 23 Nov |
-| T57 | Uplift Random Forest and Optuna under a Qini objective: forest and champion registration in MLflow | Mahmoud | Mohammed | Wed 25 Nov |
-| T58 | Production data pipeline (configuration, logging, errors) and the leakage audit enforced in CI | Aliaa | Mazen | Mon 23 Nov |
-| T59 | FastAPI service against the registered model, Docker image | Mazen | Ali | Thu 26 Nov |
-| T60 | Scoring log implementing the M4 schema through SQLAlchemy, on SQLite locally and in the Azure demo. Moving to PostgreSQL stays a connection-string change | Aliaa | Mazen | Thu 26 Nov |
-| T61 | Campaign policy simulator with incremental-profit output, and SHAP | Ali | Mohammed | Thu 26 Nov |
+| T57 | Uplift Random Forest and Optuna under a Qini objective: forest and champion registration in MLflow | Mahmoud | Mohammed | Fri 27 Nov |
+| T58 | Production data pipeline (configuration, logging, errors) and the leakage audit enforced in CI | Aliaa | Mazen | Sat 28 Nov |
+| T59 | FastAPI service against the registered model, Docker image | Mahmoud | Ali | Sat 28 Nov |
+| T60 | Scoring log implementing the M4 schema through SQLAlchemy, on SQLite locally and in the Azure demo. Moving to PostgreSQL stays a connection-string change | Aliaa | Mazen | Sat 28 Nov |
+| T61 | Campaign policy simulator with incremental-profit output, and SHAP | Ali | Mohammed | Sat 28 Nov |
 | T62 | Streamlit dashboard: four tabs against the API | Mohammed | Mazen | Sat 28 Nov |
 | T63 | Neural CATE estimator. **Cut (20 Nov):** there is no time left, and it was the first item to cut | Mahmoud | Ali | — |
 | T64 | One container on Azure, the existing GitHub Actions CI, and one drift script (PSI on the input features). No automated retraining | Mazen | Mahmoud | Sat 28 Nov |
