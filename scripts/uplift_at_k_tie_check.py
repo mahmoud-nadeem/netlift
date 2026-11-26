@@ -37,6 +37,7 @@ from netlift.utils.errors import ContractError
 logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[1]
 K1 = ROOT / "data" / "processed" / "t57-k1"
+CHAMPION = ROOT / "data" / "processed" / "t57-champion"
 K_VALUES = (0.1, 0.2, 0.3)
 N_RANDOM = 5
 
@@ -55,6 +56,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=[
             f"t_learner={K1 / 't_learner' / 'validation_scores.parquet'}",
             f"x_learner={K1 / 'x_learner' / 'validation_scores.parquet'}",
+            f"uplift_forest={CHAMPION / 'validation_scores.parquet'}",
         ],
         help="name=path pairs of row_id + score parquet files.",
     )
