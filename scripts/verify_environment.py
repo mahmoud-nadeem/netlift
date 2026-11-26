@@ -25,6 +25,9 @@ os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
 # package name on PyPI -> module name to import
 PACKAGES: dict[str, str] = {
+    "fastapi": "fastapi",
+    "pydantic": "pydantic",
+    "uvicorn": "uvicorn",
     "numpy": "numpy",
     "pandas": "pandas",
     "scipy": "scipy",
