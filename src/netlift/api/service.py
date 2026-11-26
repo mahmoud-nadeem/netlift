@@ -77,9 +77,7 @@ class MockNetLiftService:
         self.drift_available = drift_available
 
     def health(self) -> HealthResponse:
-        status: Literal["ready", "not_ready"] = (
-            "ready" if self.ready else "not_ready"
-        )
+        status: Literal["ready", "not_ready"] = "ready" if self.ready else "not_ready"
         message = (
             "The API mock adapter is ready; no champion model is loaded."
             if self.ready
@@ -191,15 +189,9 @@ class MockNetLiftService:
             generated_at=MOCK_TIMESTAMP,
             model_version=MOCK_MODEL_VERSION,
             feature_drift=[
-                FeatureDrift(
-                    feature="f0", psi=0.08, ks_statistic=0.04
-                ),
-                FeatureDrift(
-                    feature="f3", psi=0.17, ks_statistic=0.09
-                ),
-                FeatureDrift(
-                    feature="f7", psi=0.11, ks_statistic=0.06
-                ),
+                FeatureDrift(feature="f0", psi=0.08, ks_statistic=0.04),
+                FeatureDrift(feature="f3", psi=0.17, ks_statistic=0.09),
+                FeatureDrift(feature="f7", psi=0.11, ks_statistic=0.06),
             ],
             score_drift=ScoreDistribution(
                 mean=0.0018,

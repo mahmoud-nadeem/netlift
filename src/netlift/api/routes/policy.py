@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 
 from netlift.api.dependencies import require_ready
@@ -40,6 +42,6 @@ router = APIRouter(prefix="/policy", tags=["policy"])
 )
 async def simulate_policy(
     payload: PolicySimulationRequest,
-    service: NetLiftService = Depends(require_ready),
+    service: Annotated[NetLiftService, Depends(require_ready)],
 ) -> PolicySimulationResponse:
     return service.simulate(payload)

@@ -83,7 +83,7 @@ class ScoreRequest(StrictAPIModel):
             if not isinstance(name, str) or not name.strip():
                 raise ValueError("Feature names must be non-empty strings.")
             if not isinstance(raw, bool | int | float):
-                raise ValueError(f"Feature '{name}' must be numeric.")
+                raise ValueError(f"Feature '{name}' must be numeric.")  # noqa: TRY004  Pydantic turns a ValueError into a 422 but lets a TypeError escape as a 500.
             number = float(raw)
             if not math.isfinite(number):
                 raise ValueError(f"Feature '{name}' must be finite.")
@@ -93,9 +93,7 @@ class ScoreRequest(StrictAPIModel):
     @model_validator(mode="after")
     def validate_feature_contract(self) -> ScoreRequest:
         generic_outcome = [
-            name
-            for name in self.features
-            if name.strip().lower() == "outcome"
+            name for name in self.features if name.strip().lower() == "outcome"
         ]
         if generic_outcome:
             raise ValueError(
@@ -152,9 +150,9 @@ class MetricEstimate(StrictAPIModel):
     name: str
     value: float | None
     ci_95: tuple[float, float] | None
-    status: Literal[
-        "illustrative_mock", "available", "unavailable"
-    ] = "illustrative_mock"
+    status: Literal["illustrative_mock", "available", "unavailable"] = (
+        "illustrative_mock"
+    )
 
     @model_validator(mode="after")
     def validate_interval(self) -> MetricEstimate:
@@ -176,9 +174,9 @@ class FeatureDrift(StrictAPIModel):
     feature: str
     psi: float | None
     ks_statistic: float | None
-    status: Literal[
-        "illustrative_mock", "available", "unavailable"
-    ] = "illustrative_mock"
+    status: Literal["illustrative_mock", "available", "unavailable"] = (
+        "illustrative_mock"
+    )
 
 
 class EffectDrift(StrictAPIModel):
@@ -196,9 +194,9 @@ class ScoreDistribution(StrictAPIModel):
     p05: float
     median: float
     p95: float
-    status: Literal[
-        "illustrative_mock", "available", "unavailable"
-    ] = "illustrative_mock"
+    status: Literal["illustrative_mock", "available", "unavailable"] = (
+        "illustrative_mock"
+    )
 
 
 class DataQualityStatus(StrictAPIModel):

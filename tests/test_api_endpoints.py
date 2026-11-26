@@ -9,20 +9,15 @@ import zipfile
 from typing import Any
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from netlift.api.app import create_app
 from netlift.api.service import MOCK_MODEL_VERSION, MockNetLiftService
 
 
-def client(
-    *, ready: bool = True, drift_available: bool = True
-) -> TestClient:
+def client(*, ready: bool = True, drift_available: bool = True) -> TestClient:
     return TestClient(
-        create_app(
-            MockNetLiftService(ready=ready, drift_available=drift_available)
-        )
+        create_app(MockNetLiftService(ready=ready, drift_available=drift_available))
     )
 
 
@@ -106,9 +101,7 @@ def test_mock_covers_both_abstention_verdicts_without_directional_action() -> No
 
 
 def test_mock_sleeping_dog_is_suppressed() -> None:
-    response = client().post(
-        "/score", json=score_payload("mock-sleeping-dog:001")
-    )
+    response = client().post("/score", json=score_payload("mock-sleeping-dog:001"))
     assert response.status_code == 200
     assert response.json()["segment_label"] == "sleeping_dog"
     assert response.json()["recommendation"] == "suppress"
@@ -171,8 +164,6 @@ def test_batch_json_returns_zip_and_includes_both_abstention_cases() -> None:
         "insufficient_control_data": 1,
     }
     assert summary["is_mock"] is True
-
-
 
 
 def test_batch_json_accepts_flat_feature_columns() -> None:
@@ -263,8 +254,6 @@ def test_policy_simulation_returns_four_mock_policies_without_recording() -> Non
     assert all(len(item["curve"]) == 5 for item in body["policies"])
 
 
-
-
 def test_policy_simulation_is_deterministic_for_identical_inputs() -> None:
     payload = {
         "scenario_id": "campaign-demo",
@@ -299,9 +288,7 @@ def test_policy_simulation_refuses_non_validation_splits(
 
     error = response.json()["error"]
     assert error["code"] == "request_validation_error"
-    assert any(
-        "data_slice" in detail["location"] for detail in error["details"]
-    )
+    assert any("data_slice" in detail["location"] for detail in error["details"])
     assert any(
         "The locked test split is opened once at T70; "
         "this endpoint accepts 'validation' only." in detail["message"]
