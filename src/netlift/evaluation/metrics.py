@@ -1,7 +1,12 @@
 """Interface 2 implementations: Qini coefficient, AUUC and uplift@k with bootstrap intervals.
 
-Every reported number is computed by scikit-uplift (ADR 0001, decision 3). This
-module adds only what neither library provides (ADR 0001, decision 5): the
+The Qini coefficient and AUUC are computed by scikit-uplift (ADR 0001, decision 3).
+uplift@k is computed here, tie-aware (ADR 0007): scikit-uplift takes the first n rows
+after a stable sort, so when the cut falls inside a block of tied scores its value
+depends on the row order. Here the tied block at the cut shares the remaining places
+by fractional weight, which is the expected result when tied rows are picked at
+random. When the cut does not fall inside a tie, the value is exactly scikit-uplift's.
+This module also adds what neither library provides (ADR 0001, decision 5): the
 percentile bootstrap resampled within treatment arms, using the frozen
 ``within_arm_bootstrap_indices`` of ``contracts.py``.
 
@@ -232,6 +237,34 @@ def point_auuc(y: IntArray, uplift: FloatArray, t: IntArray) -> float:
     return quiet_call(sk_metrics.uplift_auc_score, y, uplift, t)
 
 
+def top_weights(score: FloatArray, n_size: int) -> FloatArray:
+    """Selection weight of each row in the top ``n_size`` rows by score, ties shared.
+
+    Rows scored above the cut weigh 1 and rows below it 0. The rows tied at the cut
+    share the remaining places: each weighs (n_size - rows above) / rows tied, the
+    probability of being picked when tied rows are drawn at random (ADR 0007). When
+    no tie crosses the cut, the weights are exactly the first ``n_size`` rows of a
+    sort, as in scikit-uplift.
+    """
+    weights = np.zeros(len(score), dtype=np.float64)
+    if n_size <= 0:
+        return weights
+    cut = np.partition(score, len(score) - n_size)[len(score) - n_size]
+    above = score > cut
+    tied = score == cut
+    weights[above] = 1.0
+    weights[tied] = (n_size - int(above.sum())) / int(tied.sum())
+    return weights
+
+
+def _weighted_rate(y: IntArray, weights: FloatArray) -> float:
+    """Weighted outcome rate; NaN when the weights sum to zero, as an empty mean is."""
+    total = float(weights.sum())
+    if total == 0.0:
+        return math.nan
+    return float(np.dot(weights, y)) / total
+
+
 def point_uplift_at_k(
     y: IntArray,
     uplift: FloatArray,
@@ -240,11 +273,25 @@ def point_uplift_at_k(
     k: float,
     strategy: str,
 ) -> float:
-    """Treated rate minus control rate in the top ``k`` fraction, by ``strategy``.
+    """Treated rate minus control rate in the top ``k`` fraction, by ``strategy``, ties shared.
 
-    ``k`` must already be a float strictly between 0 and 1.
+    ``overall`` takes the top ``int(n * k)`` rows of both arms together;
+    ``by_group`` takes the top ``int(n_arm * k)`` rows of each arm. The tied block at
+    a cut gets fractional weight (:func:`top_weights`, ADR 0007), so the value does
+    not depend on the row order. Without a tie at the cut it equals scikit-uplift's
+    ``uplift_at_k``. ``k`` must already be a float strictly between 0 and 1.
     """
-    return quiet_call(sk_metrics.uplift_at_k, y, uplift, t, strategy=strategy, k=k)
+    treated = t == 1
+    if strategy == "overall":
+        weights = top_weights(uplift, int(len(y) * k))
+        return _weighted_rate(y[treated], weights[treated]) - _weighted_rate(
+            y[~treated], weights[~treated]
+        )
+    rates = []
+    for arm in (treated, ~treated):
+        score = uplift[arm]
+        rates.append(_weighted_rate(y[arm], top_weights(score, int(len(score) * k))))
+    return rates[0] - rates[1]
 
 
 def _finite(value: float, what: str) -> float:
@@ -434,6 +481,6 @@ def uplift_at_k(
         split_name=split_name,
         row_ids=row_ids,
         dataset=dataset,
-        settings={"k": fraction, "strategy": strategy},
+        settings={"k": fraction, "strategy": strategy, "ties": "fractional"},
         require_positive_outcome=False,
     )

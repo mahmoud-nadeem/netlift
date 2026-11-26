@@ -1,0 +1,313 @@
+{
+  "rows": 2795918,
+  "seed": 42,
+  "scikit_uplift_version": "0.5.1",
+  "models": {
+    "t_learner": {
+      "distinct_scores": 221125,
+      "ties": {
+        "10": {
+          "n_size": 279591,
+          "rows_above_cut": 279590,
+          "rows_tied_at_cut": 1
+        },
+        "20": {
+          "n_size": 559183,
+          "rows_above_cut": 557106,
+          "rows_tied_at_cut": 3157
+        },
+        "30": {
+          "n_size": 838775,
+          "rows_above_cut": 829363,
+          "rows_tied_at_cut": 39878
+        }
+      },
+      "by_order": {
+        "row_id": {
+          "qini_sklift": 0.1748567247267692,
+          "auuc_sklift": 0.005667226633706186,
+          "uplift_at_10_sklift": 0.007828688583536775,
+          "uplift_at_10_tie_aware": 0.007828688583536775,
+          "uplift_at_20_sklift": 0.004785514876177465,
+          "uplift_at_20_tie_aware": 0.0048024840431301116,
+          "uplift_at_30_sklift": 0.00334079698104777,
+          "uplift_at_30_tie_aware": 0.003389251674293131
+        },
+        "control_then_treated": {
+          "qini_sklift": 0.1748567247267692,
+          "auuc_sklift": 0.005667226633706186,
+          "uplift_at_10_sklift": 0.007828688583536775,
+          "uplift_at_10_tie_aware": 0.007828688583536775,
+          "uplift_at_20_sklift": 0.004753490043574752,
+          "uplift_at_20_tie_aware": 0.0048024840431301116,
+          "uplift_at_30_sklift": 0.0032955145208450557,
+          "uplift_at_30_tie_aware": 0.003389251674293131
+        },
+        "random_0": {
+          "qini_sklift": 0.1748567247267692,
+          "auuc_sklift": 0.005667226633706186,
+          "uplift_at_10_sklift": 0.007828688583536775,
+          "uplift_at_10_tie_aware": 0.007828688583536775,
+          "uplift_at_20_sklift": 0.004801327496226445,
+          "uplift_at_20_tie_aware": 0.00480248404313011,
+          "uplift_at_30_sklift": 0.003393207311584292,
+          "uplift_at_30_tie_aware": 0.0033892516742931285
+        },
+        "random_1": {
+          "qini_sklift": 0.1748567247267692,
+          "auuc_sklift": 0.005667226633706186,
+          "uplift_at_10_sklift": 0.007828688583536775,
+          "uplift_at_10_tie_aware": 0.007828688583536775,
+          "uplift_at_20_sklift": 0.004804699832214697,
+          "uplift_at_20_tie_aware": 0.00480248404313011,
+          "uplift_at_30_sklift": 0.0033871491510902964,
+          "uplift_at_30_tie_aware": 0.0033892516742931285
+        },
+        "random_2": {
+          "qini_sklift": 0.1748567247267692,
+          "auuc_sklift": 0.005667226633706186,
+          "uplift_at_10_sklift": 0.007828688583536775,
+          "uplift_at_10_tie_aware": 0.007828688583536775,
+          "uplift_at_20_sklift": 0.004798381843247624,
+          "uplift_at_20_tie_aware": 0.0048024840431301116,
+          "uplift_at_30_sklift": 0.0033898165545178313,
+          "uplift_at_30_tie_aware": 0.0033892516742931285
+        },
+        "random_3": {
+          "qini_sklift": 0.1748567247267692,
+          "auuc_sklift": 0.005667226633706186,
+          "uplift_at_10_sklift": 0.007828688583536775,
+          "uplift_at_10_tie_aware": 0.007828688583536775,
+          "uplift_at_20_sklift": 0.004800146849852183,
+          "uplift_at_20_tie_aware": 0.00480248404313011,
+          "uplift_at_30_sklift": 0.0033902619751608907,
+          "uplift_at_30_tie_aware": 0.0033892516742931285
+        },
+        "random_4": {
+          "qini_sklift": 0.1748567247267692,
+          "auuc_sklift": 0.005667226633706186,
+          "uplift_at_10_sklift": 0.007828688583536775,
+          "uplift_at_10_tie_aware": 0.007828688583536775,
+          "uplift_at_20_sklift": 0.004803461062113049,
+          "uplift_at_20_tie_aware": 0.00480248404313011,
+          "uplift_at_30_sklift": 0.0033983882842261543,
+          "uplift_at_30_tie_aware": 0.0033892516742931285
+        }
+      },
+      "max_minus_min_across_orders": {
+        "qini_sklift": 0.0,
+        "auuc_sklift": 0.0,
+        "uplift_at_10_sklift": 0.0,
+        "uplift_at_10_tie_aware": 0.0,
+        "uplift_at_20_sklift": 5.120978863994499e-05,
+        "uplift_at_20_tie_aware": 1.734723475976807e-18,
+        "uplift_at_30_sklift": 0.00010287376338109864,
+        "uplift_at_30_tie_aware": 2.6020852139652106e-18
+      }
+    },
+    "x_learner": {
+      "distinct_scores": 119668,
+      "ties": {
+        "10": {
+          "n_size": 279591,
+          "rows_above_cut": 279373,
+          "rows_tied_at_cut": 586
+        },
+        "20": {
+          "n_size": 559183,
+          "rows_above_cut": 530380,
+          "rows_tied_at_cut": 34793
+        },
+        "30": {
+          "n_size": 838775,
+          "rows_above_cut": 806376,
+          "rows_tied_at_cut": 67393
+        }
+      },
+      "by_order": {
+        "row_id": {
+          "qini_sklift": 0.19325440474351263,
+          "auuc_sklift": 0.006248950071363381,
+          "uplift_at_10_sklift": 0.00837880584646046,
+          "uplift_at_10_tie_aware": 0.008374297066875463,
+          "uplift_at_20_sklift": 0.0051144282359041685,
+          "uplift_at_20_tie_aware": 0.00499146442145975,
+          "uplift_at_30_sklift": 0.0038463492551404294,
+          "uplift_at_30_tie_aware": 0.0035379927771529967
+        },
+        "control_then_treated": {
+          "qini_sklift": 0.19325440474351263,
+          "auuc_sklift": 0.006248950071363381,
+          "uplift_at_10_sklift": 0.008355545179908414,
+          "uplift_at_10_tie_aware": 0.008374297066875463,
+          "uplift_at_20_sklift": 0.004387260154441661,
+          "uplift_at_20_tie_aware": 0.00499146442145975,
+          "uplift_at_30_sklift": 0.003221396025577107,
+          "uplift_at_30_tie_aware": 0.0035379927771529967
+        },
+        "random_0": {
+          "qini_sklift": 0.19325440474351263,
+          "auuc_sklift": 0.006248950071363381,
+          "uplift_at_10_sklift": 0.00837714568592483,
+          "uplift_at_10_tie_aware": 0.008374297066875463,
+          "uplift_at_20_sklift": 0.004988901478798316,
+          "uplift_at_20_tie_aware": 0.004991464421459748,
+          "uplift_at_30_sklift": 0.0035438925929759772,
+          "uplift_at_30_tie_aware": 0.0035379927771529967
+        },
+        "random_1": {
+          "qini_sklift": 0.19325440474351263,
+          "auuc_sklift": 0.006248950071363381,
+          "uplift_at_10_sklift": 0.008370503021200734,
+          "uplift_at_10_tie_aware": 0.008374297066875463,
+          "uplift_at_20_sklift": 0.004992936853606612,
+          "uplift_at_20_tie_aware": 0.00499146442145975,
+          "uplift_at_30_sklift": 0.0035393027435210176,
+          "uplift_at_30_tie_aware": 0.0035379927771529984
+        },
+        "random_2": {
+          "qini_sklift": 0.19325440474351263,
+          "auuc_sklift": 0.006248950071363381,
+          "uplift_at_10_sklift": 0.008373271191556092,
+          "uplift_at_10_tie_aware": 0.008374297066875463,
+          "uplift_at_20_sklift": 0.005001979839595093,
+          "uplift_at_20_tie_aware": 0.004991464421459752,
+          "uplift_at_30_sklift": 0.0035375653194000666,
+          "uplift_at_30_tie_aware": 0.0035379927771529967
+        },
+        "random_3": {
+          "qini_sklift": 0.19325440474351263,
+          "auuc_sklift": 0.006248950071363381,
+          "uplift_at_10_sklift": 0.008373824758178362,
+          "uplift_at_10_tie_aware": 0.008374297066875463,
+          "uplift_at_20_sklift": 0.004980407578615885,
+          "uplift_at_20_tie_aware": 0.004991464421459748,
+          "uplift_at_30_sklift": 0.0035312915124002166,
+          "uplift_at_30_tie_aware": 0.003537992777153
+        },
+        "random_4": {
+          "qini_sklift": 0.19325440474351263,
+          "auuc_sklift": 0.006248950071363381,
+          "uplift_at_10_sklift": 0.008373824758178362,
+          "uplift_at_10_tie_aware": 0.008374297066875466,
+          "uplift_at_20_sklift": 0.004985976825119679,
+          "uplift_at_20_tie_aware": 0.0049914644214597535,
+          "uplift_at_30_sklift": 0.0035365422721584357,
+          "uplift_at_30_tie_aware": 0.0035379927771529976
+        }
+      },
+      "max_minus_min_across_orders": {
+        "qini_sklift": 0.0,
+        "auuc_sklift": 0.0,
+        "uplift_at_10_sklift": 2.3260666552046838e-05,
+        "uplift_at_10_tie_aware": 3.469446951953614e-18,
+        "uplift_at_20_sklift": 0.0007271680814625071,
+        "uplift_at_20_tie_aware": 5.204170427930421e-18,
+        "uplift_at_30_sklift": 0.0006249532295633225,
+        "uplift_at_30_tie_aware": 3.469446951953614e-18
+      }
+    },
+    "uplift_forest": {
+      "distinct_scores": 110826,
+      "ties": {
+        "10": {
+          "n_size": 279591,
+          "rows_above_cut": 279446,
+          "rows_tied_at_cut": 4382
+        },
+        "20": {
+          "n_size": 559183,
+          "rows_above_cut": 545476,
+          "rows_tied_at_cut": 15978
+        },
+        "30": {
+          "n_size": 838775,
+          "rows_above_cut": 838334,
+          "rows_tied_at_cut": 689
+        }
+      },
+      "by_order": {
+        "row_id": {
+          "qini_sklift": 0.15835174756885095,
+          "auuc_sklift": 0.005109830731931326,
+          "uplift_at_10_sklift": 0.007223998830119073,
+          "uplift_at_10_tie_aware": 0.007238449493231432,
+          "uplift_at_20_sklift": 0.004421854368460569,
+          "uplift_at_20_tie_aware": 0.004372365593724977,
+          "uplift_at_30_sklift": 0.0031374495119156015,
+          "uplift_at_30_tie_aware": 0.00313507325775081
+        },
+        "control_then_treated": {
+          "qini_sklift": 0.15835174756885095,
+          "auuc_sklift": 0.005109830731931326,
+          "uplift_at_10_sklift": 0.007223998830119073,
+          "uplift_at_10_tie_aware": 0.007238449493231432,
+          "uplift_at_20_sklift": 0.004087537989394109,
+          "uplift_at_20_tie_aware": 0.004372365593724977,
+          "uplift_at_30_sklift": 0.003130844986346148,
+          "uplift_at_30_tie_aware": 0.00313507325775081
+        },
+        "random_0": {
+          "qini_sklift": 0.15835174756885095,
+          "auuc_sklift": 0.005109830731931326,
+          "uplift_at_10_sklift": 0.0072333297361270345,
+          "uplift_at_10_tie_aware": 0.007238449493231443,
+          "uplift_at_20_sklift": 0.004368652036884413,
+          "uplift_at_20_tie_aware": 0.004372365593724977,
+          "uplift_at_30_sklift": 0.003135418267025865,
+          "uplift_at_30_tie_aware": 0.00313507325775081
+        },
+        "random_1": {
+          "qini_sklift": 0.15835174756885095,
+          "auuc_sklift": 0.005109830731931326,
+          "uplift_at_10_sklift": 0.0072492389380897915,
+          "uplift_at_10_tie_aware": 0.007238449493231439,
+          "uplift_at_20_sklift": 0.004373507116618297,
+          "uplift_at_20_tie_aware": 0.004372365593724977,
+          "uplift_at_30_sklift": 0.003134973823633318,
+          "uplift_at_30_tie_aware": 0.00313507325775081
+        },
+        "random_2": {
+          "qini_sklift": 0.15835174756885095,
+          "auuc_sklift": 0.005109830731931326,
+          "uplift_at_10_sklift": 0.007244518810852002,
+          "uplift_at_10_tie_aware": 0.007238449493231436,
+          "uplift_at_20_sklift": 0.004369089661497344,
+          "uplift_at_20_tie_aware": 0.004372365593724975,
+          "uplift_at_30_sklift": 0.0031350373179335426,
+          "uplift_at_30_tie_aware": 0.00313507325775081
+        },
+        "random_3": {
+          "qini_sklift": 0.15835174756885095,
+          "auuc_sklift": 0.005109830731931326,
+          "uplift_at_10_sklift": 0.007243935899789399,
+          "uplift_at_10_tie_aware": 0.007238449493231439,
+          "uplift_at_20_sklift": 0.0043714232275812205,
+          "uplift_at_20_tie_aware": 0.004372365593724975,
+          "uplift_at_30_sklift": 0.0031351008114380652,
+          "uplift_at_30_tie_aware": 0.00313507325775081
+        },
+        "random_4": {
+          "qini_sklift": 0.15835174756885095,
+          "auuc_sklift": 0.005109830731931326,
+          "uplift_at_10_sklift": 0.007237992848284934,
+          "uplift_at_10_tie_aware": 0.007238449493231432,
+          "uplift_at_20_sklift": 0.00436836027293286,
+          "uplift_at_20_tie_aware": 0.004372365593724975,
+          "uplift_at_30_sklift": 0.003135291287177624,
+          "uplift_at_30_tie_aware": 0.00313507325775081
+        }
+      },
+      "max_minus_min_across_orders": {
+        "qini_sklift": 0.0,
+        "auuc_sklift": 0.0,
+        "uplift_at_10_sklift": 2.524010797071846e-05,
+        "uplift_at_10_tie_aware": 1.0408340855860843e-17,
+        "uplift_at_20_sklift": 0.00033431637906645995,
+        "uplift_at_20_tie_aware": 1.734723475976807e-18,
+        "uplift_at_30_sklift": 6.604525569453741e-06,
+        "uplift_at_30_tie_aware": 0.0
+      }
+    }
+  }
+}

@@ -475,3 +475,94 @@ def test_an_undefined_resample_raises_and_names_the_resample(
     monkeypatch.setattr(metrics_module.sk_metrics, "qini_auc_score", sometimes_nan)
     with pytest.raises(ContractError, match=r"resample 2.*undefined"):
         _run(qini_coefficient)
+
+
+# --------------------------------------------------------------------------- #
+# Tie-aware uplift@k (ADR 0007)
+# --------------------------------------------------------------------------- #
+
+# Ten rows, k = 0.3 (three places). One row above the cut, four tied at the cut, so
+# each tied row weighs (3 - 1) / 4 = 1/2. Treated: (1 + 1/2) / (1 + 1/2 + 1/2) = 3/4;
+# control: (1/2) / (1/2 + 1/2) = 1/2; uplift@30% = 1/4.
+# by_group with k = 0.5 (two places per arm of five): treated has row 0 above and
+# rows 1-2 tied, each weighing 1/2, so (1 + 1/2) / 2 = 3/4; control's top two are
+# rows 3-4, the whole tie block, so (1 + 0) / 2 = 1/2; uplift = 1/4.
+TIE_UPLIFT = np.array([0.9, 0.5, 0.5, 0.5, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1])
+TIE_T = np.array([1, 1, 1, 0, 0, 1, 0, 1, 0, 0])
+TIE_Y = np.array([1, 1, 0, 1, 0, 0, 0, 0, 0, 0])
+
+
+@pytest.mark.parametrize(("k", "strategy"), [(0.3, "overall"), (0.5, "by_group")])
+def test_hand_computed_uplift_at_k_with_a_tie_at_the_cut(
+    k: float, strategy: str
+) -> None:
+    rng = np.random.default_rng(3)
+    for _ in range(20):
+        order = rng.permutation(len(TIE_Y))
+        value = point_uplift_at_k(
+            TIE_Y[order], TIE_UPLIFT[order], TIE_T[order], k=k, strategy=strategy
+        )
+        assert value == pytest.approx(1 / 4)
+
+
+@pytest.mark.parametrize("strategy", ["overall", "by_group"])
+@pytest.mark.parametrize("k", [0.1, 0.2, 0.3, 0.5])
+def test_uplift_at_k_equals_scikit_uplift_exactly_without_ties(
+    k: float, strategy: str
+) -> None:
+    y, uplift, t = _data()
+    assert len(np.unique(uplift)) == len(uplift)
+    ours = point_uplift_at_k(y, uplift, t, k=k, strategy=strategy)
+    assert ours == float(sk_metrics.uplift_at_k(y, uplift, t, strategy=strategy, k=k))
+
+
+def test_uplift_at_k_equals_scikit_uplift_when_ties_do_not_cross_the_cut() -> None:
+    y, uplift, t = _data()
+    rounded = np.round(uplift, 1)
+    assert len(np.unique(rounded)) < 100  # 600 rows, so ties everywhere
+    n_size = int((rounded >= 0.8).sum())  # the cut sits between two tie blocks
+    k = (n_size + 0.5) / len(y)
+    assert int(len(y) * k) == n_size
+    ours = point_uplift_at_k(y, rounded, t, k=k, strategy="overall")
+    direct = float(sk_metrics.uplift_at_k(y, rounded, t, strategy="overall", k=k))
+    assert ours == direct
+
+
+@pytest.mark.parametrize("strategy", ["overall", "by_group"])
+def test_uplift_at_k_does_not_depend_on_row_order(strategy: str) -> None:
+    y, uplift, t = _data(n=2000, seed=5)
+    tied = np.round(uplift, 0)  # a few large tie blocks, so every cut falls in one
+    rng = np.random.default_rng(11)
+    values, scikit = [], []
+    for _ in range(10):
+        order = rng.permutation(len(y))
+        values.append(
+            point_uplift_at_k(y[order], tied[order], t[order], k=0.3, strategy=strategy)
+        )
+        scikit.append(
+            sk_metrics.uplift_at_k(
+                y[order], tied[order], t[order], strategy=strategy, k=0.3
+            )
+        )
+    assert max(values) == pytest.approx(min(values), rel=1e-12, abs=1e-15)
+    assert max(scikit) - min(scikit) > 1e-3  # scikit-uplift's value does depend on it
+
+
+def test_top_weights_fill_exactly_n_places() -> None:
+    score = np.array([3.0, 2.0, 2.0, 2.0, 1.0, 1.0])
+    weights = metrics_module.top_weights(score, 3)
+    assert weights.tolist() == pytest.approx([1.0, 2 / 3, 2 / 3, 2 / 3, 0.0, 0.0])
+    assert weights.sum() == pytest.approx(3.0)
+    assert metrics_module.top_weights(score, 4).tolist() == [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+    ]
+    assert metrics_module.top_weights(score, 0).sum() == 0.0
+
+
+def test_uplift_at_k_records_fractional_ties() -> None:
+    assert _run(uplift_at_k, k=0.2).settings["ties"] == "fractional"
