@@ -1,14 +1,19 @@
 """T57: champion–challenger table on the Criteo validation split, with the T39 harness.
 
-Scores the champion forest and the K1 T- and X-learners, and the response model when
-its bundle exists, on the same validation rows with the same 1,000 within-arm
-resamples. For each model it reports the Qini coefficient, AUUC and uplift@10/20/30%
+Scores the champion forest, the K1 T- and X-learners and the tuned response model on
+the same validation rows with the same 1,000 within-arm resamples. For each model it reports the Qini coefficient, AUUC and uplift@10/20/30%
 (scikit-uplift, strategy ``overall``) with 95% percentile intervals. For each
 challenger it reports the paired difference against the forest on the same
 resamples (``paired_difference``).
 
 Every score file is ``row_id`` + ``score`` and must cover exactly the rows of the
 outcomes file. The locked test split is not read.
+
+The response model comes from Mohammed's K1 bundle (MLflow run ``63e214a5…``,
+``data/processed/criteo-conversion-log_loss.zip``, git-ignored). The script reads its
+``validation_scores.csv`` straight from the zip after checking the zip's SHA-256, the
+run ID and the manifest (tuned, log-loss objective, 30 trials, split seed 42, test
+split not opened). Without the bundle the response model's row says "pending".
 
 Outputs:
 
@@ -27,6 +32,7 @@ import argparse
 import json
 import logging
 import time
+import zipfile
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
@@ -39,12 +45,27 @@ import pandas as pd
 from netlift.evaluation.contracts import MetricResult, paired_difference
 from netlift.evaluation.metrics import auuc, qini_coefficient, uplift_at_k
 from netlift.utils.errors import ContractError
+from netlift.utils.tracking import file_sha256
 
 logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "data" / "processed"
 CHAMPION = "uplift_forest"
 RESPONSE_MODEL_RUN = "63e214a596574d16a67b467d8b272ebd"
+RESPONSE_BUNDLE = PROCESSED / "criteo-conversion-log_loss.zip"
+RESPONSE_BUNDLE_SHA256 = (
+    "2b41f120a4e7c6dbd899a4e9e87241ff276c0bdf188460fd639e078710ae3363"
+)
+RESPONSE_MANIFEST = {
+    "tuned": True,
+    "objective": "log_loss",
+    "n_trials": 30,
+    "test_split_opened": False,
+    "split_seed": 42,
+    "dataset": "criteo",
+    "target": "conversion",
+    "split_name": "validation",
+}
 K_VALUES = (0.1, 0.2, 0.3)
 
 Metric = Callable[..., MetricResult]
@@ -91,7 +112,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--response-model",
         type=Path,
         default=None,
-        help=f"Response-model scores (MLflow run {RESPONSE_MODEL_RUN}); pending if absent.",
+        help=(
+            f"The response model's K1 bundle (.zip, MLflow run {RESPONSE_MODEL_RUN}) "
+            "or a row_id + score .parquet file. Default: the bundle in data/processed "
+            "if it is there, otherwise the row says pending."
+        ),
+    )
+    parser.add_argument(
+        "--response-bundle-sha256",
+        default=RESPONSE_BUNDLE_SHA256,
+        help="Expected SHA-256 of the response-model bundle.",
     )
     parser.add_argument("--n-resamples", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=42)
@@ -113,11 +143,56 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def bundle_member(archive: zipfile.ZipFile, name: str) -> str:
+    """The one entry of the archive whose file name is ``name``."""
+    matches = [entry for entry in archive.namelist() if Path(entry).name == name]
+    if len(matches) != 1:
+        raise ContractError(
+            f"The bundle must hold exactly one {name}; found {matches}."
+        )
+    return matches[0]
+
+
+def response_bundle_scores(path: Path, expected_sha256: str) -> pd.DataFrame:
+    """The response model's validation scores, after checking the bundle's provenance."""
+    digest = file_sha256(path)
+    if digest != expected_sha256:
+        raise ContractError(
+            f"{path} has SHA-256 {digest}, not the checked bundle's {expected_sha256}."
+        )
+    with zipfile.ZipFile(path) as archive:
+        metadata = json.loads(archive.read(bundle_member(archive, "run-metadata.json")))
+        manifest = json.loads(archive.read(bundle_member(archive, "manifest.json")))
+        run_id = metadata.get("info", {}).get("run_id")
+        if run_id != RESPONSE_MODEL_RUN:
+            raise ContractError(
+                f"The bundle is run {run_id!r}, not the response model {RESPONSE_MODEL_RUN}."
+            )
+        wrong = {
+            key: manifest.get(key)
+            for key, value in RESPONSE_MANIFEST.items()
+            if manifest.get(key) != value
+        }
+        if wrong:
+            raise ContractError(f"The bundle's manifest differs from K1's: {wrong}.")
+        with archive.open(bundle_member(archive, "validation_scores.csv")) as handle:
+            return pd.read_csv(handle)
+
+
+def read_scores(path: Path, expected_sha256: str) -> pd.DataFrame:
+    """A row_id + score frame from a .parquet file or the response model's .zip bundle."""
+    if path.suffix == ".zip":
+        return response_bundle_scores(path, expected_sha256)
+    return pd.read_parquet(path)
+
+
 def aligned_scores(
-    path: Path, row_id: npt.NDArray[np.int64]
+    path: Path,
+    row_id: npt.NDArray[np.int64],
+    expected_sha256: str = RESPONSE_BUNDLE_SHA256,
 ) -> npt.NDArray[np.float64]:
     """Scores in the outcomes' row order; the two files must hold the same rows."""
-    frame = pd.read_parquet(path)
+    frame = read_scores(path, expected_sha256)
     if list(frame.columns) != ["row_id", "score"]:
         raise ContractError(f"{path} must have exactly the columns row_id and score.")
     if frame["row_id"].duplicated().any():
@@ -154,14 +229,26 @@ def main(argv: list[str] | None = None) -> None:
     y = outcomes["y"].to_numpy()
     t = outcomes["t"].to_numpy()
 
+    response_model = args.response_model
+    if response_model is None and RESPONSE_BUNDLE.exists():
+        response_model = RESPONSE_BUNDLE
+    if response_model is None:
+        logger.warning(
+            "No response-model bundle at %s; its row says pending.", RESPONSE_BUNDLE
+        )
     sources: dict[str, Path | None] = {
         CHAMPION: args.forest,
         "t_learner": args.t_learner,
         "x_learner": args.x_learner,
-        "response_model": args.response_model,
+        "response_model": response_model,
     }
     scores = {
-        name: aligned_scores(path, row_id)
+        name: aligned_scores(path, row_id, args.response_bundle_sha256)
+        for name, path in sources.items()
+        if path is not None
+    }
+    inputs = {
+        name: {"path": str(path), "sha256": file_sha256(path)}
         for name, path in sources.items()
         if path is not None
     }
@@ -217,6 +304,10 @@ def main(argv: list[str] | None = None) -> None:
             "Preliminary: validation only; the champion is confirmed at T70."
         ),
         "",
+        "Inputs (SHA-256):",
+        "",
+        *[f"- {name}: `{item['sha256']}`" for name, item in inputs.items()],
+        "",
         "## Metrics",
         "",
         header,
@@ -256,6 +347,8 @@ def main(argv: list[str] | None = None) -> None:
                     for model, by in differences.items()
                 },
                 "pending": [name for name in sources if name not in results],
+                "inputs": inputs,
+                "response_model_run": RESPONSE_MODEL_RUN,
                 "seconds": {key: round(value, 1) for key, value in timings.items()},
             },
             indent=2,

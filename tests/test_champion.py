@@ -198,8 +198,52 @@ def table_inputs(tmp_path: Path) -> list[str]:
     ]
 
 
-def test_the_table_has_every_metric_and_paired_differences(tmp_path: Path) -> None:
+def table_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    """The table script, with no response-model bundle at its default path."""
     module = load_script("champion_challenger_table")
+    monkeypatch.setattr(module, "RESPONSE_BUNDLE", tmp_path / "absent.zip")
+    return module
+
+
+def write_bundle(
+    tmp_path: Path,
+    module: ModuleType,
+    manifest_changes: dict[str, Any] | None = None,
+    run_id: str | None = None,
+) -> Path:
+    """A response-model bundle shaped like Mohammed's, scoring the synthetic rows."""
+    import zipfile
+
+    outcomes = pd.read_parquet(tmp_path / "outcomes.parquet")
+    rng = np.random.default_rng(1)
+    scores = pd.DataFrame(
+        {"row_id": outcomes["row_id"], "score": rng.random(len(outcomes))}
+    )
+    manifest = {**module.RESPONSE_MANIFEST, **(manifest_changes or {})}
+    metadata = {"info": {"run_id": run_id or module.RESPONSE_MODEL_RUN}}
+    path = tmp_path / "bundle.zip"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("bundle/manifest.json", json.dumps(manifest))
+        archive.writestr("bundle/run-metadata.json", json.dumps(metadata))
+        archive.writestr("bundle/validation_scores.csv", scores.to_csv(index=False))
+    return path
+
+
+def with_bundle(args: list[str], path: Path) -> list[str]:
+    """The table's arguments with the bundle in the response-model slot."""
+    return [
+        *args,
+        "--response-model",
+        str(path),
+        "--response-bundle-sha256",
+        tracking.file_sha256(path),
+    ]
+
+
+def test_the_table_has_every_metric_and_paired_differences(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = table_script(tmp_path, monkeypatch)
     module.main(table_inputs(tmp_path))
     report = json.loads((tmp_path / "table.json").read_text(encoding="utf-8"))
     expected = {"qini", "auuc", "uplift_at_10", "uplift_at_20", "uplift_at_30"}
@@ -217,8 +261,65 @@ def test_the_table_has_every_metric_and_paired_differences(tmp_path: Path) -> No
     assert len(saved["uplift_forest"]["qini"]["resamples"]) == 20
 
 
-def test_a_score_file_with_other_rows_is_refused(tmp_path: Path) -> None:
-    module = load_script("champion_challenger_table")
+def test_the_response_bundle_fills_the_fourth_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = table_script(tmp_path, monkeypatch)
+    args = table_inputs(tmp_path)
+    bundle = write_bundle(tmp_path, module)
+    module.main(with_bundle(args, bundle))
+    report = json.loads((tmp_path / "table.json").read_text(encoding="utf-8"))
+    assert report["pending"] == []
+    assert set(report["differences_vs_forest"]) == {
+        "t_learner",
+        "x_learner",
+        "response_model",
+    }
+    assert report["inputs"]["response_model"]["sha256"] == tracking.file_sha256(bundle)
+    text = (tmp_path / "table.md").read_text(encoding="utf-8")
+    assert "pending" not in text and tracking.file_sha256(bundle) in text
+
+
+def test_a_bundle_with_another_sha256_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = table_script(tmp_path, monkeypatch)
+    args = table_inputs(tmp_path)
+    bundle = write_bundle(tmp_path, module)
+    args = [*args, "--response-model", str(bundle)]
+    with pytest.raises(ContractError, match="SHA-256"):
+        module.main(args)
+
+
+@pytest.mark.parametrize(
+    ("changes", "run_id", "message"),
+    [
+        ({"tuned": False}, None, "manifest"),
+        ({"objective": "qini"}, None, "manifest"),
+        ({"n_trials": 10}, None, "manifest"),
+        ({"test_split_opened": True}, None, "manifest"),
+        ({"split_seed": 7}, None, "manifest"),
+        ({}, "0" * 32, "not the response model"),
+    ],
+)
+def test_a_bundle_that_is_not_k1s_response_model_is_refused(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    changes: dict[str, Any],
+    run_id: str | None,
+    message: str,
+) -> None:
+    module = table_script(tmp_path, monkeypatch)
+    args = table_inputs(tmp_path)
+    bundle = write_bundle(tmp_path, module, changes, run_id)
+    with pytest.raises(ContractError, match=message):
+        module.main(with_bundle(args, bundle))
+
+
+def test_a_score_file_with_other_rows_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = table_script(tmp_path, monkeypatch)
     args = table_inputs(tmp_path)
     write_scores(tmp_path / "bad.parquet", np.arange(10, dtype=np.int64), np.zeros(10))
     args[args.index("--x-learner") + 1] = str(tmp_path / "bad.parquet")
