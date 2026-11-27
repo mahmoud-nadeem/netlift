@@ -149,6 +149,62 @@ def show_results(scores: pd.DataFrame, summary: dict) -> None:
         st.dataframe(drivers, hide_index=True, width="stretch")
 
 
+def show_fixed_budget_plan(
+    scores: pd.DataFrame, summary: dict, cost: float, margin: float
+) -> None:
+    """Create a target list from this batch with T55's shared fixed-budget policy."""
+    st.subheader("Fixed-budget target list")
+    try:
+        from netlift.decision.policy import select_contacts
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"netlift", "netlift.decision", "netlift.decision.policy"}:
+            raise
+        st.info("Budget planning needs the T55 decision layer in this environment.")
+        return
+
+    ids = scores["customer_id"].str.strip()
+    if ids.eq("").any() or ids.duplicated().any():
+        st.error("Use one unique customer ID per row before creating a target list.")
+        return
+
+    budget = st.number_input(
+        "Campaign budget", min_value=0.0, value=20.0, step=0.01, format="%.2f"
+    )
+    # Use integer minor units so a budget of 0.30 buys three contacts at 0.10.
+    cost_cents = round(cost * 100)
+    selected = select_contacts(
+        scores["uplift_score"],
+        scores["recommendation"],
+        "fixed_budget",
+        contact_cost=cost_cents,
+        conversion_margin=round(margin * 100),
+        budget=round(budget * 100),
+    )
+    targets = scores.loc[
+        selected, ["customer_id", "uplift_score", "recommendation", "verdict"]
+    ].sort_values("uplift_score", ascending=False, kind="stable")
+    st.write(
+        f"Selected contacts: **{len(targets):,}** · "
+        f"Planned spend: **{len(targets) * cost_cents / 100:,.2f}**"
+    )
+    if targets.empty:
+        st.info("No eligible contact fits this budget.")
+        return
+
+    targets = targets.assign(
+        model_version=summary["model_version"],
+        is_mock=summary["is_mock"],
+    )
+    st.dataframe(targets, hide_index=True, width="stretch")
+    filename = "mock-target-list.csv" if summary["is_mock"] else "target-list.csv"
+    st.download_button(
+        "Download target list",
+        data=targets.to_csv(index=False).encode("utf-8-sig"),
+        file_name=filename,
+        mime="text/csv",
+    )
+
+
 def campaign_planner() -> None:
 
     source = st.radio(
@@ -191,6 +247,7 @@ def campaign_planner() -> None:
     result = st.session_state.get("scored_batch")
     if result is not None and result[0] == run_key:
         show_results(result[1], result[2])
+        show_fixed_budget_plan(result[1], result[2], cost, margin)
     elif result is not None and run_key is not None:
         st.info(
             "Inputs changed. Score customers again to see results for these inputs."
