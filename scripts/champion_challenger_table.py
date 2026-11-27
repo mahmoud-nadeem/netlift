@@ -22,6 +22,11 @@ Outputs:
 - ``data/processed/t57-champion-challenger-results.json`` (git-ignored): every
   ``MetricResult`` with its resamples, so a later paired comparison can reuse them.
 
+Every column records the commit that computed it and whether the tree was dirty.
+``--metrics uplift_at_10 uplift_at_20 uplift_at_30 --keep-other-metrics`` recomputes
+only those columns and reuses the others from the results file, after checking that
+it holds the same inputs (by SHA-256) and the same bootstrap settings.
+
 Example:
     python scripts/champion_challenger_table.py
 """
@@ -45,7 +50,7 @@ import pandas as pd
 from netlift.evaluation.contracts import MetricResult, paired_difference
 from netlift.evaluation.metrics import auuc, qini_coefficient, uplift_at_k
 from netlift.utils.errors import ContractError
-from netlift.utils.tracking import file_sha256
+from netlift.utils.tracking import file_sha256, git_commit, git_dirty
 
 logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[1]
@@ -133,6 +138,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=list(metric_table()),
     )
     parser.add_argument(
+        "--keep-other-metrics",
+        action="store_true",
+        help=(
+            "Reuse the metrics not named in --metrics from --results instead of "
+            "recomputing them; their inputs and bootstrap settings must match."
+        ),
+    )
+    parser.add_argument(
         "--out", type=Path, default=ROOT / "reports" / "t57-champion-challenger"
     )
     parser.add_argument(
@@ -211,6 +224,38 @@ def cell(result: MetricResult) -> str:
     return f"{result.value:.6f} [{result.ci_low:.6f}, {result.ci_high:.6f}]"
 
 
+def metric_result(data: dict[str, Any]) -> MetricResult:
+    """Rebuild a MetricResult saved with ``dataclasses.asdict``."""
+    return MetricResult(**{**data, "resamples": tuple(data["resamples"])})
+
+
+def kept_metrics(
+    path: Path,
+    computed: list[str],
+    models: list[str],
+    inputs: dict[str, dict[str, str]],
+    bootstrap: dict[str, Any],
+) -> tuple[dict[str, dict[str, MetricResult]], dict[str, dict[str, Any]]]:
+    """The saved metrics not recomputed now, after checking they fit this run."""
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    if saved.get("inputs") != inputs or saved.get("bootstrap") != bootstrap:
+        raise ContractError(
+            f"{path} was computed from other inputs or bootstrap settings; "
+            "recompute every metric instead of keeping any."
+        )
+    kept: dict[str, dict[str, MetricResult]] = {model: {} for model in models}
+    provenance: dict[str, dict[str, Any]] = {}
+    for metric_name, origin in saved["provenance"].items():
+        if metric_name in computed:
+            continue
+        for model in models:
+            kept[model][metric_name] = metric_result(
+                saved["results"][model][metric_name]
+            )
+        provenance[metric_name] = origin
+    return kept, provenance
+
+
 def summary(result: MetricResult) -> dict[str, Any]:
     """A MetricResult without its per-resample values."""
     data = asdict(result)
@@ -253,7 +298,22 @@ def main(argv: list[str] | None = None) -> None:
         if path is not None
     }
     table = metric_table()
+    bootstrap = {
+        "n_resamples": args.n_resamples,
+        "seed": args.seed,
+        "confidence_level": args.confidence_level,
+    }
+    origin = {"git_commit": git_commit(), "git_dirty": git_dirty()}
+    provenance: dict[str, dict[str, Any]] = {m: origin for m in args.metrics}
     results: dict[str, dict[str, MetricResult]] = {name: {} for name in scores}
+    if args.keep_other_metrics:
+        kept, kept_provenance = kept_metrics(
+            args.results, list(args.metrics), list(scores), inputs, bootstrap
+        )
+        for model_name, by_metric in kept.items():
+            results[model_name].update(by_metric)
+        provenance.update(kept_provenance)
+    columns = [m for m in table if m in provenance]
     timings: dict[str, float] = {}
     for metric_name in args.metrics:
         function, settings = table[metric_name]
@@ -288,21 +348,35 @@ def main(argv: list[str] | None = None) -> None:
             metric_name: paired_difference(
                 results[model_name][metric_name], results[CHAMPION][metric_name]
             )
-            for metric_name in args.metrics
+            for metric_name in columns
         }
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    header = "| Model | " + " | ".join(args.metrics) + " |"
-    rule = "|---" * (len(args.metrics) + 1) + "|"
+    header = "| Model | " + " | ".join(columns) + " |"
+    rule = "|---" * (len(columns) + 1) + "|"
+    ties = {
+        str(r.settings.get("ties", "first rows after a stable sort"))
+        for by in results.values()
+        for r in by.values()
+        if r.name == "uplift_at_k"
+    }
     lines = [
         "# T57 champion–challenger table (validation, Criteo conversion)",
         "",
         (
             f"Within-arm bootstrap, {args.n_resamples} resamples, seed {args.seed}, "
             f"{args.confidence_level:.0%} percentile intervals; scikit-uplift; uplift@k "
-            "strategy `overall`. Produced by `scripts/champion_challenger_table.py`. "
+            f"strategy `overall`, ties at the cut: {', '.join(sorted(ties)) or 'n/a'} "
+            "(ADR 0007). Produced by `scripts/champion_challenger_table.py`. "
             "Preliminary: validation only; the champion is confirmed at T70."
         ),
+        "",
+        "Code (commit that computed each column):",
+        "",
+        *[
+            f"- {m}: `{o['git_commit']}`" + (" (dirty tree)" if o["git_dirty"] else "")
+            for m, o in provenance.items()
+        ],
         "",
         "Inputs (SHA-256):",
         "",
@@ -315,10 +389,10 @@ def main(argv: list[str] | None = None) -> None:
     ]
     for model_name in sources:
         if model_name in results:
-            row = [cell(results[model_name][m]) for m in args.metrics]
+            row = [cell(results[model_name][m]) for m in columns]
         else:
             row = [f"pending (run {RESPONSE_MODEL_RUN[:8]}, bundle not received)"] + [
-                "" for _ in args.metrics[1:]
+                "" for _ in columns[1:]
             ]
         lines.append(f"| {model_name} | " + " | ".join(row) + " |")
     lines += [
@@ -331,7 +405,7 @@ def main(argv: list[str] | None = None) -> None:
     for model_name, by_metric in differences.items():
         lines.append(
             f"| {model_name} | "
-            + " | ".join(cell(by_metric[m]) for m in args.metrics)
+            + " | ".join(cell(by_metric[m]) for m in columns)
             + " |"
         )
     args.out.with_suffix(".md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -348,6 +422,8 @@ def main(argv: list[str] | None = None) -> None:
                 },
                 "pending": [name for name in sources if name not in results],
                 "inputs": inputs,
+                "bootstrap": bootstrap,
+                "provenance": provenance,
                 "response_model_run": RESPONSE_MODEL_RUN,
                 "seconds": {key: round(value, 1) for key, value in timings.items()},
             },
@@ -360,8 +436,13 @@ def main(argv: list[str] | None = None) -> None:
     args.results.write_text(
         json.dumps(
             {
-                model: {m: asdict(r) for m, r in by.items()}
-                for model, by in results.items()
+                "inputs": inputs,
+                "bootstrap": bootstrap,
+                "provenance": provenance,
+                "results": {
+                    model: {m: asdict(r) for m, r in by.items()}
+                    for model, by in results.items()
+                },
             }
         ),
         encoding="utf-8",

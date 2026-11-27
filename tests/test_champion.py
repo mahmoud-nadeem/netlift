@@ -258,7 +258,50 @@ def test_the_table_has_every_metric_and_paired_differences(
     text = (tmp_path / "table.md").read_text(encoding="utf-8")
     assert "pending" in text and "63e214a5" in text
     saved = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
-    assert len(saved["uplift_forest"]["qini"]["resamples"]) == 20
+    assert len(saved["results"]["uplift_forest"]["qini"]["resamples"]) == 20
+    assert set(saved["provenance"]) == expected
+    assert "Code (commit that computed each column)" in text
+
+
+def test_only_the_named_metrics_are_recomputed_with_keep(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = table_script(tmp_path, monkeypatch)
+    args = table_inputs(tmp_path)
+    module.main(args)
+    first = json.loads((tmp_path / "table.json").read_text(encoding="utf-8"))
+    saved = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
+    saved["provenance"]["qini"] = {"git_commit": "earlier", "git_dirty": False}
+    (tmp_path / "results.json").write_text(json.dumps(saved), encoding="utf-8")
+    module.main([*args, "--metrics", "uplift_at_10", "--keep-other-metrics"])
+    second = json.loads((tmp_path / "table.json").read_text(encoding="utf-8"))
+    assert set(second["metrics"]["t_learner"]) == set(first["metrics"]["t_learner"])
+    assert (
+        second["metrics"]["t_learner"]["qini"] == first["metrics"]["t_learner"]["qini"]
+    )
+    assert second["provenance"]["qini"]["git_commit"] == "earlier"
+    assert second["provenance"]["uplift_at_10"]["git_commit"] != "earlier"
+    assert second["seconds"].keys() == {
+        f"{model}/uplift_at_10" for model in ("uplift_forest", "t_learner", "x_learner")
+    }
+
+
+def test_keeping_metrics_from_other_settings_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = table_script(tmp_path, monkeypatch)
+    args = table_inputs(tmp_path)
+    module.main(args)
+    changed = [
+        *args,
+        "--seed",
+        "7",
+        "--metrics",
+        "uplift_at_10",
+        "--keep-other-metrics",
+    ]
+    with pytest.raises(ContractError, match="other inputs or bootstrap settings"):
+        module.main(changed)
 
 
 def test_the_response_bundle_fills_the_fourth_row(
