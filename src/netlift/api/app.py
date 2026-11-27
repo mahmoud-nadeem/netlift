@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from netlift.api.champion_service import service_from_environment
 from netlift.api.errors import (
     contract_error_handler,
     http_exception_handler,
@@ -16,12 +17,16 @@ from netlift.api.routes.model import router as model_router
 from netlift.api.routes.monitoring import router as monitoring_router
 from netlift.api.routes.policy import router as policy_router
 from netlift.api.routes.scoring import router as scoring_router
-from netlift.api.service import MockNetLiftService, NetLiftService
+from netlift.api.service import NetLiftService
 from netlift.utils.errors import ContractError
 
 
 def create_app(service: NetLiftService | None = None) -> FastAPI:
-    """Create an app with an injectable adapter for tests and production wiring."""
+    """Create an app with an injectable adapter for tests and production wiring.
+
+    Without an explicit adapter, the champion is loaded from ``NETLIFT_MODEL_DIR``
+    when it is set (T59), and the T45 mock is used otherwise.
+    """
     application = FastAPI(
         title="NetLift API",
         version="0.1.0",
@@ -31,7 +36,7 @@ def create_app(service: NetLiftService | None = None) -> FastAPI:
         ),
         contact={"name": "NetLift project team"},
     )
-    application.state.netlift_service = service or MockNetLiftService()
+    application.state.netlift_service = service or service_from_environment()
     application.include_router(scoring_router)
     application.include_router(policy_router)
     application.include_router(model_router)

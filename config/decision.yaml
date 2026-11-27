@@ -1,0 +1,12 @@
+# T55 decision layer (ADR 0009). Read by netlift.decision.config.
+#
+# min_control_events_per_decile: a decile whose validation control arm holds fewer
+# conversions than this returns verdict "insufficient_control_data" (Specification,
+# Uncertainty and Abstention). Proposed value 10: the usual condition for a binomial
+# proportion's approximation (n * p >= 10), and the same number as data.yaml's
+# per-fold check. It is logged with every scoring response.
+min_control_events_per_decile: 10
+n_deciles: 10
+n_resamples: 1000
+confidence_level: 0.95
+seed: 42

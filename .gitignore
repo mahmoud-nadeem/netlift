@@ -233,3 +233,6 @@ mlruns/
 mlartifacts/
 mlflow.db
 mlflow.db-journal
+
+# T59: the exported champion folder (scripts/export_champion.py); shared as a zip with its SHA-256
+artifacts/
