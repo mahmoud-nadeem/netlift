@@ -29,6 +29,7 @@ from netlift.data.split import (
     joint_key,
     subsample_part,
 )
+from netlift.utils.config import validate_data_config
 from netlift.utils.errors import ContractError
 
 logger = logging.getLogger(__name__)
@@ -36,9 +37,10 @@ CONFIG_PATH = BASE_DIR / "config" / "data.yaml"
 
 
 def load_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
-    """Read config/data.yaml."""
+    """Read config/data.yaml and validate it."""
     with path.open() as f:
-        return yaml.safe_load(f)
+        cfg: dict[str, Any] = yaml.safe_load(f)
+    return validate_data_config(cfg)
 
 
 def plan_split(

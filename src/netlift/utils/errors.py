@@ -9,3 +9,11 @@ input keep working.
 
 class ContractError(ValueError):
     """Raised when a value breaks an invariant of a frozen interface."""
+
+
+class ConfigError(ContractError):
+    """Raised when a configuration file is missing a key or holds an invalid value."""
+
+
+class LeakageError(ContractError):
+    """Raised when a forbidden column (outcome, treatment, exposure) reaches X."""

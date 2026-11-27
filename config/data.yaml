@@ -5,3 +5,11 @@ shares: [0.6, 0.2, 0.2]       # train / validation / locked test
 tolerance: 0.005              # max gap between a part's (t, y) cell share and the overall share
 min_control_events_per_fold: 10   # per-fold sanity check on the split; not the abstention threshold (spec section 11)
 max_cell_gap_rows: 3          # per part and train fold: each (t, y) cell count within this many rows of expected
+
+# Leakage audit (CI test). Must equal FORBIDDEN_COLUMNS in src/netlift/data/contracts.py.
+leakage:
+  forbidden_columns: [exposure, visit, conversion, spend, treatment, segment]
+
+logging:
+  level: INFO
+  format: "%(asctime)s %(levelname)s %(name)s: %(message)s"
